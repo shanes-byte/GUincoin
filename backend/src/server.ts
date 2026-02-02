@@ -58,6 +58,9 @@ function createSessionStore(): Store | undefined {
 const app = express();
 const PORT = env.PORT;
 
+// Trust first proxy (nginx/Railway) so secure cookies work behind reverse proxy
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: env.FRONTEND_URL,
