@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import dotenv from 'dotenv';
 import session, { Store } from 'express-session';
 import pgSession from 'connect-pg-simple';
@@ -21,6 +22,7 @@ import storeRoutes from './routes/store';
 import googleChatRoutes from './routes/googleChat';
 import bannerRoutes from './routes/banners';
 import gamesRoutes from './routes/games';
+import superBowlRoutes from './routes/superBowl';
 
 dotenv.config();
 
@@ -120,9 +122,23 @@ app.use('/api/store', storeRoutes);
 app.use('/api/integrations/google-chat', googleChatRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/games', gamesRoutes);
+app.use('/api/super-bowl', superBowlRoutes);
 
 // 404 handler for unmatched API routes
 app.use('/api', notFoundHandler);
+
+// Serve frontend static files in production
+if (env.NODE_ENV === 'production') {
+  const frontendBuildPath = path.join(__dirname, '../../frontend-dist');
+
+  // Serve static files
+  app.use(express.static(frontendBuildPath));
+
+  // Catch-all route for client-side routing (React Router)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+}
 
 // Error handler (must be last)
 app.use(errorHandler);
