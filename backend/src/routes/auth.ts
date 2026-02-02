@@ -1,6 +1,7 @@
 import express from 'express';
 import passport from '../config/auth';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { env } from '../config/env';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.get(
   passport.authenticate('google', { failureRedirect: '/login' }),
   (req: AuthRequest, res) => {
     // Successful authentication
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`);
+    res.redirect(`${env.FRONTEND_URL}/dashboard`);
   }
 );
 
@@ -42,6 +43,7 @@ router.get('/me', requireAuth, (req: AuthRequest, res) => {
     email: req.user!.email,
     name: req.user!.name,
     isManager: req.user!.isManager,
+    isAdmin: req.user!.isAdmin,
   });
 });
 

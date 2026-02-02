@@ -2,15 +2,17 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import prisma from './database';
 import pendingTransferService from '../services/pendingTransferService';
+import accountService from '../services/accountService';
+import { env } from './env';
 
 // Conditionally register Google OAuth strategy if credentials are provided
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
   passport.use(
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+        clientID: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        callbackURL: `${env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
@@ -20,7 +22,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           }
 
           // Verify Google Workspace domain
-          const workspaceDomain = process.env.GOOGLE_WORKSPACE_DOMAIN;
+          const workspaceDomain = env.GOOGLE_WORKSPACE_DOMAIN;
           if (workspaceDomain && !email.endsWith(workspaceDomain)) {
             return done(new Error(`Email must be from ${workspaceDomain} domain`), undefined);
           }
@@ -36,29 +38,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 email,
                 name: profile.displayName || email.split('@')[0],
                 isManager: false, // Default, can be updated by admin
+                isAdmin: false, // Default, can be updated by admin
               },
             });
-
-            // Create account for new employee
-            await prisma.account.create({
-              data: {
-                employeeId: employee.id,
-                balance: 0,
-              },
-            });
-          } else {
-            const existingAccount = await prisma.account.findUnique({
-              where: { employeeId: employee.id },
-            });
-            if (!existingAccount) {
-              await prisma.account.create({
-                data: {
-                  employeeId: employee.id,
-                  balance: 0,
-                },
-              });
-            }
           }
+
+          // Ensure account exists (auto-create if missing)
+          await accountService.getOrCreateAccount(employee.id);
 
           await pendingTransferService.claimPendingTransfers(email);
 
