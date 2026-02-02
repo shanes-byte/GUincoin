@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,6 +5,15 @@ import https from 'https';
 import http from 'http';
 import { AppError } from '../utils/errors';
 import campaignService from './campaignService';
+
+// Dynamic import of OpenAI to handle cases where the module isn't installed
+let OpenAI: typeof import('openai').default | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  OpenAI = require('openai').default;
+} catch {
+  console.warn('[AIImageService] openai module not installed. AI image generation will be disabled.');
+}
 
 // Image size configurations
 export type ImageSize = '1024x1024' | '1792x1024' | '1024x1792';
@@ -272,14 +280,16 @@ if (!fs.existsSync(campaignUploadDir)) {
  * Service for generating AI images using OpenAI's DALL-E 3.
  */
 export class AIImageService {
-  private openai: OpenAI | null = null;
+  private openai: InstanceType<typeof import('openai').default> | null = null;
   private isConfigured: boolean = false;
 
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (apiKey) {
+    if (apiKey && OpenAI) {
       this.openai = new OpenAI({ apiKey });
       this.isConfigured = true;
+    } else if (!OpenAI) {
+      console.warn('[AIImageService] openai module not available. Image generation will be disabled.');
     } else {
       console.warn('[AIImageService] OPENAI_API_KEY not configured. Image generation will be disabled.');
     }
