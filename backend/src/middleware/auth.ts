@@ -6,6 +6,7 @@ export interface AuthRequest extends Request {
     email: string;
     name: string;
     isManager: boolean;
+    isAdmin: boolean;
   };
 }
 

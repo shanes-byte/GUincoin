@@ -9,6 +9,10 @@ import {
   normalizePrismaError,
 } from '../utils/errors';
 
+export const notFoundHandler = (req: Request, res: Response) => {
+  res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
+};
+
 const toAppError = (error: unknown): AppError => {
   if (isAppError(error)) {
     return error;

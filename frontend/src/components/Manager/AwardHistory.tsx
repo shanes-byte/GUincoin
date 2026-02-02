@@ -1,4 +1,3 @@
-import { Transaction } from '../../services/api';
 import { format } from 'date-fns';
 
 interface AwardHistoryProps {

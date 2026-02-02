@@ -865,4 +865,100 @@ export const verifyGame = (data: {
 }) =>
   api.post<{ isValid: boolean; providedData: typeof data }>('/games/verify', data);
 
+// ============ GCART Types ============
+
+export type GcartTaskType = 'document_upload' | 'video_watch' | 'website_visit' | 'checkbox' | 'manager_verify';
+
+export interface GcartTier {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  sortOrder: number;
+  rewardName?: string;
+  rewardDescription?: string;
+  isActive: boolean;
+  _count?: {
+    tasks: number;
+    employees: number;
+  };
+}
+
+export interface GcartTask {
+  id: string;
+  tierId: string;
+  name: string;
+  description?: string;
+  instructions?: string;
+  taskType: GcartTaskType;
+  coinValue: number;
+  frequencyRule: string;
+  requiresApproval: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  config?: Record<string, unknown>;
+}
+
+export interface GcartSubmission {
+  id: string;
+  employeeId: string;
+  gcartTaskId: string;
+  status: string;
+  documentUrl?: string;
+  submittedAt: string;
+  reviewedAt?: string;
+  employee?: { id: string; name: string; email: string };
+  gcartTask?: { id: string; name: string };
+}
+
+export interface EmployeeWithGcartProgress {
+  id: string;
+  name: string;
+  email: string;
+  currentTier?: { id: string; name: string; code: string };
+  progress?: { completedTasks: number; totalTasks: number };
+  completedTiersCount: number;
+}
+
+// ============ GCART Admin API ============
+
+export const getAdminGcartTiers = (includeInactive?: boolean) =>
+  api.get<GcartTier[]>('/admin/gcart/tiers', { params: { includeInactive } });
+
+export const getAdminGcartTasks = () =>
+  api.get<GcartTask[]>('/admin/gcart/tasks');
+
+export const getAdminGcartSubmissions = (status?: string) =>
+  api.get<GcartSubmission[]>('/admin/gcart/submissions', { params: { status } });
+
+export const getAdminGcartSubmissionStats = () =>
+  api.get<{ pending: number; approved: number; rejected: number; total: number }>('/admin/gcart/submissions/stats');
+
+export const getAdminGcartEmployees = () =>
+  api.get<EmployeeWithGcartProgress[]>('/admin/gcart/employees');
+
+export const createGcartTier = (data: Partial<GcartTier>) =>
+  api.post<GcartTier>('/admin/gcart/tiers', data);
+
+export const updateGcartTier = (id: string, data: Partial<GcartTier>) =>
+  api.put<GcartTier>(`/admin/gcart/tiers/${id}`, data);
+
+export const createGcartTask = (data: Partial<GcartTask>) =>
+  api.post<GcartTask>('/admin/gcart/tasks', data);
+
+export const updateGcartTask = (id: string, data: Partial<GcartTask>) =>
+  api.put<GcartTask>(`/admin/gcart/tasks/${id}`, data);
+
+export const approveGcartSubmission = (id: string) =>
+  api.post(`/admin/gcart/submissions/${id}/approve`);
+
+export const rejectGcartSubmission = (id: string, reason?: string) =>
+  api.post(`/admin/gcart/submissions/${id}/reject`, { reason });
+
+export const assignEmployeeToGcartTier = (employeeId: string, tierId: string) =>
+  api.post('/admin/gcart/employees/assign', { employeeId, tierId });
+
+export const bulkAssignEmployeesToGcartTier = (employeeIds: string[], tierId: string) =>
+  api.post('/admin/gcart/employees/bulk-assign', { employeeIds, tierId });
+
 export default api;
