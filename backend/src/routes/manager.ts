@@ -93,8 +93,8 @@ router.get(
     try {
       const history = await allotmentService.getAwardHistory(
         req.user!.id,
-        req.query.limit as number,
-        req.query.offset as number
+        req.query.limit as unknown as number,
+        req.query.offset as unknown as number
       );
       res.json(history);
     } catch (error: any) {

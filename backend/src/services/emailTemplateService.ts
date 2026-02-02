@@ -8,7 +8,9 @@ export type EmailTemplateKey =
   | 'peer_transfer_recipient_not_found'
   | 'wellness_approved'
   | 'wellness_rejected'
-  | 'purchase_fulfilled';
+  | 'purchase_fulfilled'
+  | 'role_assigned'
+  | 'allotment_deposit';
 
 export interface EmailTemplateDefinition {
   key: EmailTemplateKey;
@@ -171,6 +173,42 @@ const defaultTemplates: EmailTemplateDefinition[] = [
       </div>
     `,
     variables: ['employeeName', 'productName', 'trackingNumber', 'trackingBlock'],
+  },
+  {
+    key: 'role_assigned',
+    name: 'Role Assigned',
+    description: 'Sent to an employee when they are assigned a new role.',
+    subject: 'You have been assigned the {{role}} role',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">New Role Assigned</h2>
+        <p>Hi {{employeeName}},</p>
+        <p>You have been assigned the <strong>{{role}}</strong> role on the Guincoin Rewards Platform.</p>
+        <p>Log in to your account to explore your new capabilities.</p>
+        <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+          This is an automated message from the Guincoin Rewards Platform.
+        </p>
+      </div>
+    `,
+    variables: ['employeeName', 'role'],
+  },
+  {
+    key: 'allotment_deposit',
+    name: 'Allotment Deposit',
+    description: 'Sent to a manager when an admin deposits into their allotment.',
+    subject: '{{amount}} Guincoins deposited into your allotment',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">Allotment Deposit</h2>
+        <p>Hi {{managerName}},</p>
+        <p><strong>{{amount}} Guincoins</strong> have been deposited into your manager allotment.</p>
+        <p>Log in to your account to view your updated allotment balance.</p>
+        <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+          This is an automated message from the Guincoin Rewards Platform.
+        </p>
+      </div>
+    `,
+    variables: ['managerName', 'amount'],
   },
 ];
 

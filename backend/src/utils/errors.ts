@@ -12,6 +12,7 @@ export class AppError extends Error {
   public readonly expose: boolean;
   public readonly code?: string;
   public readonly details?: unknown;
+  public readonly cause?: Error;
 
   constructor(message: string, statusCode = 500, options?: AppErrorOptions) {
     super(message);

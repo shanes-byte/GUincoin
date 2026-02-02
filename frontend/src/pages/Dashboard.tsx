@@ -103,9 +103,7 @@ export default function Dashboard() {
 
           // Update goals after confetti starts
           const updatedGoalsRes = await getGoals();
-          if (updatedGoalsRes.status === 'fulfilled') {
-            setGoals(updatedGoalsRes.value.data);
-          }
+          setGoals(updatedGoalsRes.data);
         }
 
         if (results.some((result) => result.status === 'rejected')) {
