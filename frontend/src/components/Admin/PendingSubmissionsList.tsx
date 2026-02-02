@@ -30,7 +30,6 @@ export default function PendingSubmissionsList({
   onReject,
 }: PendingSubmissionsListProps) {
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
 
   if (submissions.length === 0) {
     return (
