@@ -57,7 +57,7 @@ Object.defineProperty(window, 'showToast', {
 });
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
+(globalThis as typeof globalThis & { ResizeObserver: unknown }).ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
@@ -90,4 +90,4 @@ class MockImage {
   height = 100;
 }
 
-global.Image = MockImage as unknown as typeof Image;
+(globalThis as typeof globalThis & { Image: unknown }).Image = MockImage as unknown as typeof Image;

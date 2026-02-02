@@ -697,7 +697,7 @@ export default function BannerCanvas() {
   };
 
   // Handle canvas mouse up
-  const handleCanvasMouseUp = (e: React.MouseEvent) => {
+  const handleCanvasMouseUp = (_e: React.MouseEvent) => {
     // Finalize shape drawing
     if (isDrawingShape && shapeDrawStart && shapeDrawCurrent && canvasState.selectedTool === 'shape') {
       const x = Math.min(shapeDrawStart.x, shapeDrawCurrent.x);

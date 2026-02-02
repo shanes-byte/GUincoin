@@ -72,7 +72,7 @@ export default function PropertiesPanel() {
   };
 
   // Update text style
-  const handleTextStyleChange = (updates: Partial<typeof selectedLayer.textStyle>) => {
+  const handleTextStyleChange = (updates: Record<string, unknown>) => {
     if (!selectedLayer || selectedLayer.type !== 'text') return;
     updateLayer(selectedLayer.id, {
       textStyle: { ...selectedLayer.textStyle!, ...updates },
@@ -80,7 +80,7 @@ export default function PropertiesPanel() {
   };
 
   // Update shape style
-  const handleShapeStyleChange = (updates: Partial<typeof selectedLayer.shapeStyle>) => {
+  const handleShapeStyleChange = (updates: Record<string, unknown>) => {
     if (!selectedLayer || selectedLayer.type !== 'shape') return;
     updateLayer(selectedLayer.id, {
       shapeStyle: { ...selectedLayer.shapeStyle!, ...updates },

@@ -66,7 +66,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-gray-600 mb-4">
               {this.state.error?.message || 'An unexpected error occurred in Campaign Studio'}
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+            {this.state.errorInfo && (
               <details className="text-left mb-4 p-3 bg-gray-100 rounded-md text-xs overflow-auto max-h-32">
                 <summary className="cursor-pointer text-gray-700 font-medium">Error Details</summary>
                 <pre className="mt-2 text-gray-600 whitespace-pre-wrap">
