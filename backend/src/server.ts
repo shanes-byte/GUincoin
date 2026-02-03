@@ -72,11 +72,6 @@ app.use(express.urlencoded({ extended: true }));
 // Session configuration with PostgreSQL store (with memory fallback)
 const sessionStore = createSessionStore();
 
-// Cookie domain - only set if COOKIE_DOMAIN env var is explicitly provided
-// Otherwise let the browser use the current domain
-const cookieDomain = env.COOKIE_DOMAIN || undefined;
-console.log(`[Session] Cookie domain: ${cookieDomain || '(browser default)'}`);
-
 app.use(session({
   store: sessionStore,
   secret: env.SESSION_SECRET,
@@ -118,47 +113,6 @@ app.get('/health', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
-
-// Debug endpoint to check configuration (temporary)
-app.get('/api/debug/config', (req, res) => {
-  res.json({
-    FRONTEND_URL: env.FRONTEND_URL,
-    BACKEND_URL: env.BACKEND_URL,
-    NODE_ENV: env.NODE_ENV,
-    cookieDomain: cookieDomain || '(not set)',
-    oauthConfigured: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-    sessionID: req.sessionID,
-    hasUser: !!req.user,
-    isAuthenticated: req.isAuthenticated?.() || false,
-  });
-});
-
-// Cookie test endpoint
-app.get('/api/debug/cookie-test', (req, res) => {
-  const testValue = Date.now().toString();
-  (req.session as any).testValue = testValue;
-  req.session.save((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Session save failed', message: err.message });
-    }
-    res.json({
-      message: 'Cookie set successfully',
-      testValue,
-      sessionID: req.sessionID,
-      cookieDomain: cookieDomain || '(browser default)',
-    });
-  });
-});
-
-app.get('/api/debug/cookie-check', (req, res) => {
-  res.json({
-    sessionID: req.sessionID,
-    testValue: (req.session as any).testValue || null,
-    hasSession: !!req.session,
-    isAuthenticated: req.isAuthenticated?.() || false,
-    user: req.user ? { id: (req.user as any).id, email: (req.user as any).email } : null,
-  });
 });
 
 // Routes
