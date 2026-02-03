@@ -29,6 +29,7 @@ export interface CampaignImagesResult {
   poster?: ImageGenerationResult;
   emailBanner?: ImageGenerationResult;
   chatImage?: ImageGenerationResult;
+  background?: ImageGenerationResult;
 }
 
 /**
@@ -462,6 +463,26 @@ export class AIImageService {
   }
 
   /**
+   * Generate a background image (1920x1080 style, using 1792x1024 which is closest 16:9).
+   */
+  async generateBackground(
+    campaignId: string,
+    theme: string,
+    description: string
+  ): Promise<ImageGenerationResult> {
+    const prompt = `Create a stunning full-screen background image for a ${theme} themed wellness campaign.
+    Theme: ${description}
+    Requirements:
+    - Subtle, non-distracting design suitable as a page background
+    - Soft gradients or abstract patterns that won't interfere with text overlays
+    - Professional and modern aesthetic
+    - Colors should complement the campaign theme
+    - No text, logos, or focal points - pure background atmosphere
+    Style: Clean, elegant, subtle gradients and textures. The image should enhance but not overpower content placed on top of it.`;
+    return this.generateImage(prompt, '1792x1024', campaignId, 'background');
+  }
+
+  /**
    * Generate all campaign images at once.
    */
   async generateCampaignImages(
@@ -472,6 +493,7 @@ export class AIImageService {
       generatePoster?: boolean;
       generateEmailBanner?: boolean;
       generateChatImage?: boolean;
+      generateBackground?: boolean;
     }
   ): Promise<CampaignImagesResult> {
     const campaign = await campaignService.getCampaignById(campaignId);
@@ -483,6 +505,7 @@ export class AIImageService {
       generatePoster: true,
       generateEmailBanner: true,
       generateChatImage: true,
+      generateBackground: false, // Background is opt-in by default
       ...options,
     };
 
@@ -536,6 +559,14 @@ export class AIImageService {
       );
     }
 
+    if (opts.generateBackground) {
+      promises.push(
+        this.generateBackground(campaignId, theme, description).then((result) => {
+          results.background = result;
+        })
+      );
+    }
+
     // Wait for all generations to complete
     await Promise.all(promises);
 
@@ -550,7 +581,7 @@ export class AIImageService {
    */
   async regenerateImage(
     campaignId: string,
-    imageType: 'banner' | 'poster' | 'emailBanner' | 'chatImage',
+    imageType: 'banner' | 'poster' | 'emailBanner' | 'chatImage' | 'background',
     customPrompt?: string
   ): Promise<ImageGenerationResult> {
     const campaign = await campaignService.getCampaignById(campaignId);
@@ -575,6 +606,10 @@ export class AIImageService {
       case 'chatImage':
         result = await this.generateChatImage(campaignId, theme, description);
         await campaignService.updateCampaignImages(campaignId, { chatImageUrl: result.url });
+        break;
+      case 'background':
+        result = await this.generateBackground(campaignId, theme, description);
+        // Background is stored separately, not in campaign images table
         break;
       default:
         throw new AppError(`Unknown image type: ${imageType}`, 400);

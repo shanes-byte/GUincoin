@@ -474,6 +474,7 @@ const generateImagesSchema = z.object({
     generatePoster: z.boolean().optional(),
     generateEmailBanner: z.boolean().optional(),
     generateChatImage: z.boolean().optional(),
+    generateBackground: z.boolean().optional(),
   }),
 });
 
@@ -509,13 +510,14 @@ router.post(
         throw new AppError('AI image generation is not configured. Please set OPENAI_API_KEY.', 503);
       }
 
-      const { prompt, generateBanner, generatePoster, generateEmailBanner, generateChatImage } = req.body;
+      const { prompt, generateBanner, generatePoster, generateEmailBanner, generateChatImage, generateBackground } = req.body;
 
       const results = await aiImageService.generateCampaignImages(req.params.id, prompt, {
         generateBanner,
         generatePoster,
         generateEmailBanner,
         generateChatImage,
+        generateBackground,
       });
 
       res.json({
@@ -531,7 +533,7 @@ router.post(
 const regenerateImageSchema = z.object({
   params: z.object({
     id: z.string().uuid(),
-    type: z.enum(['banner', 'poster', 'emailBanner', 'chatImage']),
+    type: z.enum(['banner', 'poster', 'emailBanner', 'chatImage', 'background']),
   }),
   body: z.object({
     prompt: z.string().optional(),
@@ -553,7 +555,7 @@ router.post(
         throw new AppError('AI image generation is not configured. Please set OPENAI_API_KEY.', 503);
       }
 
-      const imageType = req.params.type as 'banner' | 'poster' | 'emailBanner' | 'chatImage';
+      const imageType = req.params.type as 'banner' | 'poster' | 'emailBanner' | 'chatImage' | 'background';
       const result = await aiImageService.regenerateImage(req.params.id, imageType, req.body.prompt);
 
       res.json({

@@ -498,6 +498,7 @@ export interface CampaignImagesResult {
   poster?: ImageGenerationResult;
   emailBanner?: ImageGenerationResult;
   chatImage?: ImageGenerationResult;
+  background?: ImageGenerationResult;
 }
 
 export interface DistributionResult {
@@ -580,10 +581,11 @@ export const generateCampaignImages = (campaignId: string, data: {
   generatePoster?: boolean;
   generateEmailBanner?: boolean;
   generateChatImage?: boolean;
+  generateBackground?: boolean;
 }) =>
   api.post<{ message: string; images: CampaignImagesResult }>(`/admin/campaigns/${campaignId}/generate-images`, data);
 
-export const regenerateCampaignImage = (campaignId: string, type: 'banner' | 'poster' | 'emailBanner' | 'chatImage', prompt?: string) =>
+export const regenerateCampaignImage = (campaignId: string, type: 'banner' | 'poster' | 'emailBanner' | 'chatImage' | 'background', prompt?: string) =>
   api.post<{ message: string; image: ImageGenerationResult }>(`/admin/campaigns/${campaignId}/regenerate/${type}`, { prompt });
 
 export const getCampaignAssets = (campaignId: string) =>

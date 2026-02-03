@@ -30,6 +30,7 @@ export default function AIPromptBuilder() {
   const [generatePoster, setGeneratePoster] = useState(true);
   const [generateEmail, setGenerateEmail] = useState(false);
   const [generateChat, setGenerateChat] = useState(false);
+  const [generateBackground, setGenerateBackground] = useState(false);
 
   // Bulk generation
   const [showBulkMode, setShowBulkMode] = useState(false);
@@ -66,6 +67,7 @@ export default function AIPromptBuilder() {
         generatePoster,
         generateEmailBanner: generateEmail,
         generateChatImage: generateChat,
+        generateBackground,
       });
 
       // Refresh campaign to get new image URLs
@@ -130,7 +132,7 @@ export default function AIPromptBuilder() {
     }
   };
 
-  const anySelected = generateBanner || generatePoster || generateEmail || generateChat;
+  const anySelected = generateBanner || generatePoster || generateEmail || generateChat || generateBackground;
 
   return (
     <div className="flex flex-col h-full">
@@ -347,6 +349,15 @@ export default function AIPromptBuilder() {
                     className="h-4 w-4 text-blue-600 rounded"
                   />
                   <span className="text-sm text-gray-700">Chat Image (400x300)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={generateBackground}
+                    onChange={(e) => setGenerateBackground(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 rounded"
+                  />
+                  <span className="text-sm text-gray-700">Background (1920x1080)</span>
                 </label>
               </div>
             </div>
