@@ -1,8 +1,8 @@
 export const env = {
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost:5432/guincoin',
-  PORT: parseInt(process.env.PORT || '3000', 10),
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
-  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:3000',
+  PORT: parseInt(process.env.PORT || '5000', 10),
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
   SESSION_SECRET: process.env.SESSION_SECRET || 'dev-secret-change-me',
   NODE_ENV: process.env.NODE_ENV || 'development',
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,

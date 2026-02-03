@@ -34,7 +34,7 @@ router.get(
 router.get(
   '/google/callback',
   requireOAuthConfig,
-  passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
+  passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth` }),
   (req: AuthRequest, res) => {
     // Check state parameter to determine popup mode (passed through Google)
     const isPopup = req.query.state === 'popup';
@@ -45,7 +45,7 @@ router.get(
         console.error('Session save error:', err);
         const errorUrl = isPopup
           ? `${env.FRONTEND_URL}/oauth/callback?success=false&error=session`
-          : '/login?error=session';
+          : `${env.FRONTEND_URL}/login?error=session`;
         return res.redirect(errorUrl);
       }
 
