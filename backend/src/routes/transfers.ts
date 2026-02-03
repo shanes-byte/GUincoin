@@ -97,140 +97,212 @@ router.post(
         return res.status(400).json({ error: 'Cannot send coins to yourself' });
       }
 
-      // Get sender
-      const sender = await prisma.employee.findUnique({
-        where: { id: req.user!.id },
-      });
+      // Use a transaction with serializable isolation to prevent race conditions
+      const result = await prisma.$transaction(async (tx) => {
+        // Get sender with lock
+        const sender = await tx.employee.findUnique({
+          where: { id: req.user!.id },
+        });
 
-      if (!sender) {
-        return res.status(404).json({ error: 'Employee not found' });
-      }
+        if (!sender) {
+          throw new Error('Employee not found');
+        }
 
-      // Get sender account
-      const senderAccount = await prisma.account.findUnique({
-        where: { employeeId: sender.id },
-      });
+        // Get sender account
+        const senderAccount = await tx.account.findUnique({
+          where: { employeeId: sender.id },
+        });
 
-      if (!senderAccount) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
+        if (!senderAccount) {
+          throw new Error('Account not found');
+        }
 
-      // Check balance (include pending to prevent over-committing)
-      const balance = await transactionService.getAccountBalance(
-        senderAccount.id,
-        true
-      );
-      if (balance.total < amount) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-      }
-
-      // Check transfer limits
-      const limits = await prisma.peerTransferLimit.findFirst({
-        where: {
-          employeeId: req.user!.id,
-          periodType: PeriodType.monthly,
-          periodStart: { lte: new Date() },
-          periodEnd: { gte: new Date() },
-        },
-      });
-
-      if (limits) {
-        const usedAmount = await prisma.ledgerTransaction.aggregate({
+        // Check balance within transaction (get latest posted balance)
+        const postedBalance = await tx.ledgerTransaction.aggregate({
           where: {
-            sourceEmployeeId: req.user!.id,
-            transactionType: 'peer_transfer_sent',
-            status: { in: ['posted', 'pending'] },
-            createdAt: {
-              gte: limits.periodStart,
-              lte: limits.periodEnd,
-            },
+            accountId: senderAccount.id,
+            status: 'posted',
           },
-          _sum: {
-            amount: true,
+          _sum: { amount: true },
+        });
+
+        const pendingDebit = await tx.ledgerTransaction.aggregate({
+          where: {
+            accountId: senderAccount.id,
+            status: 'pending',
+            amount: { lt: 0 },
+          },
+          _sum: { amount: true },
+        });
+
+        const availableBalance =
+          Number(postedBalance._sum.amount || 0) +
+          Number(pendingDebit._sum.amount || 0);
+
+        if (availableBalance < amount) {
+          throw new Error('Insufficient balance');
+        }
+
+        // Check transfer limits
+        const limits = await tx.peerTransferLimit.findFirst({
+          where: {
+            employeeId: req.user!.id,
+            periodType: PeriodType.monthly,
+            periodStart: { lte: new Date() },
+            periodEnd: { gte: new Date() },
           },
         });
 
-        const used = Number(usedAmount._sum.amount || 0);
-        if (used + amount > Number(limits.maxAmount)) {
-          return res.status(400).json({ error: 'Transfer limit exceeded' });
-        }
-      }
+        if (limits) {
+          const usedAmount = await tx.ledgerTransaction.aggregate({
+            where: {
+              sourceEmployeeId: req.user!.id,
+              transactionType: 'peer_transfer_sent',
+              status: { in: ['posted', 'pending'] },
+              createdAt: {
+                gte: limits.periodStart,
+                lte: limits.periodEnd,
+              },
+            },
+            _sum: {
+              amount: true,
+            },
+          });
 
-      // Get recipient
-      const recipient = await prisma.employee.findUnique({
-        where: { email: normalizedRecipientEmail },
-        include: { account: true },
+          const used = Number(usedAmount._sum.amount || 0);
+          if (used + amount > Number(limits.maxAmount)) {
+            throw new Error('Transfer limit exceeded');
+          }
+        }
+
+        // Get recipient
+        const recipient = await tx.employee.findUnique({
+          where: { email: normalizedRecipientEmail },
+          include: { account: true },
+        });
+
+        if (!recipient) {
+          // Handle pending transfer for unknown recipient
+          const workspaceDomain = process.env.GOOGLE_WORKSPACE_DOMAIN;
+          if (workspaceDomain && !normalizedRecipientEmail.endsWith(workspaceDomain)) {
+            throw new Error('Recipient email is not eligible');
+          }
+
+          // Create pending transfer transaction (use peer_transfer_sent type, stays pending)
+          const senderTransaction = await tx.ledgerTransaction.create({
+            data: {
+              accountId: senderAccount.id,
+              transactionType: 'peer_transfer_sent',
+              amount: -amount,
+              description: message || `Pending transfer to ${normalizedRecipientEmail}`,
+              status: 'pending',
+              sourceEmployeeId: req.user!.id,
+            },
+          });
+
+          const pendingTransfer = await tx.pendingTransfer.create({
+            data: {
+              senderEmployeeId: sender.id,
+              recipientEmail: normalizedRecipientEmail,
+              amount,
+              message,
+              senderTransactionId: senderTransaction.id,
+            },
+          });
+
+          return {
+            type: 'pending' as const,
+            sender,
+            pendingTransfer,
+          };
+        }
+
+        if (!recipient.account) {
+          throw new Error('Recipient account not found');
+        }
+
+        // Create and post transactions atomically
+        const sentTransaction = await tx.ledgerTransaction.create({
+          data: {
+            accountId: senderAccount.id,
+            transactionType: 'peer_transfer_sent',
+            amount: -amount,
+            description: message || `Transfer to ${recipient.name}`,
+            status: 'pending',
+            sourceEmployeeId: req.user!.id,
+          },
+        });
+
+        const receivedTransaction = await tx.ledgerTransaction.create({
+          data: {
+            accountId: recipient.account.id,
+            transactionType: 'peer_transfer_received',
+            amount: amount,
+            description: message || `Transfer from ${sender.name}`,
+            status: 'pending',
+            sourceEmployeeId: req.user!.id,
+            targetEmployeeId: recipient.id,
+          },
+        });
+
+        // Post both transactions
+        await tx.ledgerTransaction.update({
+          where: { id: sentTransaction.id },
+          data: { status: 'posted', postedAt: new Date() },
+        });
+
+        await tx.ledgerTransaction.update({
+          where: { id: receivedTransaction.id },
+          data: { status: 'posted', postedAt: new Date() },
+        });
+
+        return {
+          type: 'completed' as const,
+          sender,
+          recipient,
+          sentTransaction,
+        };
+      }, {
+        isolationLevel: 'Serializable',
       });
 
-      if (!recipient) {
-        const workspaceDomain = process.env.GOOGLE_WORKSPACE_DOMAIN;
-        if (workspaceDomain && !normalizedRecipientEmail.endsWith(workspaceDomain)) {
-          return res.status(400).json({ error: 'Recipient email is not eligible' });
-        }
-
-        const pending = await pendingTransferService.createPendingTransfer({
-          senderEmployeeId: sender.id,
-          senderAccountId: senderAccount.id,
-          recipientEmail: normalizedRecipientEmail,
+      // Handle response and emails outside of transaction
+      if (result.type === 'pending') {
+        // Send notification email for pending transfer (outside transaction)
+        emailService.sendPeerTransferRecipientNotFoundNotification(
+          normalizedRecipientEmail,
+          normalizedRecipientEmail,
+          result.sender.name,
           amount,
-          message,
-          recipientNameFallback: normalizedRecipientEmail,
-          senderName: sender.name,
-        });
+          message
+        ).catch(console.error);
 
         return res.status(202).json({
           message: 'Transfer pending until recipient signs in',
-          pendingTransfer: pending.pendingTransfer,
+          pendingTransfer: result.pendingTransfer,
         });
       }
 
-      if (!recipient.account) {
-        return res.status(404).json({ error: 'Recipient account not found' });
-      }
-
-      // Create transactions (sent and received)
-      const sentTransaction = await transactionService.createPendingTransaction(
-        senderAccount.id,
-        'peer_transfer_sent',
-        amount,
-        message || `Transfer to ${recipient.name}`,
-        req.user!.id
-      );
-
-      const receivedTransaction =
-        await transactionService.createPendingTransaction(
-          recipient.account.id,
-          'peer_transfer_received',
-          amount,
-          message || `Transfer from ${sender.name}`,
-          req.user!.id,
-          recipient.id
-        );
-
-      // Post both transactions immediately
-      await transactionService.postTransaction(sentTransaction.id);
-      await transactionService.postTransaction(receivedTransaction.id);
-
-      // Send email notification
-      await emailService.sendPeerTransferNotification(
-        recipient.email,
-        recipient.name,
-        sender.name,
+      // Send email notifications (outside transaction)
+      emailService.sendPeerTransferNotification(
+        result.recipient.email,
+        result.recipient.name,
+        result.sender.name,
         amount,
         message
-      );
+      ).catch(console.error);
 
-      await emailService.sendPeerTransferSentNotification(
-        sender.email,
-        sender.name,
-        recipient.name,
+      emailService.sendPeerTransferSentNotification(
+        result.sender.email,
+        result.sender.name,
+        result.recipient.name,
         amount,
         message
-      );
+      ).catch(console.error);
 
       res.json({
         message: 'Transfer completed successfully',
-        transaction: sentTransaction,
+        transaction: result.sentTransaction,
       });
     } catch (error) {
       next(error);

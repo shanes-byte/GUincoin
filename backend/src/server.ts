@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import session, { Store } from 'express-session';
 import pgSession from 'connect-pg-simple';
 import passport from './config/auth';
-import { rateLimiter } from './middleware/rateLimiter';
+import { rateLimiter, authRateLimiter } from './middleware/rateLimiter';
 import { getHealthSummary, setSessionStoreType } from './utils/health';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -132,6 +132,9 @@ if (env.RATE_LIMIT_ENABLED) {
     app.use('/api', rateLimiter(maxRequests, windowMs));
   }
 }
+
+// Apply stricter rate limiting to auth routes
+app.use('/api/auth', authRateLimiter(10, 15 * 60 * 1000));
 
 // Health check endpoint
 app.get('/health', async (req, res, next) => {

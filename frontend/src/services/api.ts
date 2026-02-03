@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+// Helper to get CSRF token from cookies
+const getCsrfToken = (): string | null => {
+  const match = document.cookie.match(/csrf-token=([^;]+)/);
+  return match ? match[1] : null;
+};
+
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true,
@@ -14,6 +20,15 @@ api.interceptors.request.use((config) => {
     ?.split('=')[1];
   if (csrfToken) {
     config.headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+  }
+  return config;
+});
+
+// Add CSRF token to all requests
+api.interceptors.request.use((config) => {
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    config.headers['x-csrf-token'] = csrfToken;
   }
   return config;
 });

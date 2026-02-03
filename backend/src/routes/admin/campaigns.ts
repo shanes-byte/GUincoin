@@ -625,12 +625,68 @@ router.post(
   }
 );
 
+/**
+ * Check if a URL points to a private/internal IP address (SSRF protection)
+ */
+const isPrivateUrl = (urlString: string): boolean => {
+  try {
+    const url = new URL(urlString);
+    const hostname = url.hostname.toLowerCase();
+
+    // Block localhost and common internal hostnames
+    const blockedHostnames = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '::1',
+      '[::1]',
+      'metadata.google.internal',
+      'metadata.internal',
+    ];
+
+    if (blockedHostnames.includes(hostname)) {
+      return true;
+    }
+
+    // Block private IP ranges
+    const privateIpPatterns = [
+      /^127\./, // Loopback
+      /^10\./, // Class A private
+      /^172\.(1[6-9]|2[0-9]|3[01])\./, // Class B private
+      /^192\.168\./, // Class C private
+      /^169\.254\./, // Link-local
+      /^fc[0-9a-f]{2}:/i, // IPv6 unique local
+      /^fe80:/i, // IPv6 link-local
+      /^::ffff:127\./, // IPv4-mapped loopback
+      /^::ffff:10\./, // IPv4-mapped Class A
+      /^::ffff:172\.(1[6-9]|2[0-9]|3[01])\./, // IPv4-mapped Class B
+      /^::ffff:192\.168\./, // IPv4-mapped Class C
+    ];
+
+    if (privateIpPatterns.some(pattern => pattern.test(hostname))) {
+      return true;
+    }
+
+    // Block common cloud metadata endpoints
+    if (hostname.endsWith('.internal') || hostname.endsWith('.local')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return true; // Invalid URL, block it
+  }
+};
+
 const postChatSchema = z.object({
   params: z.object({
     id: z.string().uuid(),
   }),
   body: z.object({
-    webhookUrl: z.string().url(),
+    webhookUrl: z.string().url().refine(
+      (url) => !isPrivateUrl(url),
+      { message: 'Webhook URL cannot point to internal or private addresses' }
+    ),
   }),
 });
 

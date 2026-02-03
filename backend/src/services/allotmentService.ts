@@ -89,6 +89,7 @@ export class AllotmentService {
 
   /**
    * Award coins to an employee (creates pending transaction)
+   * Uses a database transaction to prevent race conditions
    */
   async awardCoins(
     managerId: string,

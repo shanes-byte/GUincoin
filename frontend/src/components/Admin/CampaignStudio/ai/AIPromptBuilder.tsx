@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStudio } from '../context/StudioContext';
 import { generateCampaignImages } from '../../../../services/api';
 
@@ -14,16 +14,28 @@ const BULK_PRESETS = [
   { name: 'Team Spirit Set', moods: ['Inspiring', 'Energetic'], styles: ['Corporate', 'Modern'], subject: 'Team' },
 ];
 
+// Available template variables
+const TEMPLATE_VARIABLES = [
+  { name: '{{mood}}', description: 'Selected mood' },
+  { name: '{{style}}', description: 'Selected style' },
+  { name: '{{subject}}', description: 'Selected subject' },
+  { name: '{{campaignName}}', description: 'Campaign name' },
+];
+
 export default function AIPromptBuilder() {
   const { selectedCampaign, selectCampaign, setHasUnsavedChanges } = useStudio();
 
   const [mood, setMood] = useState('Professional');
   const [style, setStyle] = useState('Modern');
   const [subject, setSubject] = useState('Wellness');
-  const [customPrompt, setCustomPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Editable prompt state
+  const [editablePrompt, setEditablePrompt] = useState('');
+  const [isPromptEdited, setIsPromptEdited] = useState(false);
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Generation options
   const [generateBanner, setGenerateBanner] = useState(true);
@@ -36,19 +48,65 @@ export default function AIPromptBuilder() {
   const [showBulkMode, setShowBulkMode] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string } | null>(null);
 
-  const buildPrompt = () => {
+  const buildPrompt = (customMood?: string, customStyle?: string, customSubject?: string) => {
     const campaignName = selectedCampaign?.name || 'Campaign';
-    const parts = [
-      `Create a ${mood.toLowerCase()} and ${style.toLowerCase()} image`,
-      `featuring ${subject.toLowerCase()} elements`,
-      `for a wellness campaign called "${campaignName}"`,
-    ];
+    const m = customMood || mood;
+    const s = customStyle || style;
+    const sub = customSubject || subject;
 
-    if (customPrompt) {
-      parts.push(customPrompt);
+    return `Create a ${m.toLowerCase()} and ${s.toLowerCase()} image featuring ${sub.toLowerCase()} elements for a wellness campaign called "${campaignName}".`;
+  };
+
+  // Initialize/update editable prompt when selections change (only if not manually edited)
+  useEffect(() => {
+    if (!isPromptEdited) {
+      setEditablePrompt(buildPrompt());
     }
+  }, [mood, style, subject, selectedCampaign?.name, isPromptEdited]);
 
-    return parts.join('. ') + '.';
+  // Reset edited state when campaign changes
+  useEffect(() => {
+    setIsPromptEdited(false);
+    setEditablePrompt(buildPrompt());
+  }, [selectedCampaign?.id]);
+
+  const handlePromptChange = (value: string) => {
+    setEditablePrompt(value);
+    setIsPromptEdited(true);
+  };
+
+  const resetPromptToDefault = () => {
+    setIsPromptEdited(false);
+    setEditablePrompt(buildPrompt());
+  };
+
+  const insertVariable = (variable: string) => {
+    const textarea = promptTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newValue = editablePrompt.substring(0, start) + variable + editablePrompt.substring(end);
+
+    setEditablePrompt(newValue);
+    setIsPromptEdited(true);
+
+    // Restore focus and cursor position after the inserted text
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + variable.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  // Resolve template variables in the prompt
+  const resolvePrompt = (prompt: string) => {
+    const campaignName = selectedCampaign?.name || 'Campaign';
+    return prompt
+      .replace(/\{\{mood\}\}/gi, mood.toLowerCase())
+      .replace(/\{\{style\}\}/gi, style.toLowerCase())
+      .replace(/\{\{subject\}\}/gi, subject.toLowerCase())
+      .replace(/\{\{campaignName\}\}/gi, campaignName);
   };
 
   const handleGenerate = async () => {
@@ -59,7 +117,8 @@ export default function AIPromptBuilder() {
     setSuccess(false);
 
     try {
-      const prompt = buildPrompt();
+      // Use the editable prompt, resolving any template variables
+      const prompt = resolvePrompt(editablePrompt);
 
       await generateCampaignImages(selectedCampaign.id, {
         prompt,
@@ -106,11 +165,7 @@ export default function AIPromptBuilder() {
         const comboName = `${combo.mood} + ${combo.style}`;
         setBulkProgress({ current: i + 1, total: combinations.length, currentName: comboName });
 
-        const prompt = [
-          `Create a ${combo.mood.toLowerCase()} and ${combo.style.toLowerCase()} image`,
-          `featuring ${preset.subject.toLowerCase()} elements`,
-          `for a wellness campaign called "${selectedCampaign.name}"`,
-        ].join('. ') + '.';
+        const prompt = buildPrompt(combo.mood, combo.style, preset.subject);
 
         await generateCampaignImages(selectedCampaign.id, {
           prompt,
@@ -214,6 +269,58 @@ export default function AIPromptBuilder() {
               </div>
             </div>
 
+            {/* Editable Prompt */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Generated Prompt
+                  {isPromptEdited && (
+                    <span className="ml-2 text-xs text-amber-600">(edited)</span>
+                  )}
+                </label>
+                {isPromptEdited && (
+                  <button
+                    type="button"
+                    onClick={resetPromptToDefault}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
+              <textarea
+                ref={promptTextareaRef}
+                value={editablePrompt}
+                onChange={(e) => handlePromptChange(e.target.value)}
+                rows={3}
+                className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your prompt or use the buttons above to generate one..."
+              />
+            </div>
+
+            {/* Template Variables */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">
+                Insert Variable (click to add at cursor)
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {TEMPLATE_VARIABLES.map((variable) => (
+                  <button
+                    key={variable.name}
+                    type="button"
+                    onClick={() => insertVariable(variable.name)}
+                    title={variable.description}
+                    className="px-2 py-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-md hover:bg-purple-100 transition-colors font-mono"
+                  >
+                    {variable.name}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Variables are replaced with current selections when generating.
+              </p>
+            </div>
+
             {/* Bulk Generation Mode */}
             <div>
               <button
@@ -277,35 +384,6 @@ export default function AIPromptBuilder() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-gray-200 pt-4">
-              <p className="text-xs text-gray-500 mb-3">Or customize your own prompt:</p>
-            </div>
-
-            {/* Custom Prompt */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Additional Details (optional)
-              </label>
-              <textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Add specific details..."
-                rows={2}
-                className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            {/* Preview Prompt */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Generated Prompt
-              </label>
-              <div className="text-xs text-gray-600 bg-gray-50 rounded-md p-2 border">
-                {buildPrompt()}
-              </div>
             </div>
 
             {/* Image Types */}

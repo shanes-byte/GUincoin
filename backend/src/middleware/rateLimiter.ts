@@ -19,6 +19,9 @@ setInterval(() => {
   }
 }, CLEANUP_INTERVAL_MS);
 
+/**
+ * General API rate limiter
+ */
 export const rateLimiter = (maxRequests: number = 100, windowMs: number = 15 * 60 * 1000) => {
   return (req: any, res: any, next: any) => {
     const key = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -35,13 +38,29 @@ export const rateLimiter = (maxRequests: number = 100, windowMs: number = 15 * 6
     }
 
     if (entry.count >= maxRequests) {
+      res.setHeader('Retry-After', Math.ceil((entry.resetTime - now) / 1000));
       return res.status(429).json({
         error: 'Too many requests',
-        message: `Rate limit exceeded. Maximum ${maxRequests} requests per ${windowMs / 1000} seconds.`,
+        message: `Rate limit exceeded. Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`,
       });
     }
 
     entry.count++;
     next();
   };
+};
+
+/**
+ * Stricter rate limiter for authentication endpoints
+ * Prevents brute force attacks on login
+ */
+export const authRateLimiter = (maxAttempts: number = 10, windowMs: number = 15 * 60 * 1000) => {
+  return rateLimiter(maxAttempts, windowMs);
+};
+
+/**
+ * Rate limiter for sensitive operations (transfers, awards, etc.)
+ */
+export const sensitiveOpLimiter = (maxRequests: number = 30, windowMs: number = 15 * 60 * 1000) => {
+  return rateLimiter(maxRequests, windowMs);
 };

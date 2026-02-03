@@ -57,14 +57,25 @@ router.get(
       return res.redirect(`${env.FRONTEND_URL}/login?error=state`);
     }
 
-    // Explicitly save session before redirect to ensure cookie is set
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
+    // Regenerate session to prevent session fixation attacks
+    const passportUser = (req.session as any).passport;
+    req.session.regenerate((regenerateErr) => {
+      if (regenerateErr) {
+        console.error('Session regeneration error:', regenerateErr);
         return res.redirect(`${env.FRONTEND_URL}/login?error=session`);
       }
-      // Redirect to dashboard
-      res.redirect(`${env.FRONTEND_URL}/dashboard`);
+      // Restore passport user data after regeneration
+      if (passportUser) {
+        (req.session as any).passport = passportUser;
+      }
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Session save error:', saveErr);
+          return res.redirect(`${env.FRONTEND_URL}/login?error=session`);
+        }
+        // Redirect to dashboard
+        res.redirect(`${env.FRONTEND_URL}/dashboard`);
+      });
     });
   }
 );
