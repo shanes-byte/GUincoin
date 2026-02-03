@@ -7,12 +7,16 @@ import { env } from './env';
 
 // Conditionally register Google OAuth strategy if credentials are provided
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+  // Use BACKEND_URL for OAuth callback (API endpoint)
+  const callbackURL = `${env.BACKEND_URL}/api/auth/google/callback`;
+  console.log(`[OAuth] Callback URL: ${callbackURL}`);
+
   passport.use(
     new GoogleStrategy(
       {
         clientID: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${env.FRONTEND_URL}/api/auth/google/callback`,
+        callbackURL,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
