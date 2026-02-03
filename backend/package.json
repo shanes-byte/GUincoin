@@ -14,7 +14,7 @@
     "seed": "tsx prisma/seed.ts",
     "seed:house": "tsx scripts/seedHouseBank.ts",
     "smoke:test": "tsx scripts/smokeTest.ts",
-    "set:admin": "tsx scripts/setAdmin.ts",
+    "add:admins": "tsx scripts/addAdmins.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
