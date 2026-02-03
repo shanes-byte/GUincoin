@@ -395,12 +395,21 @@ export class AIImageService {
         localPath,
         filename,
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof AppError) {
         throw error;
       }
       console.error('[AIImageService] Image generation failed:', error);
-      throw new AppError('Failed to generate image. Please try again.', 500);
+
+      // Surface OpenAI-specific errors
+      const errorMessage = error?.message || error?.error?.message || 'Unknown error';
+      const errorCode = error?.code || error?.error?.code || '';
+      const statusCode = error?.status || 500;
+
+      throw new AppError(
+        `Image generation failed: ${errorMessage}${errorCode ? ` (${errorCode})` : ''}`,
+        statusCode
+      );
     }
   }
 
