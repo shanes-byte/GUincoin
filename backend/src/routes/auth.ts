@@ -20,6 +20,13 @@ const requireOAuthConfig = (req: express.Request, res: express.Response, next: e
 router.get(
   '/google',
   requireOAuthConfig,
+  (req, res, next) => {
+    // Store popup mode in session for callback
+    if (req.query.popup === 'true') {
+      (req.session as any).oauthPopup = true;
+    }
+    next();
+  },
   passport.authenticate('google', {
     scope: ['profile', 'email'],
   })
@@ -29,15 +36,27 @@ router.get(
 router.get(
   '/google/callback',
   requireOAuthConfig,
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
   (req: AuthRequest, res) => {
+    const isPopup = (req.session as any).oauthPopup;
+    // Clear the popup flag
+    delete (req.session as any).oauthPopup;
+
     // Explicitly save session before redirect to ensure cookie is set
     req.session.save((err) => {
       if (err) {
         console.error('Session save error:', err);
-        return res.redirect('/login?error=session');
+        const errorUrl = isPopup
+          ? `${env.FRONTEND_URL}/oauth/callback?success=false&error=session`
+          : '/login?error=session';
+        return res.redirect(errorUrl);
       }
-      res.redirect(`${env.FRONTEND_URL}/dashboard`);
+
+      // Redirect to appropriate page based on popup mode
+      const successUrl = isPopup
+        ? `${env.FRONTEND_URL}/oauth/callback?success=true`
+        : `${env.FRONTEND_URL}/dashboard`;
+      res.redirect(successUrl);
     });
   }
 );

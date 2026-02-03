@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
+import OAuthCallback from './pages/OAuthCallback';
 import Dashboard from './pages/Dashboard';
 import ManagerPortal from './pages/ManagerPortal';
 import Transfers from './pages/Transfers';
@@ -14,6 +15,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/manager" element={<ManagerPortal />} />
           <Route path="/transfers" element={<Transfers />} />
