@@ -156,7 +156,7 @@ app.get('/api/debug/config', (req, res) => {
 // Cookie test endpoint
 app.get('/api/debug/cookie-test', (req, res) => {
   const testValue = Date.now().toString();
-  req.session.testValue = testValue;
+  (req.session as any).testValue = testValue;
   req.session.save((err) => {
     if (err) {
       return res.status(500).json({ error: 'Session save failed', message: err.message });
