@@ -7,6 +7,7 @@ interface LayoutProps {
   user?: {
     name: string;
     isManager: boolean;
+    isAdmin: boolean;
   };
 }
 
@@ -78,12 +79,14 @@ export default function Layout({ children, user }: LayoutProps) {
                     Manager Portal
                   </Link>
                 )}
-                <Link
-                  to="/admin"
-                  className={getLinkClasses('/admin')}
-                >
-                  Admin
-                </Link>
+                {user?.isAdmin && (
+                  <Link
+                    to="/admin"
+                    className={getLinkClasses('/admin')}
+                  >
+                    Admin
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center">

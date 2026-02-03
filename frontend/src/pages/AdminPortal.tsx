@@ -173,7 +173,14 @@ export default function AdminPortal() {
     const loadData = async () => {
       try {
         const userRes = await getCurrentUser();
-        setUser(userRes.data);
+        const currentUser = userRes.data;
+        setUser(currentUser);
+
+        // Check if user is admin - if not, redirect to dashboard
+        if (!currentUser.isAdmin) {
+          navigate('/dashboard');
+          return;
+        }
 
         const [submissionsRes, templatesRes] = await Promise.all([
           getPendingSubmissions(),
@@ -181,7 +188,7 @@ export default function AdminPortal() {
         ]);
         setSubmissions(submissionsRes.data);
         setEmailTemplates(templatesRes.data);
-        
+
         // Load purchases
         const [pendingRes, allRes] = await Promise.all([
           getPendingPurchases(),
@@ -192,6 +199,9 @@ export default function AdminPortal() {
       } catch (error: any) {
         if (error.response?.status === 401) {
           navigate('/login');
+        } else if (error.response?.status === 403) {
+          // Forbidden - not an admin
+          navigate('/dashboard');
         }
       } finally {
         setLoading(false);

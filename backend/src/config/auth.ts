@@ -3,6 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import prisma from './database';
 import pendingTransferService from '../services/pendingTransferService';
 import accountService from '../services/accountService';
+import emailService from '../services/emailService';
 import { env } from './env';
 
 // Emails that should automatically be granted admin access
@@ -46,13 +47,19 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
           });
 
           if (!employee) {
+            const displayName = profile.displayName || email.split('@')[0];
             employee = await prisma.employee.create({
               data: {
                 email,
-                name: profile.displayName || email.split('@')[0],
+                name: displayName,
                 isManager: shouldBeAdmin,
                 isAdmin: shouldBeAdmin,
               },
+            });
+
+            // Send welcome email to new users
+            emailService.sendWelcomeNotification(email, displayName).catch((err) => {
+              console.error('Failed to send welcome email:', err);
             });
           } else if (shouldBeAdmin && (!employee.isAdmin || !employee.isManager)) {
             // Upgrade existing user to admin if they're in the auto-admin list

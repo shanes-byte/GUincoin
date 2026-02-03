@@ -24,6 +24,22 @@ export class EmailService {
   }
 
   /**
+   * Send welcome email to new users
+   */
+  async sendWelcomeNotification(
+    employeeEmail: string,
+    employeeName: string
+  ) {
+    const rendered = await renderTemplate('welcome', {
+      employeeName,
+      loginUrl: this.frontendUrl,
+    });
+
+    if (!rendered) return;
+    await this.sendEmail(employeeEmail, rendered.subject, rendered.html);
+  }
+
+  /**
    * Send notification for manager award
    */
   async sendManagerAwardNotification(

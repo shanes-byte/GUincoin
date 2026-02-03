@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 
 export type EmailTemplateKey =
+  | 'welcome'
   | 'manager_award_received'
   | 'manager_award_sent'
   | 'peer_transfer_received'
@@ -22,6 +23,31 @@ export interface EmailTemplateDefinition {
 }
 
 const defaultTemplates: EmailTemplateDefinition[] = [
+  {
+    key: 'welcome',
+    name: 'Welcome Email',
+    description: 'Sent to new users when they first sign up.',
+    subject: 'Welcome to Guincoin Rewards, {{employeeName}}!',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Welcome to Guincoin Rewards!</h2>
+        <p>Hi {{employeeName}},</p>
+        <p>Welcome to the Guincoin Rewards Platform! Your account has been successfully created.</p>
+        <p>With Guincoin, you can:</p>
+        <ul style="color: #374151; line-height: 1.8;">
+          <li>Receive recognition awards from managers</li>
+          <li>Send and receive peer-to-peer transfers</li>
+          <li>Complete wellness tasks for rewards</li>
+          <li>Redeem your Guincoins in the company store</li>
+        </ul>
+        <p>Log in to your account to get started: <a href="{{loginUrl}}" style="color: #2563eb;">{{loginUrl}}</a></p>
+        <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+          This is an automated message from the Guincoin Rewards Platform.
+        </p>
+      </div>
+    `,
+    variables: ['employeeName', 'loginUrl'],
+  },
   {
     key: 'manager_award_received',
     name: 'Manager Award (Recipient)',
