@@ -13,4 +13,5 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS
     ? parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10)
     : undefined,
+  COOKIE_DOMAIN: process.env.COOKIE_DOMAIN,
 };
