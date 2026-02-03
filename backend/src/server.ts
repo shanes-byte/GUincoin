@@ -80,14 +80,14 @@ console.log(`[Session] Cookie domain: ${cookieDomain || '(browser default)'}`);
 app.use(session({
   store: sessionStore,
   secret: env.SESSION_SECRET,
-  resave: true, // Force save on every request
-  saveUninitialized: true, // Create session even if not modified
+  resave: true,
+  saveUninitialized: true,
+  proxy: true, // Trust the reverse proxy
   cookie: {
-    secure: env.NODE_ENV === 'production',
+    secure: 'auto', // Let express-session detect if connection is secure
     httpOnly: true,
     sameSite: 'lax',
     maxAge: SESSION_MAX_AGE_MS,
-    // Don't set domain - let browser use current host
   },
 }));
 
