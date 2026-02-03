@@ -147,6 +147,36 @@ app.get('/api/debug/config', (req, res) => {
     NODE_ENV: env.NODE_ENV,
     cookieDomain: cookieDomain || '(not set)',
     oauthConfigured: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    isAuthenticated: req.isAuthenticated?.() || false,
+  });
+});
+
+// Cookie test endpoint
+app.get('/api/debug/cookie-test', (req, res) => {
+  const testValue = Date.now().toString();
+  req.session.testValue = testValue;
+  req.session.save((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Session save failed', message: err.message });
+    }
+    res.json({
+      message: 'Cookie set successfully',
+      testValue,
+      sessionID: req.sessionID,
+      cookieDomain: cookieDomain || '(browser default)',
+    });
+  });
+});
+
+app.get('/api/debug/cookie-check', (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    testValue: (req.session as any).testValue || null,
+    hasSession: !!req.session,
+    isAuthenticated: req.isAuthenticated?.() || false,
+    user: req.user ? { id: (req.user as any).id, email: (req.user as any).email } : null,
   });
 });
 
