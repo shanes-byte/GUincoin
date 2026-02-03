@@ -31,8 +31,14 @@ router.get(
   requireOAuthConfig,
   passport.authenticate('google', { failureRedirect: '/login' }),
   (req: AuthRequest, res) => {
-    // Successful authentication
-    res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    // Explicitly save session before redirect to ensure cookie is set
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect('/login?error=session');
+      }
+      res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    });
   }
 );
 
