@@ -139,6 +139,17 @@ app.get('/health', async (req, res, next) => {
   }
 });
 
+// Debug endpoint to check configuration (temporary)
+app.get('/api/debug/config', (req, res) => {
+  res.json({
+    FRONTEND_URL: env.FRONTEND_URL,
+    BACKEND_URL: env.BACKEND_URL,
+    NODE_ENV: env.NODE_ENV,
+    cookieDomain: cookieDomain || '(not set)',
+    oauthConfigured: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
