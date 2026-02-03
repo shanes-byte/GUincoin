@@ -31,6 +31,35 @@ router.get('/public/:filename', (req, res) => {
   });
 });
 
+// Serve campaign images (no auth required for public campaign assets)
+router.get('/campaigns/:campaignId/:filename', (req, res) => {
+  const { campaignId, filename } = req.params;
+  const uploadDir = process.env.UPLOAD_DIR || './uploads';
+  const filePath = path.join(uploadDir, 'campaigns', campaignId, filename);
+
+  // Security: prevent directory traversal
+  const resolvedPath = path.resolve(filePath);
+  const resolvedDir = path.resolve(path.join(uploadDir, 'campaigns'));
+
+  if (!resolvedPath.startsWith(resolvedDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ error: 'Campaign image not found' });
+  }
+
+  // Set caching headers for images
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+
+  res.sendFile(resolvedPath, (err) => {
+    if (err) {
+      console.error('Error sending campaign file:', err);
+      res.status(500).json({ error: 'Error serving file' });
+    }
+  });
+});
+
 // Serve uploaded files (require authentication)
 router.get('/:filename', requireAuth, (req: AuthRequest, res) => {
   const filename = req.params.filename;
