@@ -21,15 +21,13 @@ router.get(
   '/google',
   requireOAuthConfig,
   (req, res, next) => {
-    // Store popup mode in session for callback
-    if (req.query.popup === 'true') {
-      (req.session as any).oauthPopup = true;
-    }
-    next();
-  },
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-  })
+    // Use OAuth state parameter to track popup mode (persists through redirect)
+    const state = req.query.popup === 'true' ? 'popup' : 'redirect';
+    passport.authenticate('google', {
+      scope: ['profile', 'email'],
+      state: state,
+    })(req, res, next);
+  }
 );
 
 // Google OAuth callback
@@ -38,9 +36,8 @@ router.get(
   requireOAuthConfig,
   passport.authenticate('google', { failureRedirect: '/login?error=auth' }),
   (req: AuthRequest, res) => {
-    const isPopup = (req.session as any).oauthPopup;
-    // Clear the popup flag
-    delete (req.session as any).oauthPopup;
+    // Check state parameter to determine popup mode (passed through Google)
+    const isPopup = req.query.state === 'popup';
 
     // Explicitly save session before redirect to ensure cookie is set
     req.session.save((err) => {
