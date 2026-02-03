@@ -109,6 +109,52 @@ const updateCampaignTaskSchema = z.object({
 });
 
 /**
+ * GET /campaigns/test-openai
+ * Test OpenAI connection (temporary debug endpoint)
+ */
+router.get('/campaigns/test-openai', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const isAvailable = aiImageService.isAvailable();
+    const hasKey = !!process.env.OPENAI_API_KEY;
+    const keyPrefix = process.env.OPENAI_API_KEY?.substring(0, 10) || 'not set';
+
+    if (!isAvailable) {
+      return res.json({
+        status: 'not_configured',
+        hasKey,
+        keyPrefix: keyPrefix + '...',
+        message: 'AI service is not available',
+      });
+    }
+
+    // Try a simple API call to verify the key works
+    const OpenAI = require('openai').default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // List models to verify API key works
+    const models = await openai.models.list();
+    const hasDalle = models.data.some((m: any) => m.id.includes('dall-e'));
+
+    res.json({
+      status: 'ok',
+      hasKey: true,
+      keyPrefix: keyPrefix + '...',
+      hasDalle,
+      modelCount: models.data.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      hasKey: !!process.env.OPENAI_API_KEY,
+      keyPrefix: (process.env.OPENAI_API_KEY?.substring(0, 10) || 'not set') + '...',
+      error: error.message,
+      code: error.code,
+      type: error.type,
+    });
+  }
+});
+
+/**
  * GET /campaigns
  * List all campaigns with optional filtering
  */
