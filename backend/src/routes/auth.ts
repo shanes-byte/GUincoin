@@ -2,6 +2,7 @@ import express from 'express';
 import passport from '../config/auth';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { env } from '../config/env';
+import prisma from '../config/database';
 
 const router = express.Router();
 
@@ -62,6 +63,39 @@ router.post('/logout', (req, res) => {
     }
     res.json({ message: 'Logged out successfully' });
   });
+});
+
+// One-time admin setup endpoint (secured by secret)
+router.post('/setup-admins', async (req, res) => {
+  const { secret } = req.body;
+
+  // Simple secret check - only works with correct secret
+  if (secret !== 'GuincoinSetup2026!') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  const adminEmails = ['shanes@guinco.com', 'landonm@guinco.com'];
+  const results = [];
+
+  for (const email of adminEmails) {
+    try {
+      const employee = await prisma.employee.upsert({
+        where: { email },
+        update: { isAdmin: true, isManager: true },
+        create: {
+          email,
+          name: email.split('@')[0],
+          isAdmin: true,
+          isManager: true,
+        },
+      });
+      results.push({ email, status: 'success', id: employee.id });
+    } catch (err) {
+      results.push({ email, status: 'error', error: String(err) });
+    }
+  }
+
+  res.json({ message: 'Admin setup complete', results });
 });
 
 export default router;
