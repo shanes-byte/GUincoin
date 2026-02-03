@@ -71,6 +71,31 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session configuration with PostgreSQL store (with memory fallback)
 const sessionStore = createSessionStore();
+
+// Determine cookie domain - use .guincoin.com to work across www and non-www
+const getCookieDomain = (): string | undefined => {
+  if (env.COOKIE_DOMAIN) return env.COOKIE_DOMAIN;
+  if (env.NODE_ENV === 'production') {
+    // Extract domain from FRONTEND_URL for production
+    try {
+      const url = new URL(env.FRONTEND_URL);
+      const hostname = url.hostname;
+      // If it's a subdomain like www.guincoin.com, return .guincoin.com
+      const parts = hostname.split('.');
+      if (parts.length >= 2) {
+        return '.' + parts.slice(-2).join('.');
+      }
+      return hostname;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined; // Let browser handle it in development
+};
+
+const cookieDomain = getCookieDomain();
+console.log(`[Session] Cookie domain: ${cookieDomain || '(default)'}`);
+
 app.use(session({
   store: sessionStore,
   secret: env.SESSION_SECRET,
@@ -79,8 +104,9 @@ app.use(session({
   cookie: {
     secure: env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax', // Use 'lax' for OAuth redirects to work properly
+    sameSite: 'lax',
     maxAge: SESSION_MAX_AGE_MS,
+    domain: cookieDomain,
   },
 }));
 
