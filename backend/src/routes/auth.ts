@@ -16,44 +16,29 @@ const requireOAuthConfig = (req: express.Request, res: express.Response, next: e
   next();
 };
 
-// Google OAuth login
+// Google OAuth login - direct redirect flow
 router.get(
   '/google',
   requireOAuthConfig,
-  (req, res, next) => {
-    // Use OAuth state parameter to track popup mode (persists through redirect)
-    const state = req.query.popup === 'true' ? 'popup' : 'redirect';
-    passport.authenticate('google', {
-      scope: ['profile', 'email'],
-      state: state,
-    })(req, res, next);
-  }
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+  })
 );
 
-// Google OAuth callback
+// Google OAuth callback - redirect to dashboard on success
 router.get(
   '/google/callback',
   requireOAuthConfig,
   passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth` }),
   (req: AuthRequest, res) => {
-    // Check state parameter to determine popup mode (passed through Google)
-    const isPopup = req.query.state === 'popup';
-
     // Explicitly save session before redirect to ensure cookie is set
     req.session.save((err) => {
       if (err) {
         console.error('Session save error:', err);
-        const errorUrl = isPopup
-          ? `${env.FRONTEND_URL}/oauth/callback?success=false&error=session`
-          : `${env.FRONTEND_URL}/login?error=session`;
-        return res.redirect(errorUrl);
+        return res.redirect(`${env.FRONTEND_URL}/login?error=session`);
       }
-
-      // Redirect to appropriate page based on popup mode
-      const successUrl = isPopup
-        ? `${env.FRONTEND_URL}/oauth/callback?success=true`
-        : `${env.FRONTEND_URL}/dashboard`;
-      res.redirect(successUrl);
+      // Redirect to dashboard
+      res.redirect(`${env.FRONTEND_URL}/dashboard`);
     });
   }
 );

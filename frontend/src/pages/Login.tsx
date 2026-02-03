@@ -1,99 +1,50 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCurrentUser } from '../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if already logged in
-    getCurrentUser()
-      .then(() => navigate('/dashboard'))
-      .catch(() => {
-        // Not logged in, show login button
-      });
-  }, [navigate]);
-
-  useEffect(() => {
-    // Listen for OAuth success message from popup
-    const handleMessage = (event: MessageEvent) => {
-      // Verify origin matches our domain
-      if (event.origin !== window.location.origin) return;
-
-      if (event.data?.type === 'oauth-success') {
-        setIsLoading(false);
-        // Use hard redirect to ensure fresh cookie context
-        window.location.href = '/dashboard';
-      } else if (event.data?.type === 'oauth-error') {
-        setIsLoading(false);
-        console.error('OAuth error:', event.data.error);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // Also check localStorage for OAuth success (fallback for cross-window communication)
-    const checkLocalStorage = () => {
-      const oauthSuccess = localStorage.getItem('oauth-success');
-      if (oauthSuccess) {
-        const timestamp = parseInt(oauthSuccess, 10);
-        // Check if it was set within the last 30 seconds
-        if (Date.now() - timestamp < 30000) {
-          localStorage.removeItem('oauth-success');
-          window.location.href = '/dashboard';
-        } else {
-          // Expired, remove it
-          localStorage.removeItem('oauth-success');
-        }
-      }
-    };
-
-    // Check immediately and also on storage events
-    checkLocalStorage();
-    const storageHandler = () => checkLocalStorage();
-    window.addEventListener('storage', storageHandler);
-
-    // Also poll for changes (storage event doesn't fire in same window)
-    const pollInterval = setInterval(checkLocalStorage, 500);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      window.removeEventListener('storage', storageHandler);
-      clearInterval(pollInterval);
-    };
-  }, [navigate]);
-
-  const handleGoogleLogin = () => {
-    setIsLoading(true);
-
-    // Open OAuth in popup window
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const popup = window.open(
-      '/api/auth/google?popup=true',
-      'oauth-popup',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-
-    // Check if popup was blocked
-    if (!popup) {
+    // Check for error from OAuth callback
+    const authError = searchParams.get('error');
+    if (authError) {
+      setError(authError === 'auth' ? 'Authentication failed. Please try again.' : authError);
       setIsLoading(false);
-      alert('Please allow popups for this site to sign in with Google');
       return;
     }
 
-    // Monitor popup for manual close
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
+    // Check if already logged in
+    getCurrentUser()
+      .then(() => {
+        // Already logged in, go to dashboard
+        navigate('/dashboard', { replace: true });
+      })
+      .catch(() => {
+        // Not logged in, show login button
         setIsLoading(false);
-      }
-    }, 500);
+      });
+  }, [navigate, searchParams]);
+
+  const handleGoogleLogin = () => {
+    // Direct redirect to Google OAuth - no popup needed
+    // The backend will redirect back to /dashboard after successful auth
+    window.location.href = '/api/auth/google';
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -106,13 +57,17 @@ export default function Login() {
             Sign in with your Google Workspace account
           </p>
         </div>
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 p-4">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
         <div>
           <button
             onClick={handleGoogleLogin}
-            disabled={isLoading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            {isLoading ? 'Signing in...' : 'Sign in with Google'}
+            Sign in with Google
           </button>
         </div>
       </div>

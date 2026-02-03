@@ -79,7 +79,7 @@ app.use(session({
   cookie: {
     secure: env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Use 'lax' for OAuth redirects to work properly
     maxAge: SESSION_MAX_AGE_MS,
   },
 }));
