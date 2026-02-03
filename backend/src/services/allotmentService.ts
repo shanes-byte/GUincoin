@@ -1,4 +1,4 @@
-import { PrismaClient, PeriodType } from '@prisma/client';
+import { PeriodType } from '@prisma/client';
 import prisma from '../config/database';
 import transactionService from './transactionService';
 
@@ -21,7 +21,9 @@ export class AllotmentService {
       periodEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59);
     }
 
-    let allotment = await prisma.managerAllotment.findFirst({
+    // Check for existing allotment first, create if not found
+    const defaultAmount = 1000; // Can be made configurable
+    const existing = await prisma.managerAllotment.findFirst({
       where: {
         managerId,
         periodType,
@@ -30,20 +32,17 @@ export class AllotmentService {
       },
     });
 
-    // If no current allotment exists, create one (default amount can be configured)
-    if (!allotment) {
-      // This would typically be set by an admin, but for now we'll use a default
-      const defaultAmount = 1000; // Can be made configurable
-      allotment = await prisma.managerAllotment.create({
-        data: {
-          managerId,
-          periodType,
-          amount: defaultAmount,
-          periodStart,
-          periodEnd,
-        },
-      });
-    }
+    const allotment = existing
+      ? existing
+      : await prisma.managerAllotment.create({
+          data: {
+            managerId,
+            periodType,
+            amount: defaultAmount,
+            periodStart,
+            periodEnd,
+          },
+        });
 
     // Calculate used amount from posted manager awards in this period
     const usedAmount = await this.calculateUsedAmount(managerId, periodStart, periodEnd);
@@ -97,13 +96,11 @@ export class AllotmentService {
     amount: number,
     description: string
   ) {
-    // Verify manager can award this amount
-    const canAward = await this.canAward(managerId, amount);
-    if (!canAward) {
-      throw new Error('Insufficient allotment remaining');
+    if (amount <= 0) {
+      throw new Error('Award amount must be positive');
     }
 
-    // Find employee
+    // Find employee first (outside transaction for read-only)
     const employee = await prisma.employee.findUnique({
       where: { email: employeeEmail },
       include: { account: true },
@@ -117,19 +114,31 @@ export class AllotmentService {
       throw new Error('Employee account not found');
     }
 
-    // Create pending transaction
-    const transaction = await transactionService.createPendingTransaction(
-      employee.account.id,
-      'manager_award',
-      amount,
-      description || `Award from manager`,
-      managerId
-    );
+    // Wrap allotment check + transaction creation + posting in a DB transaction
+    return await prisma.$transaction(async (tx) => {
+      // Re-check allotment inside transaction to prevent race conditions
+      const allotment = await this.getCurrentAllotment(managerId);
+      if (Number(allotment.remaining) < amount) {
+        throw new Error('Insufficient allotment remaining');
+      }
 
-    // Post immediately (manager awards are auto-posted)
-    await transactionService.postTransaction(transaction.id);
+      // Create pending transaction
+      const transaction = await tx.ledgerTransaction.create({
+        data: {
+          accountId: employee.account!.id,
+          transactionType: 'manager_award',
+          amount,
+          status: 'pending',
+          description: description || 'Award from manager',
+          sourceEmployeeId: managerId,
+        },
+      });
 
-    return transaction;
+      // Post immediately (manager awards are auto-posted)
+      await transactionService.postTransaction(transaction.id, tx);
+
+      return transaction;
+    });
   }
 
   /**
@@ -189,23 +198,23 @@ export class AllotmentService {
   /**
    * Deposit coins into a manager's allotment
    */
-  async depositAllotment(managerId: string, amount: number, _description?: string, _adminId?: string) {
+  async depositAllotment(managerId: string, amount: number, description?: string) {
     const allotment = await this.getCurrentAllotment(managerId);
     const updated = await prisma.managerAllotment.update({
       where: { id: allotment.id },
       data: { amount: { increment: amount } },
     });
-    return { ...updated, description: _description || 'Allotment deposit' };
+    return { ...updated, description: description || 'Allotment deposit' };
   }
 
   /**
    * Get deposit history for a manager
    */
-  async getDepositHistory(managerId: string, _limit?: number) {
+  async getDepositHistory(managerId: string, limit?: number) {
     const allotments = await prisma.managerAllotment.findMany({
       where: { managerId },
       orderBy: { periodStart: 'desc' },
-      take: _limit || 20,
+      take: limit || 20,
     });
     return { transactions: allotments as any[] };
   }

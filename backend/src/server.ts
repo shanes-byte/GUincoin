@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import path from 'path';
 import dotenv from 'dotenv';
 import session, { Store } from 'express-session';
@@ -89,6 +90,38 @@ app.use(session({
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF protection via double-submit cookie pattern
+app.use((req, res, next) => {
+  // Generate CSRF token if not present in session
+  if (!(req.session as any).csrfToken) {
+    (req.session as any).csrfToken = crypto.randomBytes(32).toString('hex');
+  }
+
+  // Set CSRF cookie on every response so frontend can read it
+  res.cookie('XSRF-TOKEN', (req.session as any).csrfToken, {
+    httpOnly: false, // Frontend must read this
+    secure: env.NODE_ENV === 'production',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+  });
+
+  // Validate CSRF token on mutating requests
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+  if (!safeMethods.includes(req.method)) {
+    const headerToken = req.headers['x-xsrf-token'] as string;
+    const sessionToken = (req.session as any).csrfToken;
+
+    // Skip CSRF for OAuth callbacks and webhook endpoints
+    const csrfExemptPaths = ['/api/auth/google', '/api/auth/google/callback', '/api/integrations/google-chat'];
+    const isExempt = csrfExemptPaths.some((p) => req.path.startsWith(p));
+
+    if (!isExempt && (!headerToken || headerToken !== sessionToken)) {
+      return res.status(403).json({ error: 'Invalid CSRF token' });
+    }
+  }
+
+  next();
+});
 
 // Apply rate limiting to API routes (except health check)
 if (env.RATE_LIMIT_ENABLED) {

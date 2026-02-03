@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
 import OAuthCallback from './pages/OAuthCallback';
 import Dashboard from './pages/Dashboard';
@@ -12,19 +13,21 @@ import Store from './pages/Store';
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/oauth/callback" element={<OAuthCallback />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/manager" element={<ManagerPortal />} />
-          <Route path="/transfers" element={<Transfers />} />
-          <Route path="/store" element={<Store />} />
-          <Route path="/wellness" element={<Wellness />} />
-          <Route path="/admin" element={<AdminPortal />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
+      <ToastProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/manager" element={<ManagerPortal />} />
+            <Route path="/transfers" element={<Transfers />} />
+            <Route path="/store" element={<Store />} />
+            <Route path="/wellness" element={<Wellness />} />
+            <Route path="/admin" element={<AdminPortal />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

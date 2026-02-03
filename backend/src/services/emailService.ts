@@ -7,7 +7,7 @@ export class EmailService {
   /**
    * Send email notification
    */
-  private async sendEmail(to: string, subject: string, html: string) {
+  private async sendEmail(to: string, subject: string, html: string): Promise<{ success: boolean; error?: string }> {
     try {
       const transporter = await getTransporter();
       const fromEmail = await getFromEmail();
@@ -19,9 +19,12 @@ export class EmailService {
         subject,
         html,
       });
+      return { success: true };
     } catch (error) {
-      console.error('Error sending email:', error);
+      const message = error instanceof Error ? error.message : 'Unknown email error';
+      console.error('Error sending email:', message);
       // Don't throw - email failures shouldn't break the application
+      return { success: false, error: message };
     }
   }
 
@@ -246,9 +249,7 @@ export class EmailService {
   async sendRoleAssignedNotification(
     employeeEmail: string,
     employeeName: string,
-    role: string,
-    _isManager?: boolean,
-    _isAdmin?: boolean
+    role: string
   ) {
     const rendered = await renderTemplate('role_assigned', {
       employeeName,
@@ -265,8 +266,7 @@ export class EmailService {
   async sendAllotmentDepositNotification(
     managerEmail: string,
     managerName: string,
-    amount: number,
-    _newBalance?: number
+    amount: number
   ) {
     const rendered = await renderTemplate('allotment_deposit', {
       managerName,

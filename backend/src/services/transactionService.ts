@@ -1,5 +1,7 @@
-import { PrismaClient, TransactionType, TransactionStatus } from '@prisma/client';
+import { Prisma, TransactionType, TransactionStatus } from '@prisma/client';
 import prisma from '../config/database';
+
+type TransactionClient = Prisma.TransactionClient;
 
 export class TransactionService {
   /**
@@ -33,8 +35,8 @@ export class TransactionService {
    * @param transactionId - The ID of the transaction to post
    * @param tx - Optional Prisma transaction client. If provided, uses this client instead of creating a new transaction.
    */
-  async postTransaction(transactionId: string, tx?: any) {
-    const executePost = async (client: any) => {
+  async postTransaction(transactionId: string, tx?: TransactionClient) {
+    const executePost = async (client: TransactionClient) => {
       const transaction = await client.ledgerTransaction.findUnique({
         where: { id: transactionId },
         include: { account: true },
@@ -50,18 +52,38 @@ export class TransactionService {
 
       // Update balance based on transaction type
       let balanceChange = 0;
-      if (
-        transaction.transactionType === TransactionType.manager_award ||
-        transaction.transactionType === TransactionType.peer_transfer_received ||
-        transaction.transactionType === TransactionType.wellness_reward ||
-        transaction.transactionType === TransactionType.adjustment
-      ) {
+      const creditTypes: TransactionType[] = [
+        TransactionType.manager_award,
+        TransactionType.peer_transfer_received,
+        TransactionType.wellness_reward,
+        TransactionType.adjustment,
+        TransactionType.game_win,
+        TransactionType.game_refund,
+        TransactionType.jackpot_win,
+        TransactionType.daily_bonus,
+      ];
+      const debitTypes: TransactionType[] = [
+        TransactionType.peer_transfer_sent,
+        TransactionType.store_purchase,
+        TransactionType.game_bet,
+        TransactionType.jackpot_contribution,
+        TransactionType.allotment_deposit,
+      ];
+
+      if (creditTypes.includes(transaction.transactionType)) {
         balanceChange = Number(transaction.amount);
-      } else if (
-        transaction.transactionType === TransactionType.peer_transfer_sent ||
-        transaction.transactionType === TransactionType.store_purchase
-      ) {
+      } else if (debitTypes.includes(transaction.transactionType)) {
         balanceChange = -Number(transaction.amount);
+      } else {
+        throw new Error(`Unknown transaction type: ${transaction.transactionType}`);
+      }
+
+      // Prevent negative balances on debits
+      if (balanceChange < 0) {
+        const currentBalance = Number(transaction.account.balance);
+        if (currentBalance + balanceChange < 0) {
+          throw new Error('Insufficient funds');
+        }
       }
 
       // Update account balance
@@ -177,7 +199,7 @@ export class TransactionService {
       transactionType?: TransactionType;
     }
   ) {
-    const where: any = { accountId };
+    const where: Prisma.LedgerTransactionWhereInput = { accountId };
     if (options?.status) {
       where.status = options.status;
     }

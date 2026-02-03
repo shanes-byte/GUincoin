@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validation';
@@ -10,7 +10,7 @@ import { FrequencyRule } from '@prisma/client';
 const router = express.Router();
 
 // Get available wellness tasks
-router.get('/tasks', requireAuth, async (req: AuthRequest, res) => {
+router.get('/tasks', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const tasks = await prisma.wellnessTask.findMany({
       where: { isActive: true },
@@ -23,13 +23,13 @@ router.get('/tasks', requireAuth, async (req: AuthRequest, res) => {
     }));
 
     res.json(normalizedTasks);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Get wellness task by ID
-router.get('/tasks/:id', requireAuth, async (req: AuthRequest, res) => {
+router.get('/tasks/:id', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const task = await prisma.wellnessTask.findUnique({
       where: { id: req.params.id },
@@ -43,8 +43,8 @@ router.get('/tasks/:id', requireAuth, async (req: AuthRequest, res) => {
       ...task,
       coinValue: Number(task.coinValue),
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -53,7 +53,7 @@ router.post(
   '/submit',
   requireAuth,
   upload.single('document'),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res, next: NextFunction) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'Document file is required' });
@@ -158,14 +158,14 @@ router.post(
         submission,
         transaction,
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+    } catch (error) {
+      next(error);
     }
   }
 );
 
 // Get employee's wellness submissions
-router.get('/submissions', requireAuth, async (req: AuthRequest, res) => {
+router.get('/submissions', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const submissions = await prisma.wellnessSubmission.findMany({
       where: { employeeId: req.user!.id },
@@ -191,8 +191,8 @@ router.get('/submissions', requireAuth, async (req: AuthRequest, res) => {
     }));
 
     res.json(normalizedSubmissions);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 

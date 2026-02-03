@@ -10,7 +10,7 @@ export default function BalanceCard({ balance }: BalanceCardProps) {
       <div className="p-5">
         <div className="flex items-center">
           <div className="flex-shrink-0">
-            <div className="text-3xl">💰</div>
+            <div className="text-3xl"><span aria-label="Balance">💰</span></div>
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>

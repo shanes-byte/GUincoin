@@ -53,7 +53,7 @@ export default function TransferForm({ onTransfer, remaining }: TransferFormProp
             id="recipient"
             value={recipientEmail}
             onChange={(e) => setRecipientEmail(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="colleague@example.com"
             required
           />
@@ -71,7 +71,7 @@ export default function TransferForm({ onTransfer, remaining }: TransferFormProp
             max={remaining}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="0.00"
             required
           />
@@ -89,7 +89,7 @@ export default function TransferForm({ onTransfer, remaining }: TransferFormProp
             rows={3}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="Great job on the presentation!"
           />
         </div>

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { requireAuth, AuthRequest } from '../middleware/auth';
@@ -58,7 +58,7 @@ const getStoreProductDelegate = () => {
 };
 
 // Get available store products
-router.get('/products', requireAuth, async (req: AuthRequest, res) => {
+router.get('/products', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();
     const products = await storeProduct.findMany({
@@ -73,13 +73,13 @@ router.get('/products', requireAuth, async (req: AuthRequest, res) => {
       ),
     }));
     res.json(response);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Proxy Amazon images to avoid hotlink blocking
-router.get('/amazon-image', requireAuth, async (req: AuthRequest, res) => {
+router.get('/amazon-image', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const url = typeof req.query.url === 'string' ? req.query.url : '';
     if (!url || !isAmazonImageUrl(url)) {
@@ -105,8 +105,8 @@ router.get('/amazon-image', requireAuth, async (req: AuthRequest, res) => {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(buffer);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -118,7 +118,7 @@ const purchaseSchema = z.object({
   }),
 });
 
-router.post('/purchase', requireAuth, validate(purchaseSchema), async (req: AuthRequest, res) => {
+router.post('/purchase', requireAuth, validate(purchaseSchema), async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();
     const product = await storeProduct.findUnique({
@@ -237,13 +237,13 @@ router.post('/purchase', requireAuth, validate(purchaseSchema), async (req: Auth
       },
       newBalance,
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Get user's purchases
-router.get('/purchases', requireAuth, async (req: AuthRequest, res) => {
+router.get('/purchases', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const purchases = await prisma.storePurchaseOrder.findMany({
       where: { employeeId: req.user!.id },
@@ -267,13 +267,13 @@ router.get('/purchases', requireAuth, async (req: AuthRequest, res) => {
         priceGuincoin: Number(p.product.priceGuincoin),
       }))
     );
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Wishlist routes
-router.post('/wishlist/:productId', requireAuth, async (req: AuthRequest, res) => {
+router.post('/wishlist/:productId', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();
     const product = await storeProduct.findUnique({
@@ -307,12 +307,12 @@ router.post('/wishlist/:productId', requireAuth, async (req: AuthRequest, res) =
         product: normalizeStoreProduct(wishlistItem.product),
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
-router.delete('/wishlist/:productId', requireAuth, async (req: AuthRequest, res) => {
+router.delete('/wishlist/:productId', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     await prisma.wishlistItem.delete({
       where: {
@@ -324,15 +324,12 @@ router.delete('/wishlist/:productId', requireAuth, async (req: AuthRequest, res)
     });
 
     res.json({ message: 'Removed from wishlist' });
-  } catch (error: any) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Item not in wishlist' });
-    }
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
-router.get('/wishlist', requireAuth, async (req: AuthRequest, res) => {
+router.get('/wishlist', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const wishlistItems = await prisma.wishlistItem.findMany({
       where: { employeeId: req.user!.id },
@@ -348,8 +345,8 @@ router.get('/wishlist', requireAuth, async (req: AuthRequest, res) => {
         product: normalizeStoreProduct(item.product),
       }))
     );
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -359,7 +356,7 @@ router.post('/goals', requireAuth, validate(z.object({
     productId: z.string().uuid(),
     targetAmount: z.coerce.number().positive(),
   }),
-})), async (req: AuthRequest, res) => {
+})), async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();
     const product = await storeProduct.findUnique({
@@ -424,12 +421,12 @@ router.post('/goals', requireAuth, validate(z.object({
         currentAmount: Number(goal.currentAmount),
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
-router.get('/goals', requireAuth, async (req: AuthRequest, res) => {
+router.get('/goals', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const goals = await prisma.goal.findMany({
       where: { employeeId: req.user!.id },
@@ -450,12 +447,12 @@ router.get('/goals', requireAuth, async (req: AuthRequest, res) => {
         currentAmount: Number(goal.currentAmount),
       }))
     );
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
-router.delete('/goals/:goalId', requireAuth, async (req: AuthRequest, res) => {
+router.delete('/goals/:goalId', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const goal = await prisma.goal.findUnique({
       where: { id: req.params.goalId },
@@ -474,13 +471,13 @@ router.delete('/goals/:goalId', requireAuth, async (req: AuthRequest, res) => {
     });
 
     res.json({ message: 'Goal deleted' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Check for newly achieved goals (called on login/dashboard load)
-router.get('/goals/check-achievements', requireAuth, async (req: AuthRequest, res) => {
+router.get('/goals/check-achievements', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const account = await prisma.account.findUnique({
       where: { employeeId: req.user!.id },
@@ -503,19 +500,20 @@ router.get('/goals/check-achievements', requireAuth, async (req: AuthRequest, re
       },
     });
 
-    // Find goals that just became achieved
-    const newlyAchieved = await prisma.goal.findMany({
+    // Find goals that just became achieved (compare in JS since Prisma can't compare two columns)
+    const unachievedGoals = await prisma.goal.findMany({
       where: {
         employeeId: req.user!.id,
         isAchieved: false,
-        currentAmount: {
-          gte: prisma.goal.fields.targetAmount,
-        },
       },
       include: {
         product: true,
       },
     });
+
+    const newlyAchieved = unachievedGoals.filter(
+      (goal) => Number(goal.currentAmount) >= Number(goal.targetAmount)
+    );
 
     // Mark them as achieved
     for (const goal of newlyAchieved) {
@@ -537,8 +535,8 @@ router.get('/goals/check-achievements', requireAuth, async (req: AuthRequest, re
         currentAmount: Number(g.currentAmount),
       })),
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 

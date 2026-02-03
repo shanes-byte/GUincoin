@@ -2,21 +2,25 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, getManagerAllotment, awardCoins, getAwardHistory, User } from '../services/api';
 import Layout from '../components/Layout';
+import { useToast } from '../components/Toast';
 import AwardForm from '../components/Manager/AwardForm';
 import AllotmentStatus from '../components/Manager/AllotmentStatus';
 import AwardHistory from '../components/Manager/AwardHistory';
 
 export default function ManagerPortal() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [allotment, setAllotment] = useState<any>(null);
   const [awardHistory, setAwardHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadData = async () => {
       try {
         const userRes = await getCurrentUser();
+        if (controller.signal.aborted) return;
         if (!userRes.data.isManager) {
           navigate('/dashboard');
           return;
@@ -29,10 +33,13 @@ export default function ManagerPortal() {
           getAwardHistory({ limit: 20 }),
         ]);
 
+        if (controller.signal.aborted) return;
         setAllotment(allotmentRes.data);
         setAwardHistory(historyRes.data.transactions || []);
-      } catch (error: any) {
-        if (error.response?.status === 401) {
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+        const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
+        if (axiosErr.response?.status === 401) {
           navigate('/login');
         }
       } finally {
@@ -41,6 +48,7 @@ export default function ManagerPortal() {
     };
 
     loadData();
+    return () => controller.abort();
   }, [navigate]);
 
   const handleAward = async (data: { employeeEmail: string; amount: number; description?: string }) => {
@@ -53,9 +61,10 @@ export default function ManagerPortal() {
       ]);
       setAllotment(allotmentRes.data);
       setAwardHistory(historyRes.data.transactions || []);
-      alert('Coins awarded successfully!');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to award coins');
+      addToast('Coins awarded successfully!', 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to award coins', 'error');
     }
   };
 

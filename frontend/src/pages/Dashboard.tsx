@@ -16,9 +16,11 @@ import {
 import Layout from '../components/Layout';
 import BalanceCard from '../components/Dashboard/BalanceCard';
 import TransactionList from '../components/Dashboard/TransactionList';
+import { useToast } from '../components/Toast';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { addToast, confirm } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -26,8 +28,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const confettiPlayed = useRef(false);
+  const confettiIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
@@ -40,10 +45,12 @@ export default function Dashboard() {
           checkGoalAchievements(),
         ]);
 
+        if (controller.signal.aborted) return;
+
         const hasAuthError = results.some(
           (result) =>
             result.status === 'rejected' &&
-            (result.reason as any)?.response?.status === 401
+            (result.reason as unknown as { response?: { status: number } })?.response?.status === 401
         );
         if (hasAuthError) {
           navigate('/login');
@@ -68,20 +75,22 @@ export default function Dashboard() {
           setGoals(goalsRes.value.data);
         }
 
-        // Check for new achievements and play confetti once
+        // Check for new achievements and play confetti once (respect reduced motion)
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (
           achievementsRes.status === 'fulfilled' &&
           achievementsRes.value.data.hasNewAchievements &&
-          !confettiPlayed.current
+          !confettiPlayed.current &&
+          !prefersReducedMotion
         ) {
           confettiPlayed.current = true;
-          // Play confetti animation
           const duration = 3000;
           const end = Date.now() + duration;
 
-          const interval = setInterval(() => {
+          confettiIntervalRef.current = setInterval(() => {
             if (Date.now() > end) {
-              clearInterval(interval);
+              if (confettiIntervalRef.current) clearInterval(confettiIntervalRef.current);
+              confettiIntervalRef.current = null;
               return;
             }
 
@@ -102,38 +111,55 @@ export default function Dashboard() {
           }, 25);
 
           // Update goals after confetti starts
-          const updatedGoalsRes = await getGoals();
-          setGoals(updatedGoalsRes.data);
+          if (!controller.signal.aborted) {
+            const updatedGoalsRes = await getGoals();
+            if (!controller.signal.aborted) {
+              setGoals(updatedGoalsRes.data);
+            }
+          }
         }
 
         if (results.some((result) => result.status === 'rejected')) {
           setError('We could not load all dashboard data. Please refresh and try again.');
         }
-      } catch (error: any) {
-        if (error.response?.status === 401) {
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+        const axiosErr = err as { response?: { status: number } };
+        if (axiosErr.response?.status === 401) {
           navigate('/login');
           return;
         }
         setError('We could not load your dashboard data. Please refresh and try again.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     loadData();
+
+    return () => {
+      controller.abort();
+      if (confettiIntervalRef.current) {
+        clearInterval(confettiIntervalRef.current);
+        confettiIntervalRef.current = null;
+      }
+    };
   }, [navigate]);
 
   const handleDeleteGoal = async (goalId: string) => {
-    if (!confirm('Are you sure you want to delete this goal?')) {
-      return;
-    }
+    const confirmed = await confirm('Are you sure you want to delete this goal?');
+    if (!confirmed) return;
 
     try {
       await deleteGoal(goalId);
       const goalsRes = await getGoals();
       setGoals(goalsRes.data);
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to delete goal');
+      addToast('Goal deleted', 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to delete goal', 'error');
     }
   };
 

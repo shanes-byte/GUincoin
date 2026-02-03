@@ -19,6 +19,33 @@ if (!fs.existsSync(publicUploadDir)) {
   fs.mkdirSync(publicUploadDir, { recursive: true });
 }
 
+// Magic number signatures for file type verification
+const MAGIC_NUMBERS: Record<string, number[][]> = {
+  'application/pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
+  'image/jpeg': [[0xFF, 0xD8, 0xFF]],
+  'image/png': [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+  'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]], // GIF87a, GIF89a
+};
+
+/** Verify file content matches its declared MIME type via magic number check */
+function verifyFileMagicNumber(filePath: string, declaredMime: string): boolean {
+  const signatures = MAGIC_NUMBERS[declaredMime];
+  if (!signatures) return true; // No signature to check, allow
+
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(8);
+    fs.readSync(fd, buffer, 0, 8, 0);
+    fs.closeSync(fd);
+
+    return signatures.some((sig) =>
+      sig.every((byte, i) => buffer[i] === byte)
+    );
+  } catch {
+    return false;
+  }
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -53,6 +80,24 @@ export const upload = multer({
     fileSize: MAX_FILE_SIZE,
   },
 });
+
+// Post-upload middleware to verify magic numbers
+export const verifyUploadedFile = (req: Request, res: any, next: any) => {
+  if (!req.file) return next();
+
+  const isValid = verifyFileMagicNumber(
+    req.file.path,
+    req.file.mimetype
+  );
+
+  if (!isValid) {
+    // Delete the suspicious file
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'File content does not match its declared type' });
+  }
+
+  next();
+};
 
 const publicStorage = multer.diskStorage({
   destination: (req, file, cb) => {

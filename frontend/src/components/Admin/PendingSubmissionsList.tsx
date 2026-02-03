@@ -109,6 +109,7 @@ export default function PendingSubmissionsList({
               <div className="mb-4">
                 <iframe
                   src={selectedSubmission.documentUrl}
+                  sandbox="allow-same-origin"
                   className="w-full h-96 border border-gray-300 rounded"
                   title="Document Viewer"
                 />

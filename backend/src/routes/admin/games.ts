@@ -11,8 +11,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { GameType, JackpotType } from '@prisma/client';
-import { requireAuth, AuthRequest } from '../../middleware/auth';
-import { requireAdmin } from '../../middleware/requireAdmin';
+import { requireAuth, requireAdmin, AuthRequest } from '../../middleware/auth';
 import { validate } from '../../middleware/validation';
 import { gameEngine, jackpotService } from '../../services/games';
 import prisma from '../../config/database';

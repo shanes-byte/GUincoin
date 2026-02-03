@@ -5,10 +5,12 @@ import Layout from '../components/Layout';
 import TransferForm from '../components/Transfers/TransferForm';
 import TransferLimits from '../components/Transfers/TransferLimits';
 import TransactionList from '../components/Dashboard/TransactionList';
+import { useToast } from '../components/Toast';
 import { format } from 'date-fns';
 
 export default function Transfers() {
   const navigate = useNavigate();
+  const { addToast, confirm } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [limits, setLimits] = useState<any>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -31,7 +33,7 @@ export default function Transfers() {
         const hasAuthError = results.some(
           (result) =>
             result.status === 'rejected' &&
-            (result.reason as any)?.response?.status === 401
+            (result.reason as { response?: { status?: number } })?.response?.status === 401
         );
         if (hasAuthError) {
           navigate('/login');
@@ -59,8 +61,9 @@ export default function Transfers() {
         if (results.some((result) => result.status === 'rejected')) {
           setError('We could not load all transfer data. Please refresh and try again.');
         }
-      } catch (error: any) {
-        if (error.response?.status === 401) {
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
+        if (axiosErr.response?.status === 401) {
           navigate('/login');
           return;
         }
@@ -73,43 +76,40 @@ export default function Transfers() {
     loadData();
   }, [navigate]);
 
+  const reloadTransferData = async () => {
+    const [limitsRes, historyRes, pendingRes] = await Promise.all([
+      getTransferLimits(),
+      getTransferHistory(),
+      getPendingTransfers(),
+    ]);
+    setLimits(limitsRes.data);
+    setHistory(historyRes.data.transactions || []);
+    setPendingTransfers(pendingRes.data || []);
+  };
+
   const handleTransfer = async (data: { recipientEmail: string; amount: number; message?: string }) => {
     try {
       await sendTransfer(data);
-      // Reload data
-      const [limitsRes, historyRes, pendingRes] = await Promise.all([
-        getTransferLimits(),
-        getTransferHistory(),
-        getPendingTransfers(),
-      ]);
-      setLimits(limitsRes.data);
-      setHistory(historyRes.data.transactions || []);
-      setPendingTransfers(pendingRes.data || []);
-      alert('Transfer completed successfully!');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to send transfer');
+      await reloadTransferData();
+      addToast('Transfer completed successfully!', 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to send transfer', 'error');
     }
   };
 
   const handleCancelTransfer = async (transferId: string) => {
-    if (!confirm('Are you sure you want to cancel this transfer?')) {
+    if (!await confirm('Are you sure you want to cancel this transfer?')) {
       return;
     }
 
     try {
       await cancelTransfer(transferId);
-      // Reload data
-      const [limitsRes, historyRes, pendingRes] = await Promise.all([
-        getTransferLimits(),
-        getTransferHistory(),
-        getPendingTransfers(),
-      ]);
-      setLimits(limitsRes.data);
-      setHistory(historyRes.data.transactions || []);
-      setPendingTransfers(pendingRes.data || []);
-      alert('Transfer cancelled successfully!');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to cancel transfer');
+      await reloadTransferData();
+      addToast('Transfer cancelled successfully!', 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to cancel transfer', 'error');
     }
   };
 

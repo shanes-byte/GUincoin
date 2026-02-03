@@ -70,33 +70,40 @@ export class PendingTransferService {
           where: { id: transfer.senderEmployeeId },
         });
 
-        const recipientTransaction = await transactionService.createPendingTransaction(
-          recipient.account.id,
-          'peer_transfer_received',
-          Number(transfer.amount),
-          transfer.message || `Transfer from ${sender?.name || 'Guincoin user'}`,
-          transfer.senderEmployeeId,
-          recipient.id
-        );
+        // Wrap financial operations in a transaction
+        await prisma.$transaction(async (tx) => {
+          const recipientTransaction = await tx.ledgerTransaction.create({
+            data: {
+              accountId: recipient.account!.id,
+              transactionType: 'peer_transfer_received',
+              amount: transfer.amount,
+              status: 'pending',
+              description: transfer.message || `Transfer from ${sender?.name || 'Guincoin user'}`,
+              sourceEmployeeId: transfer.senderEmployeeId,
+              targetEmployeeId: recipient.id,
+            },
+          });
 
-        const senderTransaction = await prisma.ledgerTransaction.findUnique({
-          where: { id: transfer.senderTransactionId },
+          const senderTransaction = await tx.ledgerTransaction.findUnique({
+            where: { id: transfer.senderTransactionId },
+          });
+
+          if (senderTransaction?.status === 'pending') {
+            await transactionService.postTransaction(senderTransaction.id, tx);
+          }
+
+          await transactionService.postTransaction(recipientTransaction.id, tx);
+
+          await tx.pendingTransfer.update({
+            where: { id: transfer.id },
+            data: {
+              status: 'claimed',
+              claimedAt: new Date(),
+            },
+          });
         });
 
-        if (senderTransaction?.status === 'pending') {
-          await transactionService.postTransaction(senderTransaction.id);
-        }
-
-        await transactionService.postTransaction(recipientTransaction.id);
-
-        await prisma.pendingTransfer.update({
-          where: { id: transfer.id },
-          data: {
-            status: 'claimed',
-            claimedAt: new Date(),
-          },
-        });
-
+        // Send emails OUTSIDE the transaction (after commit)
         await emailService.sendPeerTransferNotification(
           recipient.email,
           recipient.name,

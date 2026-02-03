@@ -112,9 +112,7 @@ router.post(
       await emailService.sendRoleAssignedNotification(
         employee.email,
         employee.name,
-        roleName,
-        employee.isManager,
-        employee.isAdmin
+        roleName
       );
 
       res.status(201).json(employee);
@@ -198,9 +196,7 @@ router.put(
         await emailService.sendRoleAssignedNotification(
           updated.email,
           updated.name,
-          roleName,
-          updated.isManager,
-          updated.isAdmin
+          roleName
         );
       }
 
@@ -321,8 +317,7 @@ router.post(
       const transaction = await allotmentService.depositAllotment(
         req.params.id,
         amount,
-        description || 'Allotment deposit',
-        req.user!.id
+        description || 'Allotment deposit'
       );
 
       // Get updated allotment info
@@ -337,8 +332,7 @@ router.post(
         await emailService.sendAllotmentDepositNotification(
           manager.email,
           manager.name,
-          amount,
-          Number(allotment.balance)
+          amount
         );
       }
 

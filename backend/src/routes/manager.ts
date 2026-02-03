@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { z } from 'zod';
 import { requireManager, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validation';
@@ -9,12 +9,12 @@ import prisma from '../config/database';
 const router = express.Router();
 
 // Get current allotment
-router.get('/allotment', requireManager, async (req: AuthRequest, res) => {
+router.get('/allotment', requireManager, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const allotment = await allotmentService.getCurrentAllotment(req.user!.id);
     res.json(allotment);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -31,7 +31,7 @@ router.post(
   '/award',
   requireManager,
   validate(awardSchema),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res, next: NextFunction) => {
     try {
       const { employeeEmail, amount, description } = req.body;
 
@@ -71,8 +71,8 @@ router.post(
         message: 'Coins awarded successfully',
         transaction,
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+    } catch (error) {
+      next(error);
     }
   }
 );
@@ -89,7 +89,7 @@ router.get(
   '/history',
   requireManager,
   validate(historySchema),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res, next: NextFunction) => {
     try {
       const history = await allotmentService.getAwardHistory(
         req.user!.id,
@@ -97,8 +97,8 @@ router.get(
         req.query.offset as unknown as number
       );
       res.json(history);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      next(error);
     }
   }
 );

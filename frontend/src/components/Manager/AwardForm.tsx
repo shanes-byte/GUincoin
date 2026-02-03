@@ -53,7 +53,7 @@ export default function AwardForm({ onAward, remaining }: AwardFormProps) {
             id="email"
             value={employeeEmail}
             onChange={(e) => setEmployeeEmail(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="employee@example.com"
             required
           />
@@ -71,7 +71,7 @@ export default function AwardForm({ onAward, remaining }: AwardFormProps) {
             max={remaining}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="0.00"
             required
           />
@@ -89,7 +89,7 @@ export default function AwardForm({ onAward, remaining }: AwardFormProps) {
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             placeholder="Great work on the project!"
           />
         </div>

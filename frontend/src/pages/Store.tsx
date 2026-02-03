@@ -15,6 +15,7 @@ import {
   WishlistItem,
 } from '../services/api';
 import Layout from '../components/Layout';
+import { useToast } from '../components/Toast';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -25,6 +26,7 @@ type Tab = 'store' | 'wishlist';
 
 export default function Store() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
@@ -42,6 +44,7 @@ export default function Store() {
   const [goalAmount, setGoalAmount] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadData = async () => {
       setLoading(true);
       setError(null);
@@ -53,10 +56,12 @@ export default function Store() {
           getWishlist(),
         ]);
 
+        if (controller.signal.aborted) return;
+
         const hasAuthError = results.some(
           (result) =>
             result.status === 'rejected' &&
-            (result.reason as any)?.response?.status === 401
+            (result.reason as { response?: { status?: number } })?.response?.status === 401
         );
         if (hasAuthError) {
           navigate('/login');
@@ -80,8 +85,10 @@ export default function Store() {
         if (results.some((result) => result.status === 'rejected')) {
           setError('We could not load all store data. Please refresh and try again.');
         }
-      } catch (error: any) {
-        if (error.response?.status === 401) {
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+        const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
+        if (axiosErr.response?.status === 401) {
           navigate('/login');
           return;
         }
@@ -92,6 +99,7 @@ export default function Store() {
     };
 
     loadData();
+    return () => controller.abort();
   }, [navigate]);
 
   const wishlistProductIds = useMemo(() => new Set(wishlist.map((item) => item.productId)), [wishlist]);
@@ -101,7 +109,7 @@ export default function Store() {
 
     const remainingBalance = balance.total - product.priceGuincoin;
     if (remainingBalance < 0) {
-      alert('Insufficient balance');
+      addToast('Insufficient balance', 'error');
       return;
     }
 
@@ -114,7 +122,7 @@ export default function Store() {
     setPurchasing(purchaseConfirm.product.id);
     try {
       await purchaseProduct({ productId: purchaseConfirm.product.id });
-      alert('Purchase successful!');
+      addToast('Purchase successful!', 'success');
       setPurchaseConfirm(null);
       // Reload balance
       const balanceRes = await getBalance();
@@ -125,8 +133,9 @@ export default function Store() {
         const wishlistRes = await getWishlist();
         setWishlist(wishlistRes.data);
       }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to purchase product');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to purchase product', 'error');
     } finally {
       setPurchasing(null);
     }
@@ -144,8 +153,9 @@ export default function Store() {
         const wishlistRes = await getWishlist();
         setWishlist(wishlistRes.data);
       }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to update wishlist');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to update wishlist', 'error');
     } finally {
       setWishlistLoading((prev) => {
         const next = new Set(prev);
@@ -158,21 +168,22 @@ export default function Store() {
   const handleCreateGoal = async (product: StoreProduct) => {
     const targetAmount = goalAmount[product.id] || product.priceGuincoin;
     if (targetAmount > product.priceGuincoin) {
-      alert(`Target amount cannot exceed product price (${product.priceGuincoin} Guincoin)`);
+      addToast(`Target amount cannot exceed product price (${product.priceGuincoin} Guincoin)`, 'error');
       return;
     }
 
     setGoalCreating(product.id);
     try {
       await createGoal({ productId: product.id, targetAmount });
-      alert('Goal created! Check your dashboard to track progress.');
+      addToast('Goal created! Check your dashboard to track progress.', 'success');
       setGoalAmount((prev) => {
         const next = { ...prev };
         delete next[product.id];
         return next;
       });
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to create goal');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to create goal', 'error');
     } finally {
       setGoalCreating(null);
     }

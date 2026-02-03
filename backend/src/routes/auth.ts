@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import passport from '../config/auth';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { env } from '../config/env';
@@ -21,9 +22,20 @@ const requireOAuthConfig = (req: express.Request, res: express.Response, next: e
 router.get(
   '/google',
   requireOAuthConfig,
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-  })
+  (req, res, next) => {
+    // Generate cryptographic nonce for CSRF protection
+    const nonce = crypto.randomBytes(16).toString('hex');
+    (req.session as any).oauthNonce = nonce;
+
+    // Encode both popup mode and nonce in state parameter
+    const popup = req.query.popup === 'true' ? 'popup' : 'redirect';
+    const state = JSON.stringify({ nonce, mode: popup });
+
+    passport.authenticate('google', {
+      scope: ['profile', 'email'],
+      state,
+    })(req, res, next);
+  }
 );
 
 // Google OAuth callback - redirect to dashboard on success
@@ -32,6 +44,19 @@ router.get(
   requireOAuthConfig,
   passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth` }),
   (req: AuthRequest, res) => {
+    // Validate OAuth state parameter for CSRF protection
+    try {
+      const state = JSON.parse(req.query.state as string || '{}');
+      const sessionNonce = (req.session as any).oauthNonce;
+      if (!sessionNonce || state.nonce !== sessionNonce) {
+        return res.redirect(`${env.FRONTEND_URL}/login?error=csrf`);
+      }
+      // Clear nonce after use
+      delete (req.session as any).oauthNonce;
+    } catch {
+      return res.redirect(`${env.FRONTEND_URL}/login?error=state`);
+    }
+
     // Explicitly save session before redirect to ensure cookie is set
     req.session.save((err) => {
       if (err) {

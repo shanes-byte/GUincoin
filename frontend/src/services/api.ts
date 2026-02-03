@@ -3,6 +3,19 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true,
+  timeout: 30000,
+});
+
+// Attach CSRF token from cookie to all mutating requests
+api.interceptors.request.use((config) => {
+  const csrfToken = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
+  if (csrfToken) {
+    config.headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+  }
+  return config;
 });
 
 export interface User {

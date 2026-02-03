@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validation';
@@ -11,7 +11,7 @@ import { PeriodType } from '@prisma/client';
 const router = express.Router();
 
 // Get transfer limits
-router.get('/limits', requireAuth, async (req: AuthRequest, res) => {
+router.get('/limits', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -69,8 +69,8 @@ router.get('/limits', requireAuth, async (req: AuthRequest, res) => {
       remaining:
         Number(limit.maxAmount) - Number(usedAmount._sum.amount || 0),
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -87,7 +87,7 @@ router.post(
   '/send',
   requireAuth,
   validate(sendTransferSchema),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res, next: NextFunction) => {
     try {
       const { recipientEmail, amount, message } = req.body;
       const normalizedRecipientEmail = recipientEmail.toLowerCase();
@@ -232,14 +232,14 @@ router.post(
         message: 'Transfer completed successfully',
         transaction: sentTransaction,
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+    } catch (error) {
+      next(error);
     }
   }
 );
 
 // Get transfer history
-router.get('/history', requireAuth, async (req: AuthRequest, res) => {
+router.get('/history', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const employee = await prisma.employee.findUnique({
       where: { id: req.user!.id },
@@ -265,13 +265,13 @@ router.get('/history', requireAuth, async (req: AuthRequest, res) => {
     );
 
     res.json(history);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Get pending transfers
-router.get('/pending', requireAuth, async (req: AuthRequest, res) => {
+router.get('/pending', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const pendingTransfers = await prisma.pendingTransfer.findMany({
       where: {
@@ -282,13 +282,13 @@ router.get('/pending', requireAuth, async (req: AuthRequest, res) => {
     });
 
     res.json(pendingTransfers);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
 // Cancel a pending transfer
-router.post('/:transferId/cancel', requireAuth, async (req: AuthRequest, res) => {
+router.post('/:transferId/cancel', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const { transferId } = req.params;
 
@@ -301,8 +301,8 @@ router.post('/:transferId/cancel', requireAuth, async (req: AuthRequest, res) =>
       message: 'Transfer cancelled successfully',
       transfer: cancelledTransfer,
     });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 

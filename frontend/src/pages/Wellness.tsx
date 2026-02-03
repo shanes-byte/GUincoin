@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, getWellnessTasks, getWellnessSubmissions, User, WellnessTask, WellnessSubmission } from '../services/api';
 import Layout from '../components/Layout';
+// import { useToast } from '../components/Toast';
 import WellnessTaskList from '../components/Wellness/WellnessTaskList';
 import WellnessSubmissions from '../components/Wellness/WellnessSubmissions';
 
@@ -13,9 +14,11 @@ export default function Wellness() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadData = async () => {
       try {
         const userRes = await getCurrentUser();
+        if (controller.signal.aborted) return;
         setUser(userRes.data);
 
         const [tasksRes, submissionsRes] = await Promise.all([
@@ -23,10 +26,13 @@ export default function Wellness() {
           getWellnessSubmissions(),
         ]);
 
+        if (controller.signal.aborted) return;
         setTasks(tasksRes.data);
         setSubmissions(submissionsRes.data);
-      } catch (error: any) {
-        if (error.response?.status === 401) {
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+        const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
+        if (axiosErr.response?.status === 401) {
           navigate('/login');
         }
       } finally {
@@ -35,6 +41,7 @@ export default function Wellness() {
     };
 
     loadData();
+    return () => controller.abort();
   }, [navigate]);
 
   const handleSubmission = () => {

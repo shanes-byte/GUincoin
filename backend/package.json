@@ -33,7 +33,7 @@
     "express-rate-limit": "^8.2.1",
     "express-session": "^1.17.3",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.7",
+    "nodemailer": "^7.0.13",
     "openai": "^6.16.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",

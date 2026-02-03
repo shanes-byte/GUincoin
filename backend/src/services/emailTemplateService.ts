@@ -243,8 +243,21 @@ const templateMap = new Map(defaultTemplates.map((template) => [template.key, te
 const normalize = (value: string | number | undefined | null) =>
   value === undefined || value === null ? '' : String(value);
 
+/** Escape HTML special characters to prevent XSS in email templates */
+const escapeHtml = (str: string): string =>
+  str.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 const interpolate = (content: string, variables: Record<string, string | number | undefined | null>) =>
-  content.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => normalize(variables[key]));
+  content.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
+    const raw = normalize(variables[key]);
+    // Don't escape variables that contain pre-built HTML blocks (messageBlock, reasonBlock, etc.)
+    if (key.endsWith('Block')) return raw;
+    return escapeHtml(raw);
+  });
 
 export const isTemplateKey = (key: string): key is EmailTemplateKey =>
   templateMap.has(key as EmailTemplateKey);
@@ -295,6 +308,20 @@ export async function upsertEmailTemplate(
   });
 }
 
+// Simple in-memory cache for stored templates with 5-minute TTL
+const templateCache = new Map<string, { data: any; expiresAt: number }>();
+const TEMPLATE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getStoredTemplate(key: string) {
+  const cached = templateCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+  const stored = await prisma.emailTemplate.findUnique({ where: { key } });
+  templateCache.set(key, { data: stored, expiresAt: Date.now() + TEMPLATE_CACHE_TTL_MS });
+  return stored;
+}
+
 export async function renderTemplate(
   key: EmailTemplateKey,
   variables: Record<string, string | number | undefined | null>
@@ -304,7 +331,7 @@ export async function renderTemplate(
     throw new Error('Unknown email template');
   }
 
-  const stored = await prisma.emailTemplate.findUnique({ where: { key } });
+  const stored = await getStoredTemplate(key);
   const subjectTemplate = stored?.subject || template.subject;
   const htmlTemplate = stored?.html || template.html;
   const isEnabled = stored?.isEnabled ?? true;

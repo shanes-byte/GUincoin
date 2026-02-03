@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validation';
@@ -8,7 +8,7 @@ import transactionService from '../services/transactionService';
 const router = express.Router();
 
 // Get account balance
-router.get('/balance', requireAuth, async (req: AuthRequest, res) => {
+router.get('/balance', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const employee = await prisma.employee.findUnique({
       where: { id: req.user!.id },
@@ -25,8 +25,8 @@ router.get('/balance', requireAuth, async (req: AuthRequest, res) => {
     );
 
     res.json(balance);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -52,7 +52,7 @@ router.get(
   '/transactions',
   requireAuth,
   validate(transactionHistorySchema),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res, next: NextFunction) => {
     try {
       const employee = await prisma.employee.findUnique({
         where: { id: req.user!.id },
@@ -74,14 +74,14 @@ router.get(
       );
 
       res.json(history);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      next(error);
     }
   }
 );
 
 // Get pending transactions
-router.get('/pending', requireAuth, async (req: AuthRequest, res) => {
+router.get('/pending', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const employee = await prisma.employee.findUnique({
       where: { id: req.user!.id },
@@ -97,8 +97,8 @@ router.get('/pending', requireAuth, async (req: AuthRequest, res) => {
     );
 
     res.json(pending);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    next(error);
   }
 });
 
