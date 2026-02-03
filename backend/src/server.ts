@@ -81,7 +81,6 @@ app.use(session({
     httpOnly: true,
     sameSite: 'lax',
     maxAge: SESSION_MAX_AGE_MS,
-    domain: env.NODE_ENV === 'production' ? '.guincoin.com' : undefined,
   },
 }));
 
