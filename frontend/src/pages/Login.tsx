@@ -23,7 +23,8 @@ export default function Login() {
 
       if (event.data?.type === 'oauth-success') {
         setIsLoading(false);
-        navigate('/dashboard');
+        // Use hard redirect to ensure fresh cookie context
+        window.location.href = '/dashboard';
       } else if (event.data?.type === 'oauth-error') {
         setIsLoading(false);
         console.error('OAuth error:', event.data.error);
@@ -31,7 +32,36 @@ export default function Login() {
     };
 
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+
+    // Also check localStorage for OAuth success (fallback for cross-window communication)
+    const checkLocalStorage = () => {
+      const oauthSuccess = localStorage.getItem('oauth-success');
+      if (oauthSuccess) {
+        const timestamp = parseInt(oauthSuccess, 10);
+        // Check if it was set within the last 30 seconds
+        if (Date.now() - timestamp < 30000) {
+          localStorage.removeItem('oauth-success');
+          window.location.href = '/dashboard';
+        } else {
+          // Expired, remove it
+          localStorage.removeItem('oauth-success');
+        }
+      }
+    };
+
+    // Check immediately and also on storage events
+    checkLocalStorage();
+    const storageHandler = () => checkLocalStorage();
+    window.addEventListener('storage', storageHandler);
+
+    // Also poll for changes (storage event doesn't fire in same window)
+    const pollInterval = setInterval(checkLocalStorage, 500);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', storageHandler);
+      clearInterval(pollInterval);
+    };
   }, [navigate]);
 
   const handleGoogleLogin = () => {

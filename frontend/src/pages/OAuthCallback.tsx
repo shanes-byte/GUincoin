@@ -7,6 +7,11 @@ export default function OAuthCallback() {
   const error = searchParams.get('error');
 
   useEffect(() => {
+    if (success) {
+      // Store success flag in localStorage (shared between windows)
+      localStorage.setItem('oauth-success', Date.now().toString());
+    }
+
     // Send message to parent window (the original login page)
     if (window.opener) {
       if (success) {
