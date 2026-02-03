@@ -5,6 +5,12 @@ import pendingTransferService from '../services/pendingTransferService';
 import accountService from '../services/accountService';
 import { env } from './env';
 
+// Emails that should automatically be granted admin access
+const AUTO_ADMIN_EMAILS = [
+  'shanes@guinco.com',
+  'landonm@guinco.com',
+];
+
 // Conditionally register Google OAuth strategy if credentials are provided
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
   // Use BACKEND_URL for OAuth callback (API endpoint)
@@ -31,6 +37,9 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
             return done(new Error(`Email must be from ${workspaceDomain} domain`), undefined);
           }
 
+          // Check if this email should be auto-admin
+          const shouldBeAdmin = AUTO_ADMIN_EMAILS.includes(email);
+
           // Find or create employee
           let employee = await prisma.employee.findUnique({
             where: { email },
@@ -41,9 +50,15 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
               data: {
                 email,
                 name: profile.displayName || email.split('@')[0],
-                isManager: false, // Default, can be updated by admin
-                isAdmin: false, // Default, can be updated by admin
+                isManager: shouldBeAdmin,
+                isAdmin: shouldBeAdmin,
               },
+            });
+          } else if (shouldBeAdmin && (!employee.isAdmin || !employee.isManager)) {
+            // Upgrade existing user to admin if they're in the auto-admin list
+            employee = await prisma.employee.update({
+              where: { email },
+              data: { isAdmin: true, isManager: true },
             });
           }
 
