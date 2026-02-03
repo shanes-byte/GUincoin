@@ -1,9 +1,7 @@
-import transporter from '../config/email';
+import { getTransporter, getFromEmail, getFromName } from '../config/email';
 import { renderTemplate } from './emailTemplateService';
 
 export class EmailService {
-  private fromEmail = process.env.SMTP_USER || 'noreply@guincoin.com';
-  private fromName = 'Guincoin Rewards';
   private frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
   /**
@@ -11,8 +9,12 @@ export class EmailService {
    */
   private async sendEmail(to: string, subject: string, html: string) {
     try {
+      const transporter = await getTransporter();
+      const fromEmail = await getFromEmail();
+      const fromName = await getFromName();
+
       await transporter.sendMail({
-        from: `"${this.fromName}" <${this.fromEmail}>`,
+        from: `"${fromName}" <${fromEmail}>`,
         to,
         subject,
         html,

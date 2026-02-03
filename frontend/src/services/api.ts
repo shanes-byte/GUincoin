@@ -963,4 +963,35 @@ export const assignEmployeeToGcartTier = (employeeId: string, tierId: string) =>
 export const bulkAssignEmployeesToGcartTier = (employeeIds: string[], tierId: string) =>
   api.post('/admin/gcart/employees/bulk-assign', { employeeIds, tierId });
 
+// ======================
+// SMTP Settings
+// ======================
+
+export interface SmtpSettings {
+  id: string;
+  host: string | null;
+  port: number;
+  secure: boolean;
+  user: string | null;
+  pass: string | null;
+  fromName: string;
+  fromEmail: string | null;
+  isEnabled: boolean;
+  lastTestedAt: string | null;
+  lastTestResult: string | null;
+  hasPassword?: boolean;
+}
+
+export const getSmtpSettings = () =>
+  api.get<SmtpSettings>('/admin/settings/smtp');
+
+export const updateSmtpSettings = (data: Partial<SmtpSettings>) =>
+  api.put<SmtpSettings>('/admin/settings/smtp', data);
+
+export const testSmtpConnection = (testEmail?: string) =>
+  api.post<{ success: boolean; message?: string; error?: string }>(
+    '/admin/settings/smtp/test',
+    { testEmail }
+  );
+
 export default api;

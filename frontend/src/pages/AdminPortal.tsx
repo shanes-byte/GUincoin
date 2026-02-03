@@ -45,6 +45,7 @@ import {
 import Layout from '../components/Layout';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
 import { CampaignStudio } from '../components/Admin/CampaignStudio';
+import SmtpSettings from '../components/Admin/SmtpSettings';
 
 interface Submission {
   id: string;
@@ -64,7 +65,7 @@ interface Submission {
 }
 
 type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings';
-type SettingsTabType = 'email-templates' | 'roles' | 'allotments';
+type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -130,7 +131,7 @@ export default function AdminPortal() {
   >([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [settingsTab, setSettingsTab] = useState<SettingsTabType>('email-templates');
+  const [settingsTab, setSettingsTab] = useState<SettingsTabType>('smtp');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [updatingEmployeeId, setUpdatingEmployeeId] = useState<string | null>(null);
@@ -1828,6 +1829,16 @@ export default function AdminPortal() {
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
                 <button
+                  onClick={() => setSettingsTab('smtp')}
+                  className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+                    settingsTab === 'smtp'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  SMTP / Email
+                </button>
+                <button
                   onClick={() => setSettingsTab('email-templates')}
                   className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
                     settingsTab === 'email-templates'
@@ -1859,6 +1870,9 @@ export default function AdminPortal() {
                 </button>
               </nav>
             </div>
+
+            {/* SMTP Settings Sub-tab */}
+            {settingsTab === 'smtp' && <SmtpSettings />}
 
             {/* Email Templates Sub-tab */}
             {settingsTab === 'email-templates' && (

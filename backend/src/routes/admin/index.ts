@@ -9,6 +9,7 @@ import campaignsRoutes from './campaigns';
 import bannersRoutes from './banners';
 import gamesRoutes from './games';
 import studioRoutes from './studio';
+import settingsRoutes from './settings';
 
 const router = express.Router();
 
@@ -23,5 +24,6 @@ router.use(campaignsRoutes);
 router.use(bannersRoutes);
 router.use('/games', gamesRoutes);
 router.use(studioRoutes);
+router.use('/settings', settingsRoutes);
 
 export default router;

@@ -20,25 +20,25 @@ model Employee {
   updatedAt DateTime @updatedAt
 
   // Relations
-  account             Account?
-  managerAllotments   ManagerAllotment[]
-  sentAwards          LedgerTransaction[]  @relation("ManagerAwards")
-  sentTransfers       LedgerTransaction[]  @relation("SentTransfers")
-  receivedTransfers   LedgerTransaction[]  @relation("ReceivedTransfers")
-  wellnessSubmissions WellnessSubmission[]
-  reviewedSubmissions WellnessSubmission[] @relation("ReviewedBy")
-  peerTransferLimits  PeerTransferLimit[]
-  pendingTransfers    PendingTransfer[]
-  purchases           StorePurchaseOrder[]
-  wishlistItems       WishlistItem[]
-  goals               Goal[]
-  fulfilledPurchases  StorePurchaseOrder[] @relation("FulfilledPurchases")
-  campaignsCreated    Campaign[]           @relation("CampaignsCreated")
+  account              Account?
+  managerAllotments    ManagerAllotment[]
+  sentAwards           LedgerTransaction[]   @relation("ManagerAwards")
+  sentTransfers        LedgerTransaction[]   @relation("SentTransfers")
+  receivedTransfers    LedgerTransaction[]   @relation("ReceivedTransfers")
+  wellnessSubmissions  WellnessSubmission[]
+  reviewedSubmissions  WellnessSubmission[]  @relation("ReviewedBy")
+  peerTransferLimits   PeerTransferLimit[]
+  pendingTransfers     PendingTransfer[]
+  purchases            StorePurchaseOrder[]
+  wishlistItems        WishlistItem[]
+  goals                Goal[]
+  fulfilledPurchases   StorePurchaseOrder[]  @relation("FulfilledPurchases")
+  campaignsCreated     Campaign[]            @relation("CampaignsCreated")
   // Game relations
-  gamesCreated        Game[]               @relation("GameCreator")
-  gameParticipations  GameParticipant[]
-  gameStats           GameStats?
-  dailyBonusSpins     DailyBonusSpin[]
+  gamesCreated         Game[]                @relation("GameCreator")
+  gameParticipations   GameParticipant[]
+  gameStats            GameStats?
+  dailyBonusSpins      DailyBonusSpin[]
   jackpotContributions JackpotContribution[]
 }
 
@@ -237,15 +237,15 @@ model PeerTransferLimit {
 }
 
 model PendingTransfer {
-  id                 String                @id @default(uuid())
-  senderEmployeeId   String
-  recipientEmail     String
-  amount             Decimal               @db.Decimal(10, 2)
-  message            String?               @db.Text
-  status             PendingTransferStatus @default(pending)
-  senderTransactionId String               @unique
-  createdAt          DateTime              @default(now())
-  claimedAt          DateTime?
+  id                  String                @id @default(uuid())
+  senderEmployeeId    String
+  recipientEmail      String
+  amount              Decimal               @db.Decimal(10, 2)
+  message             String?               @db.Text
+  status              PendingTransferStatus @default(pending)
+  senderTransactionId String                @unique
+  createdAt           DateTime              @default(now())
+  claimedAt           DateTime?
 
   senderEmployee Employee @relation(fields: [senderEmployeeId], references: [id], onDelete: Cascade)
 
@@ -283,9 +283,9 @@ model StoreProduct {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  purchases    StorePurchaseOrder[]
+  purchases     StorePurchaseOrder[]
   wishlistItems WishlistItem[]
-  goals        Goal[]
+  goals         Goal[]
 
   @@index([isActive])
   @@index([source])
@@ -298,23 +298,23 @@ enum PurchaseOrderStatus {
 }
 
 model StorePurchaseOrder {
-  id                  String              @id @default(uuid())
-  employeeId          String
-  productId           String
-  transactionId       String              @unique
-  status              PurchaseOrderStatus @default(pending)
-  fulfilledById       String?
-  fulfilledAt         DateTime?
-  shippingAddress     String?             @db.Text
-  trackingNumber      String?
-  notes               String?             @db.Text
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id              String              @id @default(uuid())
+  employeeId      String
+  productId       String
+  transactionId   String              @unique
+  status          PurchaseOrderStatus @default(pending)
+  fulfilledById   String?
+  fulfilledAt     DateTime?
+  shippingAddress String?             @db.Text
+  trackingNumber  String?
+  notes           String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
-  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  product     StoreProduct @relation(fields: [productId], references: [id])
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  product     StoreProduct      @relation(fields: [productId], references: [id])
   transaction LedgerTransaction @relation(fields: [transactionId], references: [id])
-  fulfilledBy Employee?   @relation("FulfilledPurchases", fields: [fulfilledById], references: [id])
+  fulfilledBy Employee?         @relation("FulfilledPurchases", fields: [fulfilledById], references: [id])
 
   @@index([employeeId])
   @@index([status])
@@ -322,12 +322,12 @@ model StorePurchaseOrder {
 }
 
 model WishlistItem {
-  id        String   @id @default(uuid())
+  id         String   @id @default(uuid())
   employeeId String
   productId  String
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   product  StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, productId])
@@ -335,17 +335,17 @@ model WishlistItem {
 }
 
 model Goal {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   employeeId    String
   productId     String
-  targetAmount  Decimal  @db.Decimal(10, 2)
-  currentAmount Decimal  @default(0) @db.Decimal(10, 2)
-  isAchieved    Boolean  @default(false)
+  targetAmount  Decimal   @db.Decimal(10, 2)
+  currentAmount Decimal   @default(0) @db.Decimal(10, 2)
+  isAchieved    Boolean   @default(false)
   achievedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   product  StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
@@ -365,24 +365,24 @@ enum CampaignStatus {
 }
 
 model Campaign {
-  id              String         @id @default(uuid())
-  name            String
-  description     String?        @db.Text
-  slug            String         @unique
-  status          CampaignStatus @default(draft)
-  startDate       DateTime?      // Optional - leave empty for no date restriction
-  endDate         DateTime?      // Optional - leave empty for no date restriction
-  theme           Json           // CampaignTheme object: { primaryColor, secondaryColor, accentColor, navTextColor, etc. }
-  bannerImageUrl  String?
-  posterImageUrl  String?
-  emailBannerUrl  String?
-  chatImageUrl    String?
-  aiPromptUsed    String?        @db.Text
-  emailSentAt     DateTime?
-  chatPostedAt    DateTime?
-  createdById     String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  name           String
+  description    String?        @db.Text
+  slug           String         @unique
+  status         CampaignStatus @default(draft)
+  startDate      DateTime? // Optional - leave empty for no date restriction
+  endDate        DateTime? // Optional - leave empty for no date restriction
+  theme          Json // CampaignTheme object: { primaryColor, secondaryColor, accentColor, navTextColor, etc. }
+  bannerImageUrl String?
+  posterImageUrl String?
+  emailBannerUrl String?
+  chatImageUrl   String?
+  aiPromptUsed   String?        @db.Text
+  emailSentAt    DateTime?
+  chatPostedAt   DateTime?
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   createdBy     Employee       @relation("CampaignsCreated", fields: [createdById], references: [id])
   campaignTasks CampaignTask[]
@@ -416,7 +416,7 @@ model Banner {
   width           Int
   height          Int
   isActive        Boolean        @default(true)
-  textOverlay     Json?          // {text, fontFamily, fontSize, fontColor, fontWeight, position, backgroundColor, padding}
+  textOverlay     Json? // {text, fontFamily, fontSize, fontColor, fontWeight, position, backgroundColor, padding}
   imagePositionX  String         @default("center") // left, center, right - for object-position CSS
   imagePositionY  String         @default("center") // top, center, bottom - for object-position CSS
   showOnDashboard Boolean        @default(true)
@@ -428,7 +428,7 @@ model Banner {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  campaign        Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([position, isActive])
   @@index([campaignId])
@@ -437,8 +437,8 @@ model Banner {
 model CampaignTask {
   id              String   @id @default(uuid())
   campaignId      String
-  wellnessTaskId  String?  // null = campaign-exclusive task (not linked to existing wellness task)
-  name            String?  // Only for campaign-exclusive tasks
+  wellnessTaskId  String? // null = campaign-exclusive task (not linked to existing wellness task)
+  name            String? // Only for campaign-exclusive tasks
   description     String?  @db.Text
   coinValue       Decimal? @db.Decimal(10, 2) // Override for exclusive tasks
   bonusMultiplier Decimal  @default(1) @db.Decimal(3, 2) // Multiplier for linked tasks (e.g., 2.0 = double coins)
@@ -482,11 +482,11 @@ enum GameType {
 }
 
 enum GameStatus {
-  pending     // Waiting for participants or action
-  active      // Game in progress
-  completed   // Game finished, payouts processed
-  cancelled   // Game cancelled, bets refunded
-  expired     // Time limit reached
+  pending // Waiting for participants or action
+  active // Game in progress
+  completed // Game finished, payouts processed
+  cancelled // Game cancelled, bets refunded
+  expired // Time limit reached
 }
 
 enum GameTxType {
@@ -498,10 +498,10 @@ enum GameTxType {
 }
 
 enum JackpotType {
-  rolling   // Accumulates until won
-  daily     // Resets daily
-  weekly    // Resets weekly
-  event     // One-time event jackpot
+  rolling // Accumulates until won
+  daily // Resets daily
+  weekly // Resets weekly
+  event // One-time event jackpot
 }
 
 enum GameAssetType {
@@ -512,29 +512,29 @@ enum GameAssetType {
 }
 
 model Game {
-  id              String       @id @default(uuid())
-  type            GameType
-  status          GameStatus   @default(pending)
+  id     String     @id @default(uuid())
+  type   GameType
+  status GameStatus @default(pending)
 
   // Timing
-  createdAt       DateTime     @default(now())
-  startedAt       DateTime?
-  completedAt     DateTime?
-  expiresAt       DateTime?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  expiresAt   DateTime?
 
   // Game Configuration
-  config          Json         // Type-specific settings (minBet, maxBet, etc.)
+  config Json // Type-specific settings (minBet, maxBet, etc.)
 
   // Results
-  result          Json?        // Outcome data (varies by game type)
-  serverSeed      String?      // For provably fair verification
-  serverSeedHash  String?      // Hash shown before game
-  clientSeed      String?      // Player-provided or auto-generated
-  nonce           Int          @default(0)
+  result         Json? // Outcome data (varies by game type)
+  serverSeed     String? // For provably fair verification
+  serverSeedHash String? // Hash shown before game
+  clientSeed     String? // Player-provided or auto-generated
+  nonce          Int     @default(0)
 
   // Creator
-  createdById     String
-  createdBy       Employee     @relation("GameCreator", fields: [createdById], references: [id])
+  createdById String
+  createdBy   Employee @relation("GameCreator", fields: [createdById], references: [id])
 
   // Relations
   participants         GameParticipant[]
@@ -548,24 +548,24 @@ model Game {
 }
 
 model GameParticipant {
-  id              String    @id @default(uuid())
-  gameId          String
-  employeeId      String
+  id         String @id @default(uuid())
+  gameId     String
+  employeeId String
 
   // Bet Details
-  betAmount       Decimal   @db.Decimal(10, 2)
-  prediction      Json?     // Player's choice (heads/tails, number, team, etc.)
+  betAmount  Decimal @db.Decimal(10, 2)
+  prediction Json? // Player's choice (heads/tails, number, team, etc.)
 
   // Outcome
-  payout          Decimal?  @db.Decimal(10, 2)
-  isWinner        Boolean?
+  payout   Decimal? @db.Decimal(10, 2)
+  isWinner Boolean?
 
   // Timing
-  joinedAt        DateTime  @default(now())
+  joinedAt DateTime @default(now())
 
   // Relations
-  game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  employee        Employee  @relation(fields: [employeeId], references: [id])
+  game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@unique([gameId, employeeId])
   @@index([employeeId])
@@ -573,59 +573,59 @@ model GameParticipant {
 }
 
 model GameTransaction {
-  id              String          @id @default(uuid())
-  gameId          String
-  participantId   String?
-  transactionId   String          @unique
-  type            GameTxType
-  amount          Decimal         @db.Decimal(10, 2)
-  createdAt       DateTime        @default(now())
+  id            String     @id @default(uuid())
+  gameId        String
+  participantId String?
+  transactionId String     @unique
+  type          GameTxType
+  amount        Decimal    @db.Decimal(10, 2)
+  createdAt     DateTime   @default(now())
 
-  game            Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@index([gameId])
   @@index([transactionId])
 }
 
 model Jackpot {
-  id                String      @id @default(uuid())
-  name              String      // "Team Jackpot", "Weekly Mega Jackpot"
-  type              JackpotType @default(rolling)
+  id   String      @id @default(uuid())
+  name String // "Team Jackpot", "Weekly Mega Jackpot"
+  type JackpotType @default(rolling)
 
   // Balance
-  balance           Decimal     @default(0) @db.Decimal(10, 2)
+  balance Decimal @default(0) @db.Decimal(10, 2)
 
   // Configuration
-  contributionRate  Decimal     @default(1.0) @db.Decimal(5, 2) // Multiplier for contributions
-  minWinAmount      Decimal?    @db.Decimal(10, 2)
+  contributionRate Decimal  @default(1.0) @db.Decimal(5, 2) // Multiplier for contributions
+  minWinAmount     Decimal? @db.Decimal(10, 2)
 
   // Status
-  isActive          Boolean     @default(true)
-  lastWonAt         DateTime?
-  lastWonBy         String?
-  lastWonAmount     Decimal?    @db.Decimal(10, 2)
+  isActive      Boolean   @default(true)
+  lastWonAt     DateTime?
+  lastWonBy     String?
+  lastWonAmount Decimal?  @db.Decimal(10, 2)
 
   // Timing
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  contributions     JackpotContribution[]
+  contributions JackpotContribution[]
 
   @@index([isActive])
   @@index([type])
 }
 
 model JackpotContribution {
-  id              String    @id @default(uuid())
-  jackpotId       String
-  gameId          String?
-  employeeId      String
-  amount          Decimal   @db.Decimal(10, 2)
-  createdAt       DateTime  @default(now())
+  id         String   @id @default(uuid())
+  jackpotId  String
+  gameId     String?
+  employeeId String
+  amount     Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
 
-  jackpot         Jackpot   @relation(fields: [jackpotId], references: [id], onDelete: Cascade)
-  game            Game?     @relation(fields: [gameId], references: [id], onDelete: SetNull)
-  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  jackpot  Jackpot  @relation(fields: [jackpotId], references: [id], onDelete: Cascade)
+  game     Game?    @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([jackpotId])
   @@index([employeeId])
@@ -634,35 +634,35 @@ model JackpotContribution {
 }
 
 model GameConfig {
-  id                    String    @id @default(uuid())
-  gameType              GameType  @unique
-  enabled               Boolean   @default(true)
-  minBet                Decimal   @default(1) @db.Decimal(10, 2)
-  maxBet                Decimal   @default(500) @db.Decimal(10, 2)
-  payoutMultiplier      Decimal?  @db.Decimal(5, 2) // Override default if set
-  jackpotContributionRate Decimal @default(0.05) @db.Decimal(5, 4) // 5% default
-  availableInChat       Boolean   @default(true)
-  availableOnWeb        Boolean   @default(true)
-  displayOrder          Int       @default(0)
-  customConfig          Json?     // Game-specific overrides
-  updatedAt             DateTime  @updatedAt
+  id                      String   @id @default(uuid())
+  gameType                GameType @unique
+  enabled                 Boolean  @default(true)
+  minBet                  Decimal  @default(1) @db.Decimal(10, 2)
+  maxBet                  Decimal  @default(500) @db.Decimal(10, 2)
+  payoutMultiplier        Decimal? @db.Decimal(5, 2) // Override default if set
+  jackpotContributionRate Decimal  @default(0.05) @db.Decimal(5, 4) // 5% default
+  availableInChat         Boolean  @default(true)
+  availableOnWeb          Boolean  @default(true)
+  displayOrder            Int      @default(0)
+  customConfig            Json? // Game-specific overrides
+  updatedAt               DateTime @updatedAt
 
   @@index([enabled])
 }
 
 model GameAsset {
-  id              String        @id @default(uuid())
-  campaignId      String?
-  gameType        GameType
-  assetType       GameAssetType
-  imageUrl        String
-  width           Int
-  height          Int
-  promptUsed      String?       @db.Text
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
+  id         String        @id @default(uuid())
+  campaignId String?
+  gameType   GameType
+  assetType  GameAssetType
+  imageUrl   String
+  width      Int
+  height     Int
+  promptUsed String?       @db.Text
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
 
-  campaign        Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@unique([campaignId, gameType, assetType])
   @@index([gameType, isActive])
@@ -670,40 +670,40 @@ model GameAsset {
 }
 
 model GameStats {
-  id                String    @id @default(uuid())
-  employeeId        String    @unique
+  id         String @id @default(uuid())
+  employeeId String @unique
 
   // Overall Stats
-  gamesPlayed       Int       @default(0)
-  gamesWon          Int       @default(0)
-  totalBet          Decimal   @default(0) @db.Decimal(12, 2)
-  totalWon          Decimal   @default(0) @db.Decimal(12, 2)
-  netProfit         Decimal   @default(0) @db.Decimal(12, 2)
+  gamesPlayed Int     @default(0)
+  gamesWon    Int     @default(0)
+  totalBet    Decimal @default(0) @db.Decimal(12, 2)
+  totalWon    Decimal @default(0) @db.Decimal(12, 2)
+  netProfit   Decimal @default(0) @db.Decimal(12, 2)
 
   // Streaks
-  currentWinStreak  Int       @default(0)
-  longestWinStreak  Int       @default(0)
+  currentWinStreak Int @default(0)
+  longestWinStreak Int @default(0)
 
   // By Game Type (JSON object)
-  statsByGame       Json      @default("{}")
+  statsByGame Json @default("{}")
 
   // Jackpot stats
-  jackpotsWon       Int       @default(0)
+  jackpotsWon          Int     @default(0)
   totalJackpotWinnings Decimal @default(0) @db.Decimal(12, 2)
 
-  updatedAt         DateTime  @updatedAt
+  updatedAt DateTime @updatedAt
 
-  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model DailyBonusSpin {
-  id              String    @id @default(uuid())
-  employeeId      String
-  prize           Decimal   @db.Decimal(10, 2)
-  segmentIndex    Int
-  createdAt       DateTime  @default(now())
+  id           String   @id @default(uuid())
+  employeeId   String
+  prize        Decimal  @db.Decimal(10, 2)
+  segmentIndex Int
+  createdAt    DateTime @default(now())
 
-  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, createdAt])
 }
@@ -715,6 +715,25 @@ model DailyBonusSpin {
 model SystemSettings {
   id          String   @id @default("system")
   themeMode   String   @default("campaign") // 'manual' or 'campaign'
-  manualTheme Json?    // CampaignTheme object when in manual mode
+  manualTheme Json? // CampaignTheme object when in manual mode
   updatedAt   DateTime @updatedAt
+}
+
+// =====================
+// SMTP Email Settings
+// =====================
+
+model SmtpSettings {
+  id             String    @id @default("smtp")
+  host           String?
+  port           Int       @default(587)
+  secure         Boolean   @default(false) // true for 465, false for other ports
+  user           String?
+  pass           String? // Encrypted in production
+  fromName       String    @default("Guincoin Rewards")
+  fromEmail      String?
+  isEnabled      Boolean   @default(false)
+  lastTestedAt   DateTime?
+  lastTestResult String?
+  updatedAt      DateTime  @updatedAt
 }
