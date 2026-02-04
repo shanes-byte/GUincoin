@@ -8,129 +8,129 @@ import prisma from '../config/database';
 import allotmentService from './allotmentService';
 import transactionService from './transactionService';
 import {
-  GoogleChatEvent,
   GoogleChatResponse,
-  ParsedCommand,
-  CommandName,
   CommandResult,
 } from '../types/googleChat';
 import {
-  buildSuccessCard,
   buildErrorCard,
   buildBalanceCard,
   buildAwardCard,
   buildTransferCard,
   buildHelpCard,
-  buildWelcomeCard,
   buildTextResponse,
 } from '../utils/googleChatCards';
 import { env } from '../config/env';
 
-// Command patterns for parsing
-const COMMAND_PATTERNS: Record<CommandName, RegExp> = {
-  award: /^\/award\s+(?:@?(\S+))\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/i,
-  balance: /^\/balance\s*$/i,
-  transfer: /^\/transfer\s+(?:@?(\S+))\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/i,
-  help: /^\/help\s*$/i,
+// Slash command IDs (configured in Google Chat API)
+const COMMAND_IDS = {
+  help: 1,
+  balance: 2,
+  transfer: 3,
+  award: 4,
 };
 
 export class GoogleChatService {
   /**
-   * Verify the request is from Google Chat
-   *
-   * Note: Google Chat no longer provides a simple verification token in the UI.
-   * Instead, they use Service Account authentication with Bearer tokens.
-   *
-   * For now, we perform basic validation that the request has the expected
-   * Google Chat event structure. The webhook URL itself is private and only
-   * known to Google, providing a layer of security.
-   *
-   * For additional security, you could implement Bearer token (JWT) verification
-   * using Google's public keys.
+   * Extract normalized event data from various Google Chat event formats
    */
-  verifyRequest(event: GoogleChatEvent): boolean {
-    // If a verification token is configured (legacy), check it
-    const verificationToken = env.GOOGLE_CHAT_VERIFICATION_TOKEN;
-    if (verificationToken && event.token) {
-      return event.token === verificationToken;
+  private normalizeEvent(rawEvent: any): {
+    userEmail: string | null;
+    messageText: string;
+    commandId: number | null;
+    spaceName: string | null;
+    messageId: string | null;
+  } {
+    // Handle nested chat structure (new format)
+    const chatData = rawEvent.chat || rawEvent;
+
+    // Get user email
+    let userEmail: string | null = null;
+    if (chatData.user?.email) {
+      userEmail = chatData.user.email.toLowerCase();
+    } else if (rawEvent.user?.email) {
+      userEmail = rawEvent.user.email.toLowerCase();
     }
 
-    // Basic structural validation - ensure this looks like a Google Chat event
-    if (!event.type) {
-      console.error('[GoogleChat] Invalid event: missing type');
-      return false;
-    }
+    // Get message and command info
+    let messageText = '';
+    let commandId: number | null = null;
+    let spaceName: string | null = null;
+    let messageId: string | null = null;
 
-    const validEventTypes = ['MESSAGE', 'ADDED_TO_SPACE', 'REMOVED_FROM_SPACE', 'CARD_CLICKED'];
-    if (!validEventTypes.includes(event.type)) {
-      console.error('[GoogleChat] Invalid event type:', event.type);
-      return false;
-    }
+    // Check for appCommandPayload (slash command via new format)
+    if (chatData.appCommandPayload) {
+      const payload = chatData.appCommandPayload;
+      const message = payload.message;
 
-    // For MESSAGE events, verify we have user info
-    if (event.type === 'MESSAGE' && !event.user) {
-      console.error('[GoogleChat] Invalid MESSAGE event: missing user');
-      return false;
-    }
+      if (message) {
+        messageText = message.argumentText || message.text || '';
+        messageId = message.name || null;
 
-    return true;
-  }
-
-  /**
-   * Parse the command from the event message
-   */
-  parseCommand(event: GoogleChatEvent): ParsedCommand | null {
-    const messageText = event.message?.argumentText?.trim() || event.message?.text?.trim();
-
-    if (!messageText) {
-      return null;
-    }
-
-    // Try to match each command pattern
-    for (const [command, pattern] of Object.entries(COMMAND_PATTERNS)) {
-      const match = messageText.match(pattern);
-      if (match) {
-        const parsed: ParsedCommand = {
-          command: command as CommandName,
-          rawText: messageText,
-        };
-
-        if (command === 'award' || command === 'transfer') {
-          // Extract target from @mention or direct text
-          let targetEmail = match[1];
-
-          // Check if there's a user mention annotation
-          const userMention = event.message?.annotations?.find(
-            (a) => a.type === 'USER_MENTION' && a.userMention?.user?.email
-          );
-
-          if (userMention?.userMention?.user?.email) {
-            targetEmail = userMention.userMention.user.email;
-          } else if (targetEmail && !targetEmail.includes('@')) {
-            // If it's just a name without @, try to construct email
-            // This is a fallback - Google Chat should provide the email via annotation
-            targetEmail = targetEmail.toLowerCase();
-          }
-
-          parsed.targetEmail = targetEmail?.toLowerCase();
-          parsed.targetMention = match[1];
-          parsed.amount = parseFloat(match[2]);
-          parsed.message = match[3]?.trim() || undefined;
+        if (message.slashCommand?.commandId) {
+          commandId = message.slashCommand.commandId;
         }
+      }
 
-        return parsed;
+      if (payload.space?.name) {
+        spaceName = payload.space.name;
+      }
+    }
+    // Check for direct message (old format)
+    else if (chatData.message || rawEvent.message) {
+      const message = chatData.message || rawEvent.message;
+      messageText = message.argumentText || message.text || '';
+      messageId = message.name || null;
+
+      if (message.slashCommand?.commandId) {
+        commandId = message.slashCommand.commandId;
       }
     }
 
-    return null;
+    // Get space name
+    if (!spaceName) {
+      spaceName = chatData.space?.name || rawEvent.space?.name || null;
+    }
+
+    return { userEmail, messageText, commandId, spaceName, messageId };
+  }
+
+  /**
+   * Determine event type from the raw event
+   */
+  private getEventType(rawEvent: any): string {
+    // Old format
+    if (rawEvent.type) {
+      return rawEvent.type;
+    }
+
+    const chatData = rawEvent.chat || rawEvent;
+
+    // New format - determine from structure
+    if (chatData.appCommandPayload) {
+      return 'MESSAGE';
+    }
+
+    if (chatData.eventType) {
+      return chatData.eventType;
+    }
+
+    // Default to MESSAGE if we have message content
+    if (chatData.message) {
+      return 'MESSAGE';
+    }
+
+    return 'UNKNOWN';
   }
 
   /**
    * Create an audit log entry
    */
   async createAuditLog(
-    event: GoogleChatEvent,
-    command: ParsedCommand | null,
+    userEmail: string | null,
+    commandName: string | null,
+    messageText: string | null,
+    spaceName: string | null,
+    messageId: string | null,
     status: ChatCommandStatus,
     errorMessage?: string,
     transactionId?: string
@@ -138,13 +138,12 @@ export class GoogleChatService {
     const audit = await prisma.chatCommandAudit.create({
       data: {
         provider: ChatProvider.google_chat,
-        eventType: event.type,
-        messageId: event.message?.name,
-        spaceName: event.space?.name,
-        threadName: event.message?.thread?.name,
-        userEmail: event.user?.email?.toLowerCase(),
-        commandText: command?.rawText || event.message?.text,
-        commandName: command?.command,
+        eventType: 'MESSAGE',
+        messageId,
+        spaceName,
+        userEmail,
+        commandText: messageText,
+        commandName,
         status,
         errorMessage,
         transactionId,
@@ -181,17 +180,6 @@ export class GoogleChatService {
       where: { email: email.toLowerCase() },
       include: { account: true },
     });
-  }
-
-  /**
-   * Check if an employee is a manager
-   */
-  async isManager(employeeId: string): Promise<boolean> {
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: { isManager: true },
-    });
-    return employee?.isManager ?? false;
   }
 
   /**
@@ -235,51 +223,31 @@ export class GoogleChatService {
     amount: number,
     description: string
   ): Promise<CommandResult> {
-    // Find the manager
     const manager = await this.findEmployeeByEmail(managerEmail);
 
     if (!manager) {
-      return {
-        success: false,
-        message: 'You are not registered in Guincoin.',
-      };
+      return { success: false, message: 'You are not registered in Guincoin.' };
     }
 
     if (!manager.isManager) {
-      return {
-        success: false,
-        message: 'Only managers can use the /award command.',
-      };
+      return { success: false, message: 'Only managers can use the /award command.' };
     }
 
-    // Validate amount
     if (amount <= 0) {
-      return {
-        success: false,
-        message: 'Award amount must be a positive number.',
-      };
+      return { success: false, message: 'Award amount must be a positive number.' };
     }
 
-    // Check target exists
     const target = await this.findEmployeeByEmail(targetEmail);
 
     if (!target) {
-      return {
-        success: false,
-        message: `Employee "${targetEmail}" is not registered in Guincoin.`,
-      };
+      return { success: false, message: `Employee "${targetEmail}" is not registered in Guincoin.` };
     }
 
-    // Check if awarding to self
     if (target.id === manager.id) {
-      return {
-        success: false,
-        message: 'You cannot award coins to yourself.',
-      };
+      return { success: false, message: 'You cannot award coins to yourself.' };
     }
 
     try {
-      // Check allotment before awarding
       const canAward = await allotmentService.canAward(manager.id, amount);
       if (!canAward) {
         const allotment = await allotmentService.getCurrentAllotment(manager.id);
@@ -289,7 +257,6 @@ export class GoogleChatService {
         };
       }
 
-      // Execute the award
       const transaction = await allotmentService.awardCoins(
         manager.id,
         targetEmail,
@@ -297,7 +264,6 @@ export class GoogleChatService {
         description || `Award from ${manager.name} via Google Chat`
       );
 
-      // Get updated allotment
       const allotment = await allotmentService.getCurrentAllotment(manager.id);
 
       return {
@@ -312,10 +278,9 @@ export class GoogleChatService {
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        message: errorMessage,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }
@@ -329,41 +294,25 @@ export class GoogleChatService {
     amount: number,
     message?: string
   ): Promise<CommandResult> {
-    // Find sender
     const sender = await this.findEmployeeByEmail(senderEmail);
 
     if (!sender) {
-      return {
-        success: false,
-        message: 'You are not registered in Guincoin.',
-      };
+      return { success: false, message: 'You are not registered in Guincoin.' };
     }
 
     if (!sender.account) {
-      return {
-        success: false,
-        message: 'Your account is not set up. Please sign in at the web app first.',
-      };
+      return { success: false, message: 'Your account is not set up. Please sign in at the web app first.' };
     }
 
-    // Validate amount
     if (amount <= 0) {
-      return {
-        success: false,
-        message: 'Transfer amount must be a positive number.',
-      };
+      return { success: false, message: 'Transfer amount must be a positive number.' };
     }
 
-    // Check if transferring to self
     if (targetEmail.toLowerCase() === senderEmail.toLowerCase()) {
-      return {
-        success: false,
-        message: 'You cannot send coins to yourself.',
-      };
+      return { success: false, message: 'You cannot send coins to yourself.' };
     }
 
     try {
-      // Check balance
       const balance = await transactionService.getAccountBalance(sender.account.id, true);
       if (balance.total < amount) {
         return {
@@ -372,11 +321,7 @@ export class GoogleChatService {
         };
       }
 
-      // Check transfer limits
       const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
       const limit = await prisma.peerTransferLimit.findFirst({
         where: {
           employeeId: sender.id,
@@ -392,10 +337,7 @@ export class GoogleChatService {
             sourceEmployeeId: sender.id,
             transactionType: 'peer_transfer_sent',
             status: { in: ['posted', 'pending'] },
-            createdAt: {
-              gte: limit.periodStart,
-              lte: limit.periodEnd,
-            },
+            createdAt: { gte: limit.periodStart, lte: limit.periodEnd },
           },
           _sum: { amount: true },
         });
@@ -405,25 +347,19 @@ export class GoogleChatService {
           const remaining = Number(limit.maxAmount) - used;
           return {
             success: false,
-            message: `Transfer limit exceeded. You have ${remaining.toLocaleString()} Guincoins remaining in your transfer limit this month.`,
+            message: `Transfer limit exceeded. You have ${remaining.toLocaleString()} Guincoins remaining this month.`,
           };
         }
       }
 
-      // Find recipient
       const recipient = await this.findEmployeeByEmail(targetEmail);
 
       if (!recipient) {
-        // Create pending transfer for unknown recipient
         const workspaceDomain = env.GOOGLE_WORKSPACE_DOMAIN;
         if (workspaceDomain && !targetEmail.toLowerCase().endsWith(`@${workspaceDomain.toLowerCase()}`)) {
-          return {
-            success: false,
-            message: 'Recipient email must be from your organization.',
-          };
+          return { success: false, message: 'Recipient email must be from your organization.' };
         }
 
-        // Create pending transfer
         const senderTransaction = await transactionService.createPendingTransaction(
           sender.account.id,
           'peer_transfer_sent',
@@ -446,25 +382,15 @@ export class GoogleChatService {
           success: true,
           message: 'Transfer pending',
           transactionId: senderTransaction.id,
-          data: {
-            recipientName: targetEmail,
-            amount,
-            message,
-            isPending: true,
-          },
+          data: { recipientName: targetEmail, amount, message, isPending: true },
         };
       }
 
       if (!recipient.account) {
-        return {
-          success: false,
-          message: `${recipient.name}'s account is not set up yet.`,
-        };
+        return { success: false, message: `${recipient.name}'s account is not set up yet.` };
       }
 
-      // Execute the transfer using a transaction
       const result = await prisma.$transaction(async (tx) => {
-        // Create sender transaction
         const sentTransaction = await tx.ledgerTransaction.create({
           data: {
             accountId: sender.account!.id,
@@ -476,7 +402,6 @@ export class GoogleChatService {
           },
         });
 
-        // Create recipient transaction
         const receivedTransaction = await tx.ledgerTransaction.create({
           data: {
             accountId: recipient.account!.id,
@@ -489,7 +414,6 @@ export class GoogleChatService {
           },
         });
 
-        // Post both transactions
         await transactionService.postTransaction(sentTransaction.id, tx);
         await transactionService.postTransaction(receivedTransaction.id, tx);
 
@@ -500,189 +424,180 @@ export class GoogleChatService {
         success: true,
         message: 'Transfer completed successfully',
         transactionId: result.id,
-        data: {
-          recipientName: recipient.name,
-          amount,
-          message,
-          isPending: false,
-        },
+        data: { recipientName: recipient.name, amount, message, isPending: false },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         success: false,
-        message: errorMessage,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  }
+
+  /**
+   * Parse transfer/award arguments from message text
+   */
+  private parseArguments(text: string): { target: string; amount: number; message: string } | null {
+    // Remove the command prefix if present
+    const cleaned = text.replace(/^\/?(?:transfer|award)\s*/i, '').trim();
+
+    // Match: @user or user, then amount, then optional message
+    const match = cleaned.match(/^@?(\S+)\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      target: match[1],
+      amount: parseFloat(match[2]),
+      message: match[3]?.trim() || '',
+    };
   }
 
   /**
    * Handle incoming Google Chat webhook event
    */
-  async handleEvent(event: GoogleChatEvent): Promise<GoogleChatResponse> {
-    // Handle non-message events
-    if (event.type === 'ADDED_TO_SPACE') {
-      return buildWelcomeCard();
-    }
+  async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
+    console.log('[GoogleChat] Raw event:', JSON.stringify(rawEvent, null, 2));
 
-    if (event.type === 'REMOVED_FROM_SPACE') {
-      // No response needed when removed
-      return buildTextResponse('');
-    }
+    // Normalize the event data
+    const { userEmail, messageText, commandId, spaceName, messageId } = this.normalizeEvent(rawEvent);
 
-    if (event.type !== 'MESSAGE') {
-      return buildTextResponse('');
-    }
+    console.log('[GoogleChat] Normalized:', { userEmail, messageText, commandId, spaceName });
 
-    // Verify request
-    if (!this.verifyRequest(event)) {
-      console.error('[GoogleChat] Request verification failed');
-      return buildErrorCard('Verification Failed', 'Unable to verify this request.');
-    }
-
-    // Get user email
-    const userEmail = event.user?.email?.toLowerCase();
+    // Check for user email
     if (!userEmail) {
-      return buildErrorCard('Error', 'Unable to identify user. Please ensure your email is visible.');
+      console.error('[GoogleChat] No user email found');
+      return buildErrorCard('Error', 'Unable to identify user.');
     }
 
-    // Parse the command
-    const command = this.parseCommand(event);
+    // Determine command from ID or text
+    let commandName: string | null = null;
+
+    if (commandId === COMMAND_IDS.help) {
+      commandName = 'help';
+    } else if (commandId === COMMAND_IDS.balance) {
+      commandName = 'balance';
+    } else if (commandId === COMMAND_IDS.transfer) {
+      commandName = 'transfer';
+    } else if (commandId === COMMAND_IDS.award) {
+      commandName = 'award';
+    } else {
+      // Try to parse from text
+      const lower = messageText.toLowerCase().trim();
+      if (lower.startsWith('/help') || lower === 'help') {
+        commandName = 'help';
+      } else if (lower.startsWith('/balance') || lower === 'balance') {
+        commandName = 'balance';
+      } else if (lower.startsWith('/transfer') || lower.startsWith('transfer')) {
+        commandName = 'transfer';
+      } else if (lower.startsWith('/award') || lower.startsWith('award')) {
+        commandName = 'award';
+      }
+    }
 
     // Create audit log
     const auditId = await this.createAuditLog(
-      event,
-      command,
+      userEmail,
+      commandName,
+      messageText,
+      spaceName,
+      messageId,
       ChatCommandStatus.received
     );
 
-    // Handle unrecognized command
-    if (!command) {
-      await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Unrecognized command');
+    try {
+      // Handle commands
+      if (commandName === 'help' || !commandName) {
+        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+        const employee = await this.findEmployeeByEmail(userEmail);
+        return buildHelpCard(employee?.isManager ?? false);
+      }
 
-      // Check if user is registered and if they're a manager for help
+      if (commandName === 'balance') {
+        await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
+        const result = await this.executeBalance(userEmail);
+
+        if (result.success) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          return buildBalanceCard(
+            result.data?.userName as string,
+            result.data?.balance as { posted: number; pending: number; total: number }
+          );
+        } else {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
+          return buildErrorCard('Balance Error', result.message);
+        }
+      }
+
+      if (commandName === 'transfer') {
+        const args = this.parseArguments(messageText);
+
+        if (!args) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
+          return buildErrorCard('Invalid Command', 'Usage: /transfer @user amount [message]');
+        }
+
+        await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
+        const result = await this.executeTransfer(userEmail, args.target, args.amount, args.message);
+
+        if (result.success) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
+          return buildTransferCard(
+            result.data?.recipientName as string,
+            result.data?.amount as number,
+            result.data?.message as string | undefined,
+            result.data?.isPending as boolean
+          );
+        } else {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
+          return buildErrorCard('Transfer Error', result.message);
+        }
+      }
+
+      if (commandName === 'award') {
+        const employee = await this.findEmployeeByEmail(userEmail);
+
+        if (!employee?.isManager) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a manager');
+          return buildErrorCard('Unauthorized', 'Only managers can use the /award command.');
+        }
+
+        const args = this.parseArguments(messageText);
+
+        if (!args) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
+          return buildErrorCard('Invalid Command', 'Usage: /award @user amount [message]');
+        }
+
+        await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
+        const result = await this.executeAward(userEmail, args.target, args.amount, args.message);
+
+        if (result.success) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
+          return buildAwardCard(
+            result.data?.recipientName as string,
+            result.data?.amount as number,
+            result.data?.description as string,
+            result.data?.remainingBudget as number
+          );
+        } else {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
+          return buildErrorCard('Award Error', result.message);
+        }
+      }
+
+      // Unknown command
+      await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Unknown command');
       const employee = await this.findEmployeeByEmail(userEmail);
       return buildHelpCard(employee?.isManager ?? false);
-    }
 
-    try {
-      let result: CommandResult;
-
-      switch (command.command) {
-        case 'balance':
-          await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
-          result = await this.executeBalance(userEmail);
-          break;
-
-        case 'help':
-          await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
-          const employee = await this.findEmployeeByEmail(userEmail);
-          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-          return buildHelpCard(employee?.isManager ?? false);
-
-        case 'award':
-          // Check authorization (manager only)
-          const awardManager = await this.findEmployeeByEmail(userEmail);
-          if (!awardManager?.isManager) {
-            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'User is not a manager');
-            return buildErrorCard(
-              'Unauthorized',
-              'Only managers can use the /award command.',
-              'Use /help to see available commands for your role.'
-            );
-          }
-
-          if (!command.targetEmail || !command.amount) {
-            await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing required parameters');
-            return buildErrorCard(
-              'Invalid Command',
-              'Missing required parameters.',
-              'Usage: /award @user [amount] [message]'
-            );
-          }
-
-          await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
-          result = await this.executeAward(
-            userEmail,
-            command.targetEmail,
-            command.amount,
-            command.message || ''
-          );
-          break;
-
-        case 'transfer':
-          if (!command.targetEmail || !command.amount) {
-            await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing required parameters');
-            return buildErrorCard(
-              'Invalid Command',
-              'Missing required parameters.',
-              'Usage: /transfer @user [amount] [message]'
-            );
-          }
-
-          await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
-          result = await this.executeTransfer(
-            userEmail,
-            command.targetEmail,
-            command.amount,
-            command.message
-          );
-          break;
-
-        default:
-          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Unknown command');
-          return buildErrorCard('Unknown Command', 'Command not recognized.', 'Type /help for available commands.');
-      }
-
-      // Update audit log with result
-      if (result.success) {
-        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
-      } else {
-        await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
-      }
-
-      // Build response based on command and result
-      return this.buildResponse(command.command, result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      console.error('[GoogleChat] Error:', errorMessage);
       await this.updateAuditLog(auditId, ChatCommandStatus.failed, errorMessage);
-      return buildErrorCard('Error', errorMessage, 'Please try again or contact support.');
-    }
-  }
-
-  /**
-   * Build the appropriate response card based on command and result
-   */
-  private buildResponse(command: CommandName, result: CommandResult): GoogleChatResponse {
-    if (!result.success) {
-      return buildErrorCard('Command Failed', result.message);
-    }
-
-    switch (command) {
-      case 'balance':
-        return buildBalanceCard(
-          result.data?.userName as string,
-          result.data?.balance as { posted: number; pending: number; total: number }
-        );
-
-      case 'award':
-        return buildAwardCard(
-          result.data?.recipientName as string,
-          result.data?.amount as number,
-          result.data?.description as string,
-          result.data?.remainingBudget as number
-        );
-
-      case 'transfer':
-        return buildTransferCard(
-          result.data?.recipientName as string,
-          result.data?.amount as number,
-          result.data?.message as string | undefined,
-          result.data?.isPending as boolean
-        );
-
-      default:
-        return buildSuccessCard('Success', result.message);
+      return buildErrorCard('Error', errorMessage);
     }
   }
 }
