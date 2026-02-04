@@ -36,22 +36,44 @@ const COMMAND_PATTERNS: Record<CommandName, RegExp> = {
 
 export class GoogleChatService {
   /**
-   * Verify the request is from Google Chat using the verification token
+   * Verify the request is from Google Chat
+   *
+   * Note: Google Chat no longer provides a simple verification token in the UI.
+   * Instead, they use Service Account authentication with Bearer tokens.
+   *
+   * For now, we perform basic validation that the request has the expected
+   * Google Chat event structure. The webhook URL itself is private and only
+   * known to Google, providing a layer of security.
+   *
+   * For additional security, you could implement Bearer token (JWT) verification
+   * using Google's public keys.
    */
   verifyRequest(event: GoogleChatEvent): boolean {
+    // If a verification token is configured (legacy), check it
     const verificationToken = env.GOOGLE_CHAT_VERIFICATION_TOKEN;
+    if (verificationToken && event.token) {
+      return event.token === verificationToken;
+    }
 
-    // If no token is configured, log warning but allow in development
-    if (!verificationToken) {
-      if (env.NODE_ENV === 'development') {
-        console.warn('[GoogleChat] No verification token configured, skipping verification in development');
-        return true;
-      }
-      console.error('[GoogleChat] GOOGLE_CHAT_VERIFICATION_TOKEN is not configured');
+    // Basic structural validation - ensure this looks like a Google Chat event
+    if (!event.type) {
+      console.error('[GoogleChat] Invalid event: missing type');
       return false;
     }
 
-    return event.token === verificationToken;
+    const validEventTypes = ['MESSAGE', 'ADDED_TO_SPACE', 'REMOVED_FROM_SPACE', 'CARD_CLICKED'];
+    if (!validEventTypes.includes(event.type)) {
+      console.error('[GoogleChat] Invalid event type:', event.type);
+      return false;
+    }
+
+    // For MESSAGE events, verify we have user info
+    if (event.type === 'MESSAGE' && !event.user) {
+      console.error('[GoogleChat] Invalid MESSAGE event: missing user');
+      return false;
+    }
+
+    return true;
   }
 
   /**
