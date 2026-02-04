@@ -17,6 +17,7 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   COOKIE_DOMAIN: z.string().optional(),
+  GOOGLE_CHAT_VERIFICATION_TOKEN: z.string().optional(),
 });
 
 // In production, enforce required vars
@@ -52,4 +53,5 @@ export const env = {
   RATE_LIMIT_MAX: parsed.data.RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS: parsed.data.RATE_LIMIT_WINDOW_MS,
   COOKIE_DOMAIN: parsed.data.COOKIE_DOMAIN,
+  GOOGLE_CHAT_VERIFICATION_TOKEN: parsed.data.GOOGLE_CHAT_VERIFICATION_TOKEN,
 };
