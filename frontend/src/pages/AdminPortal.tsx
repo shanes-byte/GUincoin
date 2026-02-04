@@ -47,6 +47,7 @@ import { useToast } from '../components/Toast';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
 import { CampaignStudio } from '../components/Admin/CampaignStudio';
 import SmtpSettings from '../components/Admin/SmtpSettings';
+import BulkImportPanel from '../components/Admin/BulkImportPanel';
 
 interface Submission {
   id: string;
@@ -65,7 +66,7 @@ interface Submission {
   status: string;
 }
 
-type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings';
+type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'bulk-import' | 'settings';
 type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments';
 
 export default function AdminPortal() {
@@ -203,7 +204,7 @@ export default function AdminPortal() {
         const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
         if (axiosErr.response?.status === 401) {
           navigate('/login');
-        } else if (error.response?.status === 403) {
+        } else if (axiosErr.response?.status === 403) {
           // Forbidden - not an admin
           navigate('/dashboard');
         }
@@ -808,6 +809,7 @@ export default function AdminPortal() {
     { id: 'store' as TabType, name: 'Store', count: pendingPurchases.length },
     { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null },
     { id: 'google-chat' as TabType, name: 'Google Chat', count: chatStats?.recentActivity || null },
+    { id: 'bulk-import' as TabType, name: 'Bulk Import', count: null },
     { id: 'settings' as TabType, name: 'Settings', count: null },
   ];
 
@@ -1845,6 +1847,16 @@ export default function AdminPortal() {
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Bulk Import Tab */}
+        {activeTab === 'bulk-import' && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-6">Bulk Import Guincoins</h2>
+            <BulkImportPanel
+              onToast={(message, type) => addToast(message, type)}
+            />
           </div>
         )}
 

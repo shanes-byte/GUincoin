@@ -1022,4 +1022,166 @@ export const testSmtpConnection = (testEmail?: string) =>
     { testEmail }
   );
 
+// =====================
+// Bulk Import
+// =====================
+
+export interface BulkImportJob {
+  id: string;
+  name: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdById: string;
+  totalRows: number;
+  processedRows: number;
+  successCount: number;
+  errorCount: number;
+  columnMapping: Record<string, string>;
+  errorLog: Array<{ row: number; message: string }> | null;
+  createdAt: string;
+  completedAt: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  _count?: {
+    pendingBalances: number;
+  };
+  stats?: {
+    totalPending: number;
+    totalClaimed: number;
+    totalExpired: number;
+    invitesSent: number;
+  };
+}
+
+export interface PendingImportBalance {
+  id: string;
+  importJobId: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  amount: number;
+  status: 'pending' | 'claimed' | 'expired';
+  transactionId: string | null;
+  inviteSentAt: string | null;
+  claimedAt: string | null;
+  createdAt: string;
+  importJob?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface MergedRow {
+  name: string;
+  email: string;
+  amount: number;
+  market?: string;
+  confidence: number;
+  matchType: 'auto' | 'manual' | 'none';
+  balanceRowIndex: number;
+  emailRowIndex?: number;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: Array<{ row: number; field: string; message: string; severity: 'error' | 'warning' }>;
+  warnings: Array<{ row: number; field: string; message: string; severity: 'error' | 'warning' }>;
+  summary: {
+    totalRows: number;
+    validRows: number;
+    registeredUsers: number;
+    unregisteredUsers: number;
+    duplicates: number;
+  };
+}
+
+export interface UploadResult {
+  balanceFile: {
+    filename: string;
+    rowCount: number;
+    headers: string[];
+    preview: Record<string, unknown>[];
+  };
+  emailFile: {
+    filename: string;
+    rowCount: number;
+    headers: string[];
+    preview: Record<string, unknown>[];
+  } | null;
+}
+
+export interface PreviewResult {
+  rows: MergedRow[];
+  summary: {
+    total: number;
+    highConfidence: number;
+    mediumConfidence: number;
+    noMatch: number;
+    totalAmount: number;
+  };
+}
+
+export interface ImportJobResult {
+  jobId: string;
+  totalRows: number;
+  processedRows: number;
+  successCount: number;
+  errorCount: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+// Upload spreadsheet files
+export const uploadBulkImportFiles = (formData: FormData) =>
+  api.post<UploadResult>('/admin/bulk-import/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+// Preview merged data with name matching
+export const previewBulkImport = (formData: FormData) =>
+  api.post<PreviewResult>('/admin/bulk-import/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+// Validate import data
+export const validateBulkImport = (rows: MergedRow[]) =>
+  api.post<ValidationResult>('/admin/bulk-import/validate', { rows });
+
+// Create and process import job
+export const createBulkImportJob = (data: {
+  name: string;
+  rows: MergedRow[];
+  columnMapping?: Record<string, string>;
+}) =>
+  api.post<ImportJobResult>('/admin/bulk-import/create', data);
+
+// List all import jobs
+export const getBulkImportJobs = (params?: { limit?: number; offset?: number }) =>
+  api.get<{ jobs: BulkImportJob[]; total: number }>('/admin/bulk-import/jobs', { params });
+
+// Get specific import job details
+export const getBulkImportJob = (jobId: string) =>
+  api.get<BulkImportJob & { pendingBalances: PendingImportBalance[] }>(`/admin/bulk-import/jobs/${jobId}`);
+
+// Send invitation emails for all pending balances in a job
+export const sendBulkImportInvitations = (jobId: string) =>
+  api.post<{ message: string; sent: number; failed: number }>(`/admin/bulk-import/jobs/${jobId}/send-invitations`);
+
+// List all pending import balances
+export const getPendingImportBalances = (params?: {
+  status?: 'pending' | 'claimed' | 'expired';
+  email?: string;
+  limit?: number;
+  offset?: number;
+}) =>
+  api.get<{ balances: PendingImportBalance[]; total: number }>('/admin/bulk-import/pending', { params });
+
+// Send invitation email for single pending balance
+export const sendPendingImportInvitation = (pendingId: string) =>
+  api.post<{ message: string }>(`/admin/bulk-import/pending/${pendingId}/send-invitation`);
+
+// Expire (cancel) a pending import balance
+export const expirePendingImportBalance = (pendingId: string) =>
+  api.post<{ message: string }>(`/admin/bulk-import/pending/${pendingId}/expire`);
+
 export default api;
