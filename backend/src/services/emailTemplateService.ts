@@ -11,7 +11,8 @@ export type EmailTemplateKey =
   | 'wellness_rejected'
   | 'purchase_fulfilled'
   | 'role_assigned'
-  | 'allotment_deposit';
+  | 'allotment_deposit'
+  | 'bulk_import_invitation';
 
 export interface EmailTemplateDefinition {
   key: EmailTemplateKey;
@@ -235,6 +236,37 @@ const defaultTemplates: EmailTemplateDefinition[] = [
       </div>
     `,
     variables: ['managerName', 'amount'],
+  },
+  {
+    key: 'bulk_import_invitation',
+    name: 'Bulk Import Invitation',
+    description: 'Sent to unregistered users when Guincoins are imported for them.',
+    subject: 'You have {{amount}} Guincoins waiting!',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">You Have Guincoins Waiting!</h2>
+        <p>Hi {{recipientName}},</p>
+        <p>Great news! <strong>{{amount}} Guincoins</strong> have been awarded to you through the Guincoin Rewards Platform.</p>
+        <p>To claim your Guincoins, simply sign in to your account:</p>
+        <p style="margin: 20px 0;">
+          <a href="{{signinUrl}}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Sign In to Claim
+          </a>
+        </p>
+        <p>Once you sign in, your Guincoins will be automatically added to your balance.</p>
+        <p>With Guincoin, you can:</p>
+        <ul style="color: #374151; line-height: 1.8;">
+          <li>Receive recognition awards from managers</li>
+          <li>Send and receive peer-to-peer transfers</li>
+          <li>Complete wellness tasks for rewards</li>
+          <li>Redeem your Guincoins in the company store</li>
+        </ul>
+        <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+          This is an automated message from the Guincoin Rewards Platform.
+        </p>
+      </div>
+    `,
+    variables: ['recipientName', 'amount', 'signinUrl'],
   },
 ];
 

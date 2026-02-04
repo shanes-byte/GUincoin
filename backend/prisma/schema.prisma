@@ -40,6 +40,8 @@ model Employee {
   gameStats            GameStats?
   dailyBonusSpins      DailyBonusSpin[]
   jackpotContributions JackpotContribution[]
+  // Bulk import relations
+  importJobsCreated    BulkImportJob[]       @relation("ImportJobsCreated")
 }
 
 model Account {
@@ -68,13 +70,14 @@ model LedgerTransaction {
   updatedAt            DateTime          @updatedAt
   postedAt             DateTime?
 
-  account            Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  sourceEmployee     Employee?           @relation("ManagerAwards", fields: [sourceEmployeeId], references: [id], map: "LedgerTransaction_sourceEmployeeId_manager_fkey")
-  transferSender     Employee?           @relation("SentTransfers", fields: [sourceEmployeeId], references: [id], map: "LedgerTransaction_sourceEmployeeId_transfer_fkey")
-  transferReceiver   Employee?           @relation("ReceivedTransfers", fields: [targetEmployeeId], references: [id])
-  wellnessSubmission WellnessSubmission? @relation(fields: [wellnessSubmissionId], references: [id])
-  purchaseOrder      StorePurchaseOrder?
-  chatCommandAudits  ChatCommandAudit[]
+  account              Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sourceEmployee       Employee?             @relation("ManagerAwards", fields: [sourceEmployeeId], references: [id], map: "LedgerTransaction_sourceEmployeeId_manager_fkey")
+  transferSender       Employee?             @relation("SentTransfers", fields: [sourceEmployeeId], references: [id], map: "LedgerTransaction_sourceEmployeeId_transfer_fkey")
+  transferReceiver     Employee?             @relation("ReceivedTransfers", fields: [targetEmployeeId], references: [id])
+  wellnessSubmission   WellnessSubmission?   @relation(fields: [wellnessSubmissionId], references: [id])
+  purchaseOrder        StorePurchaseOrder?
+  chatCommandAudits    ChatCommandAudit[]
+  pendingImportBalance PendingImportBalance?
 
   @@index([accountId])
   @@index([status])
@@ -92,6 +95,7 @@ enum TransactionType {
   adjustment
   store_purchase
   allotment_deposit // Admin deposits funds into manager's allotment balance
+  bulk_import // Bulk imported balance from spreadsheet
   // Game transaction types
   game_bet
   game_win
@@ -737,4 +741,60 @@ model SmtpSettings {
   lastTestedAt   DateTime?
   lastTestResult String?
   updatedAt      DateTime  @updatedAt
+}
+
+// =====================
+// Bulk Import System
+// =====================
+
+enum BulkImportStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum PendingImportBalanceStatus {
+  pending
+  claimed
+  expired
+}
+
+model BulkImportJob {
+  id            String           @id @default(uuid())
+  name          String
+  status        BulkImportStatus @default(pending)
+  createdById   String
+  totalRows     Int              @default(0)
+  processedRows Int              @default(0)
+  successCount  Int              @default(0)
+  errorCount    Int              @default(0)
+  columnMapping Json
+  errorLog      Json?
+  createdAt     DateTime         @default(now())
+  completedAt   DateTime?
+
+  createdBy       Employee               @relation("ImportJobsCreated", fields: [createdById], references: [id])
+  pendingBalances PendingImportBalance[]
+
+  @@index([status])
+}
+
+model PendingImportBalance {
+  id             String                     @id @default(uuid())
+  importJobId    String
+  recipientEmail String
+  recipientName  String?
+  amount         Decimal                    @db.Decimal(10, 2)
+  status         PendingImportBalanceStatus @default(pending)
+  transactionId  String?                    @unique
+  inviteSentAt   DateTime?
+  claimedAt      DateTime?
+  createdAt      DateTime                   @default(now())
+
+  importJob   BulkImportJob      @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  transaction LedgerTransaction? @relation(fields: [transactionId], references: [id])
+
+  @@unique([importJobId, recipientEmail])
+  @@index([recipientEmail, status])
 }

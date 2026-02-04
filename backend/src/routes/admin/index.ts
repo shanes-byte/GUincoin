@@ -10,6 +10,7 @@ import bannersRoutes from './banners';
 import gamesRoutes from './games';
 import studioRoutes from './studio';
 import settingsRoutes from './settings';
+import bulkImportRoutes from './bulkImport';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use(bannersRoutes);
 router.use('/games', gamesRoutes);
 router.use(studioRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/bulk-import', bulkImportRoutes);
 
 export default router;

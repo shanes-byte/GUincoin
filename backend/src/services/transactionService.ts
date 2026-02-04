@@ -61,6 +61,7 @@ export class TransactionService {
         TransactionType.game_refund,
         TransactionType.jackpot_win,
         TransactionType.daily_bonus,
+        TransactionType.bulk_import,
       ];
       const debitTypes: TransactionType[] = [
         TransactionType.peer_transfer_sent,

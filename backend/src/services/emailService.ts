@@ -288,6 +288,24 @@ export class EmailService {
     if (!rendered) return;
     await this.sendEmail(managerEmail, rendered.subject, rendered.html);
   }
+
+  /**
+   * Send invitation email for bulk imported balance
+   */
+  async sendBulkImportInvitation(
+    recipientEmail: string,
+    recipientName: string,
+    amount: number
+  ) {
+    const rendered = await renderTemplate('bulk_import_invitation', {
+      recipientName,
+      amount,
+      signinUrl: `${this.frontendUrl}/login`,
+    });
+
+    if (!rendered) return;
+    await this.sendEmail(recipientEmail, rendered.subject, rendered.html);
+  }
 }
 
 export default new EmailService();

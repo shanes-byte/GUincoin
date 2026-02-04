@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import prisma from './database';
 import pendingTransferService from '../services/pendingTransferService';
+import bulkImportService from '../services/bulkImportService';
 import accountService from '../services/accountService';
 import emailService from '../services/emailService';
 import { env } from './env';
@@ -72,7 +73,11 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
           // Ensure account exists (auto-create if missing)
           await accountService.getOrCreateAccount(employee.id);
 
+          // Claim any pending transfers from peer-to-peer transfers
           await pendingTransferService.claimPendingTransfers(email);
+
+          // Claim any pending import balances from bulk imports
+          await bulkImportService.claimPendingImportBalances(email);
 
           return done(null, employee);
         } catch (error) {
