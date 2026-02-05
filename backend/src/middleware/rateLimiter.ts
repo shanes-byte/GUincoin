@@ -79,9 +79,11 @@ export function createRateLimiter(
       error: 'Too many requests',
       message: `Rate limit exceeded. Please try again later.`,
     },
-    keyGenerator: (req) => {
-      const key = req.ip || req.socket?.remoteAddress || 'unknown';
-      return `${keyPrefix}:${key}`;
+    // Skip the custom keyGenerator validation warning by not providing one
+    // express-rate-limit will use its default which handles IPv6 properly
+    validate: {
+      // Disable the IPv6 key generator warning since we're behind a proxy
+      keyGeneratorIpFallback: false,
     },
   });
 
@@ -104,7 +106,7 @@ export function createRateLimiter(
 export async function createAsyncRateLimiter(
   maxRequests: number = 100,
   windowMs: number = 15 * 60 * 1000,
-  keyPrefix: string = 'api'
+  _keyPrefix: string = 'api'
 ): Promise<RateLimitRequestHandler> {
   const store = await getStore();
 
@@ -118,9 +120,8 @@ export async function createAsyncRateLimiter(
       error: 'Too many requests',
       message: `Rate limit exceeded. Please try again later.`,
     },
-    keyGenerator: (req) => {
-      const key = req.ip || req.socket?.remoteAddress || 'unknown';
-      return `${keyPrefix}:${key}`;
+    validate: {
+      keyGeneratorIpFallback: false,
     },
   });
 }
