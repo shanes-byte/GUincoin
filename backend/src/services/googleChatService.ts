@@ -526,7 +526,12 @@ export class GoogleChatService {
       if (commandName === 'help' || !commandName) {
         await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
         const employee = await this.findEmployeeByEmail(userEmail);
-        return buildHelpCard(employee?.isManager ?? false);
+        // Try simple text response first to debug
+        console.log('[GoogleChat] Returning help response for:', userEmail);
+        return {
+          text: `*Guincoin Commands*\n\n• /balance - Check your balance\n• /transfer @user amount - Send coins\n• /help - Show this help${employee?.isManager ? '\n• /award @user amount - Award coins (managers)' : ''}`
+        };
+        // return buildHelpCard(employee?.isManager ?? false);
       }
 
       if (commandName === 'balance') {
