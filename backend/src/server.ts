@@ -102,10 +102,11 @@ app.use(session({
   saveUninitialized: true,
   proxy: true, // Trust the reverse proxy
   cookie: {
-    secure: 'auto', // Let express-session detect if connection is secure
+    secure: env.NODE_ENV === 'production', // Explicit secure flag in production
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'lax', // lax allows cookies on top-level navigations (OAuth redirects)
     maxAge: SESSION_MAX_AGE_MS,
+    domain: env.COOKIE_DOMAIN || undefined, // Allow cross-subdomain if configured
   },
 }));
 
@@ -121,10 +122,12 @@ app.use((req, res, next) => {
   }
 
   // Set CSRF cookie on every response so frontend can read it
+  // Must match session cookie settings for consistency
   res.cookie('XSRF-TOKEN', (req.session as any).csrfToken, {
     httpOnly: false, // Frontend must read this
     secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'lax', // Must match session cookie sameSite
+    domain: env.COOKIE_DOMAIN || undefined,
   });
 
   // Validate CSRF token on mutating requests

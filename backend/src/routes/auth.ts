@@ -62,10 +62,17 @@ router.get(
     const popup = req.query.popup === 'true' ? 'popup' : 'redirect';
     const state = JSON.stringify({ nonce, mode: popup });
 
-    passport.authenticate('google', {
-      scope: ['profile', 'email'],
-      state,
-    })(req, res, next);
+    // Explicitly save session before redirecting to ensure nonce is persisted
+    req.session.save((err) => {
+      if (err) {
+        console.error('[OAuth] Failed to save session before redirect:', err);
+        return res.redirect(`${env.FRONTEND_URL}/login?error=session`);
+      }
+      passport.authenticate('google', {
+        scope: ['profile', 'email'],
+        state,
+      })(req, res, next);
+    });
   }
 );
 
@@ -90,12 +97,21 @@ router.get(
     try {
       const state = JSON.parse(req.query.state as string || '{}');
       const sessionNonce = (req.session as any).oauthNonce;
+
+      // Debug logging for session issues
+      if (!sessionNonce) {
+        console.error('[OAuth] No nonce in session. Session ID:', req.sessionID);
+        console.error('[OAuth] Session keys:', Object.keys(req.session || {}));
+      }
+
       if (!sessionNonce || state.nonce !== sessionNonce) {
+        console.error('[OAuth] CSRF validation failed - nonce mismatch');
         return res.redirect(`${env.FRONTEND_URL}/login?error=csrf`);
       }
       // Clear nonce after use
       delete (req.session as any).oauthNonce;
-    } catch {
+    } catch (parseError) {
+      console.error('[OAuth] Failed to parse state:', parseError);
       return res.redirect(`${env.FRONTEND_URL}/login?error=state`);
     }
 
