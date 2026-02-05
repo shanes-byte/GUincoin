@@ -170,10 +170,26 @@ export interface GoogleChatCardV2 {
   card: GoogleChatCard;
 }
 
+// Action response for interactive elements
+export interface GoogleChatActionResponse {
+  type: 'NEW_MESSAGE' | 'UPDATE_MESSAGE' | 'UPDATE_USER_MESSAGE_CARDS' | 'DIALOG' | 'UPDATE_WIDGET';
+  url?: string;
+  dialogAction?: {
+    dialog?: {
+      body: GoogleChatCard;
+    };
+    actionStatus?: {
+      statusCode: string;
+      userFacingMessage?: string;
+    };
+  };
+}
+
 // Response to Google Chat
 export interface GoogleChatResponse {
   text?: string;
   cardsV2?: GoogleChatCardV2[];
+  actionResponse?: GoogleChatActionResponse;
 }
 
 // Service result types
