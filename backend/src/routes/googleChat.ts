@@ -12,6 +12,8 @@ const router = Router();
  * Verification is done via the verification token in the event payload
  */
 router.post('/webhook', async (req: Request, res: Response, next: NextFunction) => {
+  const startTime = Date.now();
+
   try {
     const event = req.body as GoogleChatEvent;
 
@@ -23,19 +25,29 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
       commandId: chatData.appCommandPayload?.appCommandMetadata?.appCommandId,
     });
 
+    // DEBUG: Test with minimal response first to isolate the issue
+    // Uncomment the next 5 lines to test basic connectivity:
+    // const testResponse = { text: 'Guincoin received your message! Debug mode active.' };
+    // console.log('[GoogleChat] Sending test response');
+    // res.status(200).json(testResponse);
+    // console.log('[GoogleChat] Test response sent in', Date.now() - startTime, 'ms');
+    // return;
+
     // Handle the event
     console.log('[GoogleChat] Calling handleEvent...');
     const response = await googleChatService.handleEvent(event);
-    console.log('[GoogleChat] Got response:', JSON.stringify(response).substring(0, 200));
+    const processingTime = Date.now() - startTime;
+    console.log('[GoogleChat] Got response in', processingTime, 'ms:', JSON.stringify(response).substring(0, 200));
 
     // Return the response to Google Chat
-    res.json(response);
-    console.log('[GoogleChat] Response sent to Google Chat');
+    res.status(200).json(response);
+    console.log('[GoogleChat] Response sent successfully. Total time:', Date.now() - startTime, 'ms');
   } catch (error) {
-    console.error('[GoogleChat] Error handling webhook:', error);
+    const processingTime = Date.now() - startTime;
+    console.error('[GoogleChat] Error handling webhook after', processingTime, 'ms:', error);
 
     // Return a user-friendly error response
-    res.json({
+    res.status(200).json({
       text: 'An error occurred while processing your request. Please try again later.',
     });
   }

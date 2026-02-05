@@ -527,6 +527,22 @@ export class GoogleChatService {
         await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
         const employee = await this.findEmployeeByEmail(userEmail);
         console.log('[GoogleChat] Returning help response for:', userEmail);
+
+        // DEBUG: Try simple text response first to verify basic connectivity
+        // If this works but cards don't, the issue is card format
+        const useSimpleText = true; // Set to false to use cards
+        if (useSimpleText) {
+          console.log('[GoogleChat] Using simple text response for debugging');
+          return {
+            text: `*Guincoin Commands*\n\n` +
+              `/balance - Check your coin balance\n` +
+              `/transfer @user amount message - Send coins\n` +
+              `/help - Show this help\n` +
+              (employee?.isManager ? `/award @user amount message - Award coins (managers only)\n` : '') +
+              `\nBot is working! Response sent for: ${userEmail}`,
+          };
+        }
+
         // Return the card response - use buildHelpCard
         return buildHelpCard(employee?.isManager ?? false);
       }
