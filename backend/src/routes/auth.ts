@@ -197,9 +197,31 @@ router.get('/me', requireAuth, (req: AuthRequest, res) => {
 router.post('/logout', (req, res) => {
   req.logout((err) => {
     if (err) {
+      console.error('[Logout] req.logout error:', err);
       return res.status(500).json({ error: 'Logout failed' });
     }
-    res.json({ message: 'Logged out successfully' });
+    // Destroy the session completely to clear all state including CSRF tokens
+    req.session.destroy((destroyErr) => {
+      if (destroyErr) {
+        console.error('[Logout] Session destroy error:', destroyErr);
+        // Still return success since user is logged out from passport
+      }
+      // Clear session cookie
+      res.clearCookie('connect.sid', {
+        path: '/',
+        httpOnly: true,
+        secure: env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      // Clear CSRF cookie
+      res.clearCookie('XSRF-TOKEN', {
+        path: '/',
+        httpOnly: false,
+        secure: env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      res.json({ message: 'Logged out successfully' });
+    });
   });
 });
 
