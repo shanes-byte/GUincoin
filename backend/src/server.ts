@@ -37,15 +37,23 @@ const PgStore = pgSession(session);
  */
 function createSessionStore(): Store | undefined {
   try {
+    console.log('[SessionStore] Attempting to create PostgreSQL session store...');
     const pgStore = new PgStore({
       conString: env.DATABASE_URL,
       tableName: 'user_sessions',
       createTableIfMissing: true,
+      pruneSessionInterval: 60 * 15, // Prune expired sessions every 15 min
       errorLog: (err) => {
         console.error('[SessionStore] PostgreSQL error:', err.message);
       },
     });
-    console.log('[SessionStore] Using PostgreSQL session store');
+
+    // Add event listener for errors
+    pgStore.on('error', (error) => {
+      console.error('[SessionStore] Store error event:', error.message);
+    });
+
+    console.log('[SessionStore] PostgreSQL session store created successfully');
     setSessionStoreType('postgresql');
     return pgStore;
   } catch (error) {

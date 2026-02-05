@@ -54,6 +54,10 @@ router.get(
   '/google',
   requireOAuthConfig,
   (req, res, next) => {
+    // Log session state at start of OAuth flow
+    console.log('[OAuth Start] Session ID:', req.sessionID);
+    console.log('[OAuth Start] Session cookie:', req.headers.cookie?.includes('connect.sid') ? 'present' : 'missing');
+
     // Generate cryptographic nonce for CSRF protection
     const nonce = crypto.randomBytes(16).toString('hex');
     (req.session as any).oauthNonce = nonce;
@@ -62,12 +66,16 @@ router.get(
     const popup = req.query.popup === 'true' ? 'popup' : 'redirect';
     const state = JSON.stringify({ nonce, mode: popup });
 
+    console.log('[OAuth Start] Generated nonce:', nonce.substring(0, 8) + '...');
+    console.log('[OAuth Start] Saving session...');
+
     // Explicitly save session before redirecting to ensure nonce is persisted
     req.session.save((err) => {
       if (err) {
         console.error('[OAuth] Failed to save session before redirect:', err);
         return res.redirect(`${env.FRONTEND_URL}/login?error=session`);
       }
+      console.log('[OAuth Start] Session saved successfully, redirecting to Google');
       passport.authenticate('google', {
         scope: ['profile', 'email'],
         state,
@@ -93,25 +101,36 @@ router.get(
   requireOAuthConfig,
   passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth` }),
   (req: AuthRequest, res) => {
+    // Detailed logging for OAuth callback debugging
+    console.log('[OAuth Callback] Session ID:', req.sessionID);
+    console.log('[OAuth Callback] Session cookie present:', req.headers.cookie?.includes('connect.sid') ? 'yes' : 'NO');
+    console.log('[OAuth Callback] Raw cookies:', req.headers.cookie?.substring(0, 100) || 'none');
+
     // Validate OAuth state parameter for CSRF protection
     try {
       const state = JSON.parse(req.query.state as string || '{}');
       const sessionNonce = (req.session as any).oauthNonce;
 
+      console.log('[OAuth Callback] State nonce:', state.nonce?.substring(0, 8) + '...');
+      console.log('[OAuth Callback] Session nonce:', sessionNonce ? sessionNonce.substring(0, 8) + '...' : 'MISSING');
+      console.log('[OAuth Callback] Session keys:', Object.keys(req.session || {}));
+
       // Debug logging for session issues
       if (!sessionNonce) {
-        console.error('[OAuth] No nonce in session. Session ID:', req.sessionID);
-        console.error('[OAuth] Session keys:', Object.keys(req.session || {}));
+        console.error('[OAuth Callback] ERROR: No nonce in session!');
+        console.error('[OAuth Callback] This likely means session was not persisted or cookie was not sent');
       }
 
       if (!sessionNonce || state.nonce !== sessionNonce) {
-        console.error('[OAuth] CSRF validation failed - nonce mismatch');
+        console.error('[OAuth Callback] CSRF validation failed - nonce mismatch');
+        console.error('[OAuth Callback] Expected:', state.nonce);
+        console.error('[OAuth Callback] Got:', sessionNonce || 'undefined');
         return res.redirect(`${env.FRONTEND_URL}/login?error=csrf`);
       }
       // Clear nonce after use
       delete (req.session as any).oauthNonce;
     } catch (parseError) {
-      console.error('[OAuth] Failed to parse state:', parseError);
+      console.error('[OAuth Callback] Failed to parse state:', parseError);
       return res.redirect(`${env.FRONTEND_URL}/login?error=state`);
     }
 
