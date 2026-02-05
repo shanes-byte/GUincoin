@@ -62,7 +62,7 @@ export default function WellnessTab({
   usersLoading,
   selectedUserId,
   taskForm,
-  templateFile,
+  templateFile: _templateFile,
   creating,
   deletingTaskId,
   onApprove,

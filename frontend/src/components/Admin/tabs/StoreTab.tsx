@@ -72,7 +72,7 @@ export default function StoreTab({
   onToggleProduct,
   onDeleteProduct,
   customProductForm,
-  customProductImage,
+  customProductImage: _customProductImage,
   customProductLoading,
   onCustomProductFormChange,
   onCustomProductImageChange,
