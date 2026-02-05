@@ -40,10 +40,10 @@ export class GoogleChatService {
     spaceName: string | null;
     messageId: string | null;
   } {
-    // Handle nested chat structure (new format)
+    // Handle nested chat structure (new format from 2024+)
     const chatData = rawEvent.chat || rawEvent;
 
-    // Get user email
+    // Get user email - check multiple possible locations
     let userEmail: string | null = null;
     if (chatData.user?.email) {
       userEmail = chatData.user.email.toLowerCase();
@@ -57,20 +57,28 @@ export class GoogleChatService {
     let spaceName: string | null = null;
     let messageId: string | null = null;
 
-    // Check for appCommandPayload (slash command via new format)
+    // Check for appCommandPayload (slash command via newest format 2024+)
     if (chatData.appCommandPayload) {
       const payload = chatData.appCommandPayload;
-      const message = payload.message;
 
+      // Get command ID from appCommandMetadata (new location)
+      if (payload.appCommandMetadata?.appCommandId) {
+        commandId = payload.appCommandMetadata.appCommandId;
+      }
+
+      // Get message content if present
+      const message = payload.message;
       if (message) {
         messageText = message.argumentText || message.text || '';
         messageId = message.name || null;
 
-        if (message.slashCommand?.commandId) {
+        // Also check for command ID in message.slashCommand (backup)
+        if (!commandId && message.slashCommand?.commandId) {
           commandId = message.slashCommand.commandId;
         }
       }
 
+      // Get space name from payload
       if (payload.space?.name) {
         spaceName = payload.space.name;
       }
@@ -86,10 +94,12 @@ export class GoogleChatService {
       }
     }
 
-    // Get space name
+    // Get space name from various locations
     if (!spaceName) {
       spaceName = chatData.space?.name || rawEvent.space?.name || null;
     }
+
+    console.log('[GoogleChat] Normalized event:', { userEmail, messageText, commandId, spaceName });
 
     return { userEmail, messageText, commandId, spaceName, messageId };
   }

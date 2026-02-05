@@ -15,11 +15,12 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
   try {
     const event = req.body as GoogleChatEvent;
 
-    // Log incoming event (for debugging)
+    // Log incoming event (for debugging) - handle both old and new formats
+    const chatData = (event as any).chat || event;
     console.log('[GoogleChat] Received event:', {
-      type: event.type,
-      userEmail: event.user?.email,
-      messageText: event.message?.text?.substring(0, 50),
+      type: event.type || chatData.appCommandPayload?.appCommandMetadata?.appCommandType || 'unknown',
+      userEmail: chatData.user?.email || event.user?.email,
+      commandId: chatData.appCommandPayload?.appCommandMetadata?.appCommandId,
     });
 
     // Handle the event
