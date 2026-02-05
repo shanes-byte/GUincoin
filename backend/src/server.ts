@@ -104,7 +104,14 @@ app.use(express.urlencoded({ extended: true }));
 const sessionStore = createSessionStore();
 
 // Build cookie options - only include domain if explicitly set
-const sessionCookieOptions: session.CookieOptions = {
+const sessionCookieOptions: {
+  secure: boolean;
+  httpOnly: boolean;
+  sameSite: 'lax' | 'strict' | 'none';
+  maxAge: number;
+  path: string;
+  domain?: string;
+} = {
   secure: env.NODE_ENV === 'production',
   httpOnly: true,
   sameSite: 'lax',
@@ -142,7 +149,13 @@ app.use((req, res, next) => {
 
   // Set CSRF cookie on every response so frontend can read it
   // Must match session cookie settings for consistency
-  const csrfCookieOptions: Parameters<typeof res.cookie>[2] = {
+  const csrfCookieOptions: {
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: 'lax' | 'strict' | 'none';
+    path: string;
+    domain?: string;
+  } = {
     httpOnly: false, // Frontend must read this
     secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
