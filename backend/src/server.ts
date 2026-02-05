@@ -73,6 +73,19 @@ const PORT = env.PORT;
 // Trust first proxy (nginx/Railway) so secure cookies work behind reverse proxy
 app.set('trust proxy', 1);
 
+// Fix for Railway: Force HTTPS protocol detection in production
+// Railway serves all traffic over HTTPS externally but the internal proxy
+// may send X-Forwarded-Proto: http. This middleware corrects that.
+if (env.NODE_ENV === 'production') {
+  app.use((req, _res, next) => {
+    // Force the protocol to https in production
+    // This ensures secure cookies are set correctly
+    req.headers['x-forwarded-proto'] = 'https';
+    next();
+  });
+  console.log('[Server] HTTPS protocol fix enabled for production');
+}
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
