@@ -103,19 +103,30 @@ app.use(express.urlencoded({ extended: true }));
 // Session configuration with PostgreSQL store (with memory fallback)
 const sessionStore = createSessionStore();
 
+// Build cookie options - only include domain if explicitly set
+const sessionCookieOptions: session.CookieOptions = {
+  secure: env.NODE_ENV === 'production',
+  httpOnly: true,
+  sameSite: 'lax',
+  maxAge: SESSION_MAX_AGE_MS,
+  path: '/',
+};
+// Only add domain if explicitly configured (don't pass undefined)
+if (env.COOKIE_DOMAIN) {
+  sessionCookieOptions.domain = env.COOKIE_DOMAIN;
+}
+
+console.log('[Session] Cookie options:', JSON.stringify(sessionCookieOptions));
+console.log('[Session] NODE_ENV:', env.NODE_ENV);
+
 app.use(session({
   store: sessionStore,
   secret: env.SESSION_SECRET,
-  resave: true,
-  saveUninitialized: true,
-  proxy: true, // Trust the reverse proxy
-  cookie: {
-    secure: env.NODE_ENV === 'production', // Explicit secure flag in production
-    httpOnly: true,
-    sameSite: 'lax', // lax allows cookies on top-level navigations (OAuth redirects)
-    maxAge: SESSION_MAX_AGE_MS,
-    domain: env.COOKIE_DOMAIN || undefined, // Allow cross-subdomain if configured
-  },
+  name: 'connect.sid',
+  resave: false, // Don't save session if unmodified
+  saveUninitialized: true, // Create session for anonymous users
+  proxy: true, // Trust the reverse proxy (Railway)
+  cookie: sessionCookieOptions,
 }));
 
 // Initialize Passport
@@ -131,12 +142,16 @@ app.use((req, res, next) => {
 
   // Set CSRF cookie on every response so frontend can read it
   // Must match session cookie settings for consistency
-  res.cookie('XSRF-TOKEN', (req.session as any).csrfToken, {
+  const csrfCookieOptions: Parameters<typeof res.cookie>[2] = {
     httpOnly: false, // Frontend must read this
     secure: env.NODE_ENV === 'production',
-    sameSite: 'lax', // Must match session cookie sameSite
-    domain: env.COOKIE_DOMAIN || undefined,
-  });
+    sameSite: 'lax',
+    path: '/',
+  };
+  if (env.COOKIE_DOMAIN) {
+    csrfCookieOptions.domain = env.COOKIE_DOMAIN;
+  }
+  res.cookie('XSRF-TOKEN', (req.session as any).csrfToken, csrfCookieOptions);
 
   // Validate CSRF token on mutating requests
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
@@ -172,6 +187,28 @@ app.use('/api/auth', authRateLimiter(10, 15 * 60 * 1000));
 // Simple liveness check (doesn't depend on database)
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint for session/cookie diagnostics (only in development or with secret)
+app.get('/api/debug/session', (req, res) => {
+  const debugSecret = req.query.secret;
+  if (env.NODE_ENV === 'production' && debugSecret !== 'GuincoinDebug2026') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  res.json({
+    sessionID: req.sessionID,
+    sessionCookiePresent: req.headers.cookie?.includes('connect.sid') || false,
+    xsrfCookiePresent: req.headers.cookie?.includes('XSRF-TOKEN') || false,
+    rawCookies: req.headers.cookie || 'none',
+    sessionKeys: Object.keys(req.session || {}),
+    secure: req.secure,
+    protocol: req.protocol,
+    xForwardedProto: req.headers['x-forwarded-proto'],
+    host: req.headers.host,
+    origin: req.headers.origin,
+    nodeEnv: env.NODE_ENV,
+  });
 });
 
 // Full health check endpoint (checks all dependencies)
