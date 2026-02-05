@@ -469,9 +469,11 @@ export class GoogleChatService {
    * Handle incoming Google Chat webhook event
    */
   async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
-    console.log('[GoogleChat] Raw event:', JSON.stringify(rawEvent, null, 2));
+    console.log('[GoogleChat] handleEvent START');
+    console.log('[GoogleChat] Raw event:', JSON.stringify(rawEvent, null, 2).substring(0, 500));
 
     // Normalize the event data
+    console.log('[GoogleChat] Normalizing event...');
     const { userEmail, messageText, commandId, spaceName, messageId } = this.normalizeEvent(rawEvent);
 
     console.log('[GoogleChat] Normalized:', { userEmail, messageText, commandId, spaceName });
@@ -479,7 +481,7 @@ export class GoogleChatService {
     // Check for user email
     if (!userEmail) {
       console.error('[GoogleChat] No user email found');
-      return buildErrorCard('Error', 'Unable to identify user.');
+      return { text: 'Unable to identify user.' };
     }
 
     console.log('[GoogleChat] Processing command for user:', userEmail);
@@ -511,41 +513,58 @@ export class GoogleChatService {
       }
     }
 
-    // Create audit log
-    const auditId = await this.createAuditLog(
-      userEmail,
-      commandName,
-      messageText,
-      spaceName,
-      messageId,
-      ChatCommandStatus.received
-    );
+    console.log('[GoogleChat] Command determined:', commandName);
+
+    // DEBUG MODE: Skip database calls entirely for testing
+    const debugSkipDB = true;
 
     try {
-      // Handle commands
+      // Handle commands - help first (most common for testing)
       if (commandName === 'help' || !commandName) {
-        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-        const employee = await this.findEmployeeByEmail(userEmail);
-        console.log('[GoogleChat] Returning help response for:', userEmail);
+        console.log('[GoogleChat] Handling HELP command');
 
-        // DEBUG: Try simple text response first to verify basic connectivity
-        // If this works but cards don't, the issue is card format
-        const useSimpleText = true; // Set to false to use cards
-        if (useSimpleText) {
-          console.log('[GoogleChat] Using simple text response for debugging');
-          return {
+        // Return immediately without any database calls for debugging
+        if (debugSkipDB) {
+          console.log('[GoogleChat] DEBUG: Returning simple help response (no DB)');
+          const response = {
             text: `*Guincoin Commands*\n\n` +
               `/balance - Check your coin balance\n` +
               `/transfer @user amount message - Send coins\n` +
               `/help - Show this help\n` +
-              (employee?.isManager ? `/award @user amount message - Award coins (managers only)\n` : '') +
-              `\nBot is working! Response sent for: ${userEmail}`,
+              `/award @user amount message - Award coins (managers only)\n` +
+              `\nBot is working! User: ${userEmail}`,
           };
+          console.log('[GoogleChat] DEBUG: Response prepared:', JSON.stringify(response));
+          return response;
         }
+
+        // Create audit log
+        const auditId = await this.createAuditLog(
+          userEmail,
+          commandName,
+          messageText,
+          spaceName,
+          messageId,
+          ChatCommandStatus.received
+        );
+
+        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+        const employee = await this.findEmployeeByEmail(userEmail);
+        console.log('[GoogleChat] Returning help response for:', userEmail);
 
         // Return the card response - use buildHelpCard
         return buildHelpCard(employee?.isManager ?? false);
       }
+
+      // Create audit log for non-help commands
+      const auditId = await this.createAuditLog(
+        userEmail,
+        commandName,
+        messageText,
+        spaceName,
+        messageId,
+        ChatCommandStatus.received
+      );
 
       if (commandName === 'balance') {
         await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
