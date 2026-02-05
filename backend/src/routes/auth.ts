@@ -7,6 +7,13 @@ import prisma from '../config/database';
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Authentication
+ *     description: User authentication and session management
+ */
+
 // Middleware to check if OAuth is configured
 const requireOAuthConfig = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -18,7 +25,31 @@ const requireOAuthConfig = (req: express.Request, res: express.Response, next: e
   next();
 };
 
-// Google OAuth login - direct redirect flow
+/**
+ * @openapi
+ * /api/auth/google:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Initiate Google OAuth login
+ *     description: Redirects to Google OAuth consent screen. After authentication, user is redirected back to the callback URL.
+ *     parameters:
+ *       - in: query
+ *         name: popup
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *         description: Whether to use popup mode for authentication
+ *     responses:
+ *       302:
+ *         description: Redirect to Google OAuth consent screen
+ *       503:
+ *         description: OAuth not configured
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *     security: []
+ */
 router.get(
   '/google',
   requireOAuthConfig,
@@ -38,7 +69,18 @@ router.get(
   }
 );
 
-// Google OAuth callback - redirect to dashboard on success
+/**
+ * @openapi
+ * /api/auth/google/callback:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Google OAuth callback
+ *     description: Handles the OAuth callback from Google. On success, establishes a session and redirects to the dashboard.
+ *     responses:
+ *       302:
+ *         description: Redirect to dashboard on success, or login page with error on failure
+ *     security: []
+ */
 router.get(
   '/google/callback',
   requireOAuthConfig,
@@ -80,7 +122,27 @@ router.get(
   }
 );
 
-// Get current user
+/**
+ * @openapi
+ * /api/auth/me:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Get current user
+ *     description: Returns the authenticated user's profile information
+ *     responses:
+ *       200:
+ *         description: Current user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/me', requireAuth, (req: AuthRequest, res) => {
   res.json({
     id: req.user!.id,
@@ -91,7 +153,31 @@ router.get('/me', requireAuth, (req: AuthRequest, res) => {
   });
 });
 
-// Logout
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Logout user
+ *     description: Ends the user's session and logs them out
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Logged out successfully
+ *       500:
+ *         description: Logout failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/logout', (req, res) => {
   req.logout((err) => {
     if (err) {

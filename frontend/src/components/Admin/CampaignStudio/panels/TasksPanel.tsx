@@ -6,6 +6,7 @@ import {
   updateCampaignTask,
   unlinkCampaignTask,
 } from '../../../../services/api';
+import { useToast } from '../../../Toast';
 
 export default function TasksPanel() {
   const {
@@ -15,6 +16,7 @@ export default function TasksPanel() {
     tasksLoading,
     refreshCampaignTasks,
   } = useStudio();
+  const { addToast } = useToast();
 
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -52,7 +54,7 @@ export default function TasksPanel() {
       setBonusMultiplier('1');
       await refreshCampaignTasks();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to link task');
+      addToast(error.response?.data?.error || 'Failed to link task', 'error');
     } finally {
       setLinking(false);
     }
@@ -74,7 +76,7 @@ export default function TasksPanel() {
       setNewTaskCoinValue('');
       await refreshCampaignTasks();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to create task');
+      addToast(error.response?.data?.error || 'Failed to create task', 'error');
     } finally {
       setCreating(false);
     }
@@ -91,7 +93,7 @@ export default function TasksPanel() {
       setEditingTaskId(null);
       await refreshCampaignTasks();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to update task');
+      addToast(error.response?.data?.error || 'Failed to update task', 'error');
     } finally {
       setSaving(false);
     }
@@ -105,7 +107,7 @@ export default function TasksPanel() {
       await unlinkCampaignTask(selectedCampaign.id, taskId);
       await refreshCampaignTasks();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to unlink task');
+      addToast(error.response?.data?.error || 'Failed to unlink task', 'error');
     } finally {
       setUnlinking(null);
     }

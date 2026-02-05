@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import prisma from '../config/database';
 import transporter, { isEmailConfigured } from '../config/email';
+import { getRateLimitStoreType } from '../middleware/rateLimiter';
 
 export type HealthStatus = 'ok' | 'degraded' | 'down';
 
@@ -105,6 +106,21 @@ const checkOAuthConfig = (): DependencyHealth => {
   };
 };
 
+const checkRateLimiter = (): DependencyHealth => {
+  const storeType = getRateLimitStoreType();
+  const isRedis = storeType === 'redis';
+
+  return {
+    name: 'rateLimiter',
+    healthy: true,
+    critical: false,
+    message: isRedis
+      ? 'Using Redis store (production-ready)'
+      : 'Using memory store (not suitable for multiple instances)',
+    durationMs: 0,
+  };
+};
+
 const checkEmail = async (): Promise<DependencyHealth> => {
   const startedAt = Date.now();
   if (!isEmailConfigured) {
@@ -164,8 +180,9 @@ export const getHealthSummary = async (): Promise<HealthSummary> => {
   ]);
 
   const oauth = checkOAuthConfig();
+  const rateLimiter = checkRateLimiter();
 
-  const dependencies = [database, uploads, email, oauth];
+  const dependencies = [database, uploads, email, oauth, rateLimiter];
 
   return {
     status: deriveStatus(dependencies),

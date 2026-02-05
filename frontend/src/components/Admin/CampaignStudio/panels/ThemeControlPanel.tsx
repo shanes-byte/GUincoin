@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStudio } from '../context/StudioContext';
 import { CampaignTheme, updateCampaign } from '../../../../services/api';
+import { useToast } from '../../../Toast';
 
 // Extract dominant colors from an image using canvas
 async function extractColorsFromImage(imageUrl: string): Promise<string[]> {
@@ -110,6 +111,7 @@ export default function ThemeControlPanel() {
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToast } = useToast();
 
   const currentTheme = getCurrentTheme();
 
@@ -120,7 +122,7 @@ export default function ThemeControlPanel() {
       setExtractedColors(colors);
     } catch (error) {
       console.error('Failed to extract colors:', error);
-      alert('Could not extract colors from image. Try uploading directly.');
+      addToast('Could not extract colors from image. Try uploading directly.', 'error');
     } finally {
       setExtracting(false);
     }

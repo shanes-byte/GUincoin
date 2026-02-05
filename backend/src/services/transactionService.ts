@@ -3,9 +3,38 @@ import prisma from '../config/database';
 
 type TransactionClient = Prisma.TransactionClient;
 
+/**
+ * Service for managing Guincoin ledger transactions.
+ *
+ * Handles the complete transaction lifecycle including creation, posting,
+ * rejection, and balance calculations. All financial operations should
+ * go through this service to ensure consistency.
+ *
+ * @example
+ * // Award coins to an employee
+ * const tx = await transactionService.createPendingTransaction(
+ *   accountId,
+ *   'manager_award',
+ *   100,
+ *   'Great work on the project!'
+ * );
+ * await transactionService.postTransaction(tx.id);
+ */
 export class TransactionService {
   /**
-   * Create a pending transaction in the ledger
+   * Creates a pending transaction in the ledger.
+   *
+   * Pending transactions do not affect account balances until posted.
+   * This allows for approval workflows (e.g., wellness submissions).
+   *
+   * @param accountId - The account to create the transaction for
+   * @param transactionType - Type of transaction (manager_award, peer_transfer_sent, etc.)
+   * @param amount - Transaction amount in Guincoins (positive number)
+   * @param description - Optional description for the transaction
+   * @param sourceEmployeeId - For transfers, the employee sending coins
+   * @param targetEmployeeId - For transfers, the employee receiving coins
+   * @param wellnessSubmissionId - For wellness rewards, link to the submission
+   * @returns The created pending transaction
    */
   async createPendingTransaction(
     accountId: string,
@@ -121,7 +150,14 @@ export class TransactionService {
   }
 
   /**
-   * Reject a pending transaction
+   * Rejects a pending transaction.
+   *
+   * Rejected transactions do not affect account balances.
+   * Use this for declined wellness submissions, cancelled transfers, etc.
+   *
+   * @param transactionId - The ID of the transaction to reject
+   * @param reason - Optional reason for rejection (for audit purposes)
+   * @returns The updated transaction with rejected status
    */
   async rejectTransaction(transactionId: string, reason?: string) {
     return await prisma.ledgerTransaction.update({
@@ -133,7 +169,19 @@ export class TransactionService {
   }
 
   /**
-   * Get account balance (including pending transactions)
+   * Gets the current balance for an account.
+   *
+   * @param accountId - The account ID to get balance for
+   * @param includePending - If true, includes pending transactions in calculation
+   * @returns Object containing posted, pending, and total balances
+   *
+   * @example
+   * // Get only posted balance
+   * const { total } = await transactionService.getAccountBalance(accountId);
+   *
+   * @example
+   * // Get balance including pending
+   * const { posted, pending, total } = await transactionService.getAccountBalance(accountId, true);
    */
   async getAccountBalance(accountId: string, includePending: boolean = false) {
     const account = await prisma.account.findUnique({
@@ -189,7 +237,18 @@ export class TransactionService {
   }
 
   /**
-   * Get transaction history for an account
+   * Gets paginated transaction history for an account.
+   *
+   * Transactions are ordered by creation date (newest first).
+   * Includes source employee information for transfers and awards.
+   *
+   * @param accountId - The account ID to get history for
+   * @param options - Pagination and filter options
+   * @param options.limit - Maximum records to return (default: 50)
+   * @param options.offset - Records to skip for pagination (default: 0)
+   * @param options.status - Filter by transaction status
+   * @param options.transactionType - Filter by transaction type
+   * @returns Paginated transaction list with total count
    */
   async getTransactionHistory(
     accountId: string,
@@ -236,7 +295,13 @@ export class TransactionService {
   }
 
   /**
-   * Get pending transactions for an account
+   * Gets all pending transactions for an account.
+   *
+   * Includes related data such as source employee and wellness submission details.
+   * Useful for displaying pending approvals to users.
+   *
+   * @param accountId - The account ID to get pending transactions for
+   * @returns Array of pending transactions with related data
    */
   async getPendingTransactions(accountId: string) {
     return await prisma.ledgerTransaction.findMany({

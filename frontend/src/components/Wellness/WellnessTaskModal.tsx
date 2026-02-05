@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WellnessTask, submitWellness } from '../../services/api';
+import { useToast } from '../Toast';
 
 interface WellnessTaskModalProps {
   task: WellnessTask;
@@ -10,12 +11,13 @@ interface WellnessTaskModalProps {
 export default function WellnessTaskModal({ task, onClose, onSubmission }: WellnessTaskModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!file) {
-      alert('Please select a file to upload');
+      addToast('Please select a file to upload', 'warning');
       return;
     }
 
@@ -26,11 +28,11 @@ export default function WellnessTaskModal({ task, onClose, onSubmission }: Welln
       formData.append('document', file);
 
       await submitWellness(formData);
-      alert('Submission created successfully! It will be reviewed by the admin.');
+      addToast('Submission created successfully! It will be reviewed by the admin.', 'success');
       onSubmission();
       onClose();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to submit wellness task');
+      addToast(error.response?.data?.error || 'Failed to submit wellness task', 'error');
     } finally {
       setSubmitting(false);
     }

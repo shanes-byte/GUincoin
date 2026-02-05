@@ -46,8 +46,8 @@ import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
 import { CampaignStudio } from '../components/Admin/CampaignStudio';
-import SmtpSettings from '../components/Admin/SmtpSettings';
 import BulkImportPanel from '../components/Admin/BulkImportPanel';
+import { StoreTab, GoogleChatTab, SettingsTab } from '../components/Admin/tabs';
 
 interface Submission {
   id: string;
@@ -1074,29 +1074,29 @@ export default function AdminPortal() {
                 <div className="text-center py-6 text-gray-500">No users found.</div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {usersWithSubmissions.map((user) => (
-                    <div key={user.id} className="border border-gray-200 rounded-lg p-4">
+                  {usersWithSubmissions.map((userItem) => (
+                    <div key={userItem.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900">{user.name}</h4>
-                          <p className="text-xs text-gray-600">{user.email}</p>
+                          <h4 className="text-sm font-medium text-gray-900">{userItem.name}</h4>
+                          <p className="text-xs text-gray-600">{userItem.email}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {user.submissions.length} submission{user.submissions.length !== 1 ? 's' : ''}
+                            {userItem.submissions.length} submission{userItem.submissions.length !== 1 ? 's' : ''}
                           </p>
                         </div>
                         <button
                           onClick={() =>
-                            setSelectedUserId(selectedUserId === user.id ? null : user.id)
+                            setSelectedUserId(selectedUserId === userItem.id ? null : userItem.id)
                           }
                           className="ml-4 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
                         >
-                          {selectedUserId === user.id ? 'Hide' : 'View'}
+                          {selectedUserId === userItem.id ? 'Hide' : 'View'}
                         </button>
                       </div>
 
-                      {selectedUserId === user.id && user.submissions.length > 0 && (
+                      {selectedUserId === userItem.id && userItem.submissions.length > 0 && (
                         <div className="mt-4 border-t border-gray-200 pt-4 space-y-2">
-                          {user.submissions.map((submission) => (
+                          {userItem.submissions.map((submission) => (
                             <div
                               key={submission.id}
                               className="border border-gray-200 rounded-md p-3 bg-gray-50"
@@ -1146,443 +1146,46 @@ export default function AdminPortal() {
 
         {/* Store Tab */}
         {activeTab === 'store' && (
-          <div className="space-y-6">
-            {/* Purchase Orders */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium text-gray-900">Purchase Orders</h2>
-                <button
-                  onClick={loadPurchases}
-                  disabled={purchasesLoading}
-                  className="text-sm text-blue-600 hover:text-blue-700 disabled:text-gray-400"
-                >
-                  {purchasesLoading ? 'Loading...' : 'Refresh'}
-                </button>
-              </div>
-
-              <div className="border-b border-gray-200 mb-4">
-                <nav className="-mb-px flex space-x-8">
-                  <button
-                    onClick={() => {
-                      setPurchasesTab('pending');
-                      loadPurchases();
-                    }}
-                    className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
-                      purchasesTab === 'pending'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                  >
-                    Pending ({pendingPurchases.length})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPurchasesTab('all');
-                      loadPurchases();
-                    }}
-                    className={`whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium ${
-                      purchasesTab === 'all'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                  >
-                    All Purchases
-                  </button>
-                </nav>
-              </div>
-
-              {purchasesLoading && purchasesTab === 'pending' && pendingPurchases.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">Loading purchases...</div>
-              ) : purchasesTab === 'pending' && pendingPurchases.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">No pending purchases.</div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {(purchasesTab === 'pending' ? pendingPurchases : allPurchases).map((purchase) => (
-                    <div key={purchase.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-sm font-semibold text-gray-900">
-                              {purchase.product.name}
-                            </h3>
-                            <span
-                              className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                purchase.status === 'pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : purchase.status === 'fulfilled'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {purchase.status}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1">
-                            {purchase.employee?.name || 'Unknown'} • {purchase.priceGuincoin.toFixed(2)} Guincoin
-                          </p>
-                          {purchase.shippingAddress && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">
-                              📍 {purchase.shippingAddress}
-                            </p>
-                          )}
-                        </div>
-                        {purchase.status === 'pending' && (
-                          <div className="ml-4">
-                            {fulfillingId === purchase.id ? (
-                              <div className="w-64 space-y-2">
-                                <input
-                                  type="text"
-                                  placeholder="Tracking number (optional)"
-                                  value={fulfillForm.trackingNumber}
-                                  onChange={(e) =>
-                                    setFulfillForm((prev) => ({
-                                      ...prev,
-                                      trackingNumber: e.target.value,
-                                    }))
-                                  }
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                />
-                                <textarea
-                                  placeholder="Notes (optional)"
-                                  value={fulfillForm.notes}
-                                  onChange={(e) =>
-                                    setFulfillForm((prev) => ({ ...prev, notes: e.target.value }))
-                                  }
-                                  rows={2}
-                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setFulfillingId(null);
-                                      setFulfillForm({ trackingNumber: '', notes: '' });
-                                    }}
-                                    className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => handleFulfillPurchase(purchase.id)}
-                                    className="flex-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                                  >
-                                    Confirm
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setFulfillingId(purchase.id)}
-                                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                              >
-                                Fulfill
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Store Products */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Store Products</h2>
-              <p className="text-sm text-gray-500 mb-6">
-                Add custom products or import from Amazon. Amazon imports depend on the product page being publicly accessible.
-              </p>
-
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900">Custom Product</h3>
-                    <button
-                      type="button"
-                      onClick={handleSeedProduct}
-                      disabled={seedProductLoading}
-                      className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 disabled:bg-gray-200 disabled:text-gray-500"
-                    >
-                      {seedProductLoading ? 'Seeding...' : 'Seed Sample'}
-                    </button>
-                  </div>
-                  <form onSubmit={handleCreateProduct} className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Product Name</label>
-                      <input
-                        type="text"
-                        value={customProductForm.name}
-                        onChange={(e) =>
-                          setCustomProductForm((prev) => ({ ...prev, name: e.target.value }))
-                        }
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        rows={2}
-                        value={customProductForm.description}
-                        onChange={(e) =>
-                          setCustomProductForm((prev) => ({ ...prev, description: e.target.value }))
-                        }
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Guincoin Value
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={customProductForm.coinValue}
-                        onChange={(e) =>
-                          setCustomProductForm((prev) => ({ ...prev, coinValue: e.target.value }))
-                        }
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Product Image
-                      </label>
-                      <input
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.gif"
-                        onChange={(e) => setCustomProductImage(e.target.files?.[0] || null)}
-                        className="block w-full text-xs text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="submit"
-                        disabled={customProductLoading}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                      >
-                        {customProductLoading ? 'Saving...' : 'Add Product'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Amazon Product Link</h3>
-                    <form onSubmit={handleImportAmazonProduct} className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Product URL
-                        </label>
-                        <input
-                          type="url"
-                          value={amazonProductUrl}
-                          onChange={(e) => setAmazonProductUrl(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                          placeholder="https://www.amazon.com/dp/..."
-                          required
-                        />
-                      </div>
-
-                      {amazonProductResult && (
-                        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                          {amazonProductResult}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-end">
-                        <button
-                          type="submit"
-                          disabled={amazonProductLoading}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                        >
-                          {amazonProductLoading ? 'Importing...' : 'Import Product'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Amazon List Import</h3>
-                    <form onSubmit={handleImportAmazonList} className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          List URL
-                        </label>
-                        <input
-                          type="url"
-                          value={amazonListUrl}
-                          onChange={(e) => setAmazonListUrl(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                          placeholder="https://www.amazon.com/hz/wishlist/..."
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Limit</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={amazonListLimit}
-                          onChange={(e) => setAmazonListLimit(e.target.value)}
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                        />
-                      </div>
-
-                      {amazonListResult && (
-                        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                          Imported {amazonListResult.results.filter((item) => item.status === 'imported').length}{' '}
-                          of {amazonListResult.requested} items. Total found: {amazonListResult.totalFound}.
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-end">
-                        <button
-                          type="submit"
-                          disabled={amazonListLoading}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                        >
-                          {amazonListLoading ? 'Importing...' : 'Import List'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Manage Store Products */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium text-gray-900">Manage Products</h2>
-                <button
-                  onClick={loadStoreProducts}
-                  disabled={storeProductsLoading}
-                  className="text-sm text-blue-600 hover:text-blue-700 disabled:text-gray-400"
-                >
-                  {storeProductsLoading ? 'Loading...' : 'Refresh'}
-                </button>
-              </div>
-
-              {storeProductsLoading && storeProducts.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">Loading products...</div>
-              ) : storeProducts.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  No products found. Add products using the forms above.
-                  <button
-                    onClick={loadStoreProducts}
-                    className="block mx-auto mt-2 text-blue-600 hover:text-blue-700"
-                  >
-                    Load Products
-                  </button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Source
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {storeProducts.map((product) => (
-                        <tr key={product.id} className={!product.isActive ? 'bg-gray-50' : ''}>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              {product.imageUrls[0] ? (
-                                <img
-                                  src={product.imageUrls[0]}
-                                  alt={product.name}
-                                  className="h-10 w-10 object-cover rounded"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
-                                  No img
-                                </div>
-                              )}
-                              <div className="max-w-xs">
-                                <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {product.priceGuincoin.toFixed(2)} GC
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                              product.source === 'custom'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              {product.source}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                              product.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {product.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleToggleProduct(product.id)}
-                                disabled={togglingProductId === product.id}
-                                className={`px-2 py-1 text-xs font-medium rounded ${
-                                  product.isActive
-                                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                } disabled:opacity-50`}
-                              >
-                                {togglingProductId === product.id
-                                  ? '...'
-                                  : product.isActive
-                                  ? 'Deactivate'
-                                  : 'Activate'}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(product.id, product.name)}
-                                disabled={deletingProductId === product.id}
-                                className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
-                              >
-                                {deletingProductId === product.id ? '...' : 'Delete'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <StoreTab
+            pendingPurchases={pendingPurchases}
+            allPurchases={allPurchases}
+            purchasesLoading={purchasesLoading}
+            purchasesTab={purchasesTab}
+            fulfillingId={fulfillingId}
+            fulfillForm={fulfillForm}
+            onPurchasesTabChange={setPurchasesTab}
+            onLoadPurchases={loadPurchases}
+            onFulfillingIdChange={setFulfillingId}
+            onFulfillFormChange={setFulfillForm}
+            onFulfillPurchase={handleFulfillPurchase}
+            storeProducts={storeProducts}
+            storeProductsLoading={storeProductsLoading}
+            togglingProductId={togglingProductId}
+            deletingProductId={deletingProductId}
+            onLoadStoreProducts={loadStoreProducts}
+            onToggleProduct={handleToggleProduct}
+            onDeleteProduct={handleDeleteProduct}
+            customProductForm={customProductForm}
+            customProductImage={customProductImage}
+            customProductLoading={customProductLoading}
+            onCustomProductFormChange={setCustomProductForm}
+            onCustomProductImageChange={setCustomProductImage}
+            onCreateProduct={handleCreateProduct}
+            amazonProductUrl={amazonProductUrl}
+            amazonProductLoading={amazonProductLoading}
+            amazonProductResult={amazonProductResult}
+            amazonListUrl={amazonListUrl}
+            amazonListLimit={amazonListLimit}
+            amazonListLoading={amazonListLoading}
+            amazonListResult={amazonListResult}
+            seedProductLoading={seedProductLoading}
+            onAmazonProductUrlChange={setAmazonProductUrl}
+            onAmazonListUrlChange={setAmazonListUrl}
+            onAmazonListLimitChange={setAmazonListLimit}
+            onImportAmazonProduct={handleImportAmazonProduct}
+            onImportAmazonList={handleImportAmazonList}
+            onSeedProduct={handleSeedProduct}
+          />
         )}
 
         {/* Campaign Studio Tab */}
@@ -1603,251 +1206,16 @@ export default function AdminPortal() {
 
         {/* Google Chat Tab */}
         {activeTab === 'google-chat' && (
-          <div className="space-y-6">
-            {/* Stats Overview */}
-            {chatStats && (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-6">
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-gray-900">{chatStats.total}</div>
-                        <div className="text-xs text-gray-500">Total (30d)</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-green-600">{chatStats.byStatus.succeeded}</div>
-                        <div className="text-xs text-gray-500">Succeeded</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-red-600">{chatStats.byStatus.rejected}</div>
-                        <div className="text-xs text-gray-500">Rejected</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-yellow-600">{chatStats.byStatus.failed}</div>
-                        <div className="text-xs text-gray-500">Failed</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-blue-600">{chatStats.byStatus.received}</div>
-                        <div className="text-xs text-gray-500">Received</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="text-2xl font-bold text-purple-600">{chatStats.recentActivity}</div>
-                        <div className="text-xs text-gray-500">Last 7 Days</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Filters */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Filters</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={chatFilters.status || ''}
-                    onChange={(e) =>
-                      setChatFilters({ ...chatFilters, status: e.target.value || undefined })
-                    }
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="received">Received</option>
-                    <option value="authorized">Authorized</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="failed">Failed</option>
-                    <option value="succeeded">Succeeded</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">User Email</label>
-                  <input
-                    type="email"
-                    value={chatFilters.userEmail || ''}
-                    onChange={(e) =>
-                      setChatFilters({ ...chatFilters, userEmail: e.target.value || undefined })
-                    }
-                    placeholder="Filter by email..."
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={() => {
-                      setChatFilters({});
-                      setChatPage(1);
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Audit Logs Table */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Command Audit Logs</h2>
-              </div>
-              {chatLogsLoading ? (
-                <div className="p-6 text-center text-gray-500">Loading...</div>
-              ) : chatAuditLogs.length === 0 ? (
-                <div className="p-6 text-center text-gray-500">No audit logs found</div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Timestamp
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Command
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Space
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Transaction
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Error
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {chatAuditLogs.map((log: ChatCommandAudit) => (
-                          <tr key={log.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(log.createdAt).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {log.userEmail || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              <div className="max-w-xs truncate" title={log.commandText || ''}>
-                                {log.commandName || 'N/A'}
-                              </div>
-                              {log.commandText && (
-                                <div className="text-xs text-gray-500 truncate max-w-xs" title={log.commandText}>
-                                  {log.commandText}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  log.status === 'succeeded'
-                                    ? 'bg-green-100 text-green-800'
-                                    : log.status === 'rejected' || log.status === 'failed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : log.status === 'authorized'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {log.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              <div className="max-w-xs truncate" title={log.spaceName || ''}>
-                                {log.spaceName ? log.spaceName.split('/').pop() : 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {log.transaction ? (
-                                <div>
-                                  <div className="font-medium">{log.transaction.amount} coins</div>
-                                  <div className="text-xs text-gray-500 truncate max-w-xs">
-                                    {log.transaction.id.substring(0, 8)}...
-                                  </div>
-                                </div>
-                              ) : (
-                                'N/A'
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              {log.errorMessage ? (
-                                <div className="max-w-xs truncate text-red-600" title={log.errorMessage}>
-                                  {log.errorMessage}
-                                </div>
-                              ) : (
-                                '-'
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Pagination */}
-                  {chatTotalPages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                      <div className="text-sm text-gray-700">
-                        Page {chatPage} of {chatTotalPages}
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setChatPage((p: number) => Math.max(1, p - 1))}
-                          disabled={chatPage === 1}
-                          className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => setChatPage((p: number) => Math.min(chatTotalPages, p + 1))}
-                          disabled={chatPage === chatTotalPages}
-                          className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+          <GoogleChatTab
+            chatStats={chatStats}
+            chatAuditLogs={chatAuditLogs}
+            chatLogsLoading={chatLogsLoading}
+            chatPage={chatPage}
+            chatTotalPages={chatTotalPages}
+            chatFilters={chatFilters}
+            onFiltersChange={setChatFilters}
+            onPageChange={setChatPage}
+          />
         )}
 
         {/* Bulk Import Tab */}
@@ -1862,567 +1230,42 @@ export default function AdminPortal() {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="space-y-6">
-            {/* Settings Sub-tabs */}
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setSettingsTab('smtp')}
-                  className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                    settingsTab === 'smtp'
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  SMTP / Email
-                </button>
-                <button
-                  onClick={() => setSettingsTab('email-templates')}
-                  className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                    settingsTab === 'email-templates'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  Email Templates
-                </button>
-                <button
-                  onClick={() => setSettingsTab('roles')}
-                  className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                    settingsTab === 'roles'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  Role Management
-                </button>
-                <button
-                  onClick={() => setSettingsTab('allotments')}
-                  className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                    settingsTab === 'allotments'
-                      ? 'border-purple-500 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  Manager Allotments
-                </button>
-              </nav>
-            </div>
-
-            {/* SMTP Settings Sub-tab */}
-            {settingsTab === 'smtp' && <SmtpSettings />}
-
-            {/* Email Templates Sub-tab */}
-            {settingsTab === 'email-templates' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-2">Email Templates</h2>
-                <p className="text-sm text-gray-500 mb-6">
-                  Edit the subject and HTML for notification emails. Variables can be used with
-                  <code className="ml-1 px-1 py-0.5 bg-gray-100 rounded">{'{{variable}}'}</code>.
-                </p>
-
-                {templatesLoading ? (
-                  <div className="text-center py-6 text-gray-500">Loading templates...</div>
-                ) : emailTemplates.length === 0 ? (
-                  <div className="text-center py-6 text-gray-500">No templates available.</div>
-                ) : (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                    {emailTemplates.map((template) => (
-                      <div key={template.key} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">{template.name}</h3>
-                            <p className="text-xs text-gray-500">{template.description}</p>
-                          </div>
-                          <label className="flex items-center gap-2 text-xs text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={template.isEnabled}
-                              onChange={(e) =>
-                                handleTemplateChange(template.key, { isEnabled: e.target.checked })
-                              }
-                            />
-                            Enabled
-                          </label>
-                        </div>
-
-                        <div className="mb-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
-                          <input
-                            type="text"
-                            value={template.subject}
-                            onChange={(e) =>
-                              handleTemplateChange(template.key, { subject: e.target.value })
-                            }
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                          />
-                        </div>
-
-                        <div className="mb-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">HTML</label>
-                          <textarea
-                            rows={6}
-                            value={template.html}
-                            onChange={(e) =>
-                              handleTemplateChange(template.key, { html: e.target.value })
-                            }
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-xs"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs text-gray-500">
-                            Variables: {template.variables.join(', ')}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveTemplate(template)}
-                            disabled={savingTemplateKey === template.key}
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                          >
-                            {savingTemplateKey === template.key ? 'Saving...' : 'Save'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Role Management Sub-tab */}
-            {settingsTab === 'roles' && (
-              <div className="space-y-6">
-                {/* Add User Form */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900">Add New User</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Add a new user to the Guincoin Rewards Program. They will receive an email notification with a link to access their dashboard.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowAddUserForm(!showAddUserForm);
-                        if (showAddUserForm) {
-                          setNewUserForm({ email: '', name: '', isManager: false, isAdmin: false });
-                        }
-                      }}
-                      className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                    >
-                      {showAddUserForm ? 'Cancel' : 'Add User'}
-                    </button>
-                  </div>
-
-                  {showAddUserForm && (
-                    <form onSubmit={handleCreateUser} className="space-y-4 border-t border-gray-200 pt-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="email"
-                            value={newUserForm.email}
-                            onChange={(e) => setNewUserForm((prev) => ({ ...prev, email: e.target.value }))}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            required
-                            placeholder="user@example.com"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={newUserForm.name}
-                            onChange={(e) => setNewUserForm((prev) => ({ ...prev, name: e.target.value }))}
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            required
-                            placeholder="John Doe"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Roles</p>
-                        <div className="space-y-2">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={newUserForm.isManager}
-                              onChange={(e) => setNewUserForm((prev) => ({ ...prev, isManager: e.target.checked }))}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <span className="text-sm text-gray-700">Manager (can award Guincoins to employees)</span>
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={newUserForm.isAdmin}
-                              onChange={(e) => setNewUserForm((prev) => ({ ...prev, isAdmin: e.target.checked }))}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <span className="text-sm text-gray-700">Admin (full system access)</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end">
-                        <button
-                          type="submit"
-                          disabled={creatingUser}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-                        >
-                          {creatingUser ? 'Creating...' : 'Create User'}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-
-                {/* Employee List */}
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900">Role Management</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Manage employee roles and permissions. Managers can award coins, Admins have full system access.
-                      </p>
-                    </div>
-                    <button
-                      onClick={loadEmployees}
-                      disabled={employeesLoading}
-                      className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:bg-gray-200 disabled:text-gray-500"
-                    >
-                      {employeesLoading ? 'Loading...' : 'Refresh'}
-                    </button>
-                  </div>
-
-                {employeesLoading && employees.length === 0 ? (
-                  <div className="text-center py-6 text-gray-500">Loading employees...</div>
-                ) : employees.length === 0 ? (
-                  <div className="text-center py-6 text-gray-500">No employees found.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Email
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Manager
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Admin
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Role
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {employees.map((employee) => {
-                          const roleName =
-                            employee.isAdmin && employee.isManager
-                              ? 'Admin & Manager'
-                              : employee.isAdmin
-                              ? 'Admin'
-                              : employee.isManager
-                              ? 'Manager'
-                              : 'Employee';
-                          const isCurrentUser = employee.id === user?.id;
-
-                          return (
-                            <tr key={employee.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                                {isCurrentUser && (
-                                  <div className="text-xs text-gray-500">(You)</div>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-500">{employee.email}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <input
-                                  type="checkbox"
-                                  checked={employee.isManager}
-                                  onChange={(e) =>
-                                    handleUpdateRoles(employee.id, { isManager: e.target.checked })
-                                  }
-                                  disabled={updatingEmployeeId === employee.id || isCurrentUser}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
-                                />
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <input
-                                  type="checkbox"
-                                  checked={employee.isAdmin}
-                                  onChange={(e) =>
-                                    handleUpdateRoles(employee.id, { isAdmin: e.target.checked })
-                                  }
-                                  disabled={
-                                    updatingEmployeeId === employee.id ||
-                                    (isCurrentUser && employee.isAdmin)
-                                  }
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
-                                  title={
-                                    isCurrentUser && employee.isAdmin
-                                      ? 'You cannot remove your own admin status'
-                                      : ''
-                                  }
-                                />
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    employee.isAdmin
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : employee.isManager
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}
-                                >
-                                  {roleName}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                </div>
-              </div>
-            )}
-
-            {/* Manager Allotments Sub-tab */}
-            {settingsTab === 'allotments' && (
-              <div className="space-y-6">
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900">Manager Allotments</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Deposit funds into manager allotment balances. Managers use allotments exclusively for awarding coins to employees.
-                      </p>
-                    </div>
-                    <button
-                      onClick={loadManagers}
-                      disabled={managersLoading}
-                      className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 disabled:bg-gray-200 disabled:text-gray-500"
-                    >
-                      {managersLoading ? 'Loading...' : 'Refresh'}
-                    </button>
-                  </div>
-
-                  {managersLoading && managers.length === 0 ? (
-                    <div className="text-center py-6 text-gray-500">Loading managers...</div>
-                  ) : managers.length === 0 ? (
-                    <div className="text-center py-6 text-gray-500">
-                      No managers found. Assign the manager role to employees in the Role Management tab.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                      {/* Manager List */}
-                      <div className="lg:col-span-1">
-                        <h3 className="text-sm font-medium text-gray-700 mb-3">Select a Manager</h3>
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                          {managers.map((manager) => (
-                            <button
-                              key={manager.id}
-                              onClick={() => handleSelectManager(manager.id)}
-                              className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
-                                selectedManagerId === manager.id
-                                  ? 'border-purple-500 bg-purple-50'
-                                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/50'
-                              }`}
-                            >
-                              <div className="text-sm font-medium text-gray-900">{manager.name}</div>
-                              <div className="text-xs text-gray-500">{manager.email}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Allotment Details & Actions */}
-                      <div className="lg:col-span-2">
-                        {!selectedManagerId ? (
-                          <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center text-gray-500">
-                            Select a manager to view and manage their allotment balance
-                          </div>
-                        ) : allotmentLoading ? (
-                          <div className="text-center py-8 text-gray-500">Loading allotment details...</div>
-                        ) : selectedManagerAllotment ? (
-                          <div className="space-y-6">
-                            {/* Current Balance Card */}
-                            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-5">
-                              <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-medium text-purple-900">
-                                  {selectedManagerAllotment.employee.name}'s Allotment
-                                </h3>
-                                <span className="text-2xl">🎁</span>
-                              </div>
-                              <div className="text-center py-4">
-                                <p className="text-sm text-purple-600 mb-1">Current Balance</p>
-                                <p className="text-4xl font-bold text-purple-900">
-                                  {selectedManagerAllotment.allotment.balance.toFixed(2)}
-                                </p>
-                                <p className="text-sm text-purple-500 mt-1">Guincoin</p>
-                              </div>
-                              <div className="bg-purple-100 rounded-lg p-3 mt-4">
-                                <div className="grid grid-cols-2 gap-4 text-center">
-                                  <div>
-                                    <p className="text-xs text-purple-600">Awarded This Period</p>
-                                    <p className="text-lg font-semibold text-purple-900">
-                                      {selectedManagerAllotment.allotment.usedThisPeriod.toFixed(2)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-purple-600">Recurring Budget</p>
-                                    <p className="text-lg font-semibold text-purple-900">
-                                      {selectedManagerAllotment.allotment.recurringBudget > 0
-                                        ? `${selectedManagerAllotment.allotment.recurringBudget.toFixed(2)}/period`
-                                        : 'Not set'}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Deposit Form */}
-                            <div className="border border-gray-200 rounded-lg p-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Deposit Funds</h4>
-                              <form onSubmit={handleDeposit} className="space-y-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Amount
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={depositForm.amount}
-                                    onChange={(e) =>
-                                      setDepositForm((prev) => ({ ...prev, amount: e.target.value }))
-                                    }
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
-                                    placeholder="100.00"
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Description (optional)
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={depositForm.description}
-                                    onChange={(e) =>
-                                      setDepositForm((prev) => ({ ...prev, description: e.target.value }))
-                                    }
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
-                                    placeholder="Q1 2026 allotment"
-                                  />
-                                </div>
-                                <div className="flex justify-end">
-                                  <button
-                                    type="submit"
-                                    disabled={depositLoading}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
-                                  >
-                                    {depositLoading ? 'Depositing...' : 'Deposit'}
-                                  </button>
-                                </div>
-                              </form>
-                            </div>
-
-                            {/* Recurring Budget Form */}
-                            <div className="border border-gray-200 rounded-lg p-4">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Recurring Budget</h4>
-                              <p className="text-xs text-gray-500 mb-3">
-                                Set an automatic recurring deposit amount. Enter 0 to disable.
-                              </p>
-                              <form onSubmit={handleSetRecurring} className="space-y-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Amount per Period
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={recurringForm.amount}
-                                    onChange={(e) =>
-                                      setRecurringForm((prev) => ({ ...prev, amount: e.target.value }))
-                                    }
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
-                                    placeholder={selectedManagerAllotment.allotment.recurringBudget > 0
-                                      ? selectedManagerAllotment.allotment.recurringBudget.toString()
-                                      : '500.00'
-                                    }
-                                    required
-                                  />
-                                </div>
-                                <div className="flex justify-end">
-                                  <button
-                                    type="submit"
-                                    disabled={recurringLoading}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
-                                  >
-                                    {recurringLoading ? 'Saving...' : 'Set Recurring'}
-                                  </button>
-                                </div>
-                              </form>
-                            </div>
-
-                            {/* Recent Deposits */}
-                            {selectedManagerAllotment.recentDeposits && selectedManagerAllotment.recentDeposits.length > 0 && (
-                              <div className="border border-gray-200 rounded-lg p-4">
-                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Recent Deposits</h4>
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
-                                  {selectedManagerAllotment.recentDeposits.map((deposit, index) => (
-                                    <div
-                                      key={index}
-                                      className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
-                                    >
-                                      <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                          +{deposit.amount.toFixed(2)} Guincoin
-                                        </p>
-                                        {deposit.description && (
-                                          <p className="text-xs text-gray-500">{deposit.description}</p>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-gray-400">
-                                        {new Date(deposit.createdAt).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            Failed to load allotment details
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <SettingsTab
+            user={user}
+            settingsTab={settingsTab}
+            onSettingsTabChange={setSettingsTab}
+            emailTemplates={emailTemplates}
+            templatesLoading={templatesLoading}
+            savingTemplateKey={savingTemplateKey}
+            onTemplateChange={handleTemplateChange}
+            onSaveTemplate={handleSaveTemplate}
+            employees={employees}
+            employeesLoading={employeesLoading}
+            updatingEmployeeId={updatingEmployeeId}
+            showAddUserForm={showAddUserForm}
+            newUserForm={newUserForm}
+            creatingUser={creatingUser}
+            onLoadEmployees={loadEmployees}
+            onUpdateRoles={handleUpdateRoles}
+            onShowAddUserFormChange={setShowAddUserForm}
+            onNewUserFormChange={setNewUserForm}
+            onCreateUser={handleCreateUser}
+            managers={managers}
+            managersLoading={managersLoading}
+            selectedManagerId={selectedManagerId}
+            selectedManagerAllotment={selectedManagerAllotment}
+            allotmentLoading={allotmentLoading}
+            depositForm={depositForm}
+            depositLoading={depositLoading}
+            recurringForm={recurringForm}
+            recurringLoading={recurringLoading}
+            onLoadManagers={loadManagers}
+            onSelectManager={handleSelectManager}
+            onDepositFormChange={setDepositForm}
+            onRecurringFormChange={setRecurringForm}
+            onDeposit={handleDeposit}
+            onSetRecurring={handleSetRecurring}
+          />
         )}
       </div>
     </Layout>

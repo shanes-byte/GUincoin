@@ -103,6 +103,9 @@ enum TransactionType {
   jackpot_contribution
   jackpot_win
   daily_bonus
+  // Prediction game types
+  prediction_bet
+  prediction_win
 }
 
 enum TransactionStatus {
@@ -797,4 +800,58 @@ model PendingImportBalance {
 
   @@unique([importJobId, recipientEmail])
   @@index([recipientEmail, status])
+}
+
+// =====================
+// Financial Audit Log
+// =====================
+
+enum AuditAction {
+  // Financial operations
+  transaction_created
+  transaction_posted
+  transaction_rejected
+  balance_adjustment
+  allotment_deposit
+  purchase_created
+  purchase_fulfilled
+  purchase_cancelled
+  refund_issued
+  // Admin operations
+  role_changed
+  user_created
+  user_deactivated
+  settings_changed
+  store_product_created
+  store_product_updated
+  store_product_deleted
+  wellness_task_created
+  wellness_task_updated
+  wellness_submission_approved
+  wellness_submission_rejected
+  bulk_import_started
+  bulk_import_completed
+  // Security events
+  admin_login
+  permission_denied
+  suspicious_activity
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  action       AuditAction
+  actorId      String? // Employee who performed the action (null for system actions)
+  actorEmail   String? // Denormalized for reporting
+  targetType   String? // e.g., 'Employee', 'Transaction', 'StoreProduct'
+  targetId     String? // ID of the affected entity
+  description  String      @db.Text
+  metadata     Json? // Additional context (old values, new values, etc.)
+  ipAddress    String? // IP address of the request
+  userAgent    String? // Browser/client info
+  createdAt    DateTime    @default(now())
+
+  @@index([action])
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }

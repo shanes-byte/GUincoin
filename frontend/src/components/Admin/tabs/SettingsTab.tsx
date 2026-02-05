@@ -1,0 +1,648 @@
+import { EmailTemplate, Employee, ManagerAllotmentDetails, User } from '../../../services/api';
+import SmtpSettings from '../SmtpSettings';
+
+type SettingsSubTab = 'smtp' | 'email-templates' | 'roles' | 'allotments';
+
+interface SettingsTabProps {
+  user: User | null;
+  settingsTab: SettingsSubTab;
+  onSettingsTabChange: (tab: SettingsSubTab) => void;
+
+  // Email Templates
+  emailTemplates: EmailTemplate[];
+  templatesLoading: boolean;
+  savingTemplateKey: string | null;
+  onTemplateChange: (key: string, updates: Partial<EmailTemplate>) => void;
+  onSaveTemplate: (template: EmailTemplate) => void;
+
+  // Role Management
+  employees: Employee[];
+  employeesLoading: boolean;
+  updatingEmployeeId: string | null;
+  showAddUserForm: boolean;
+  newUserForm: { email: string; name: string; isManager: boolean; isAdmin: boolean };
+  creatingUser: boolean;
+  onLoadEmployees: () => void;
+  onUpdateRoles: (employeeId: string, updates: { isManager?: boolean; isAdmin?: boolean }) => void;
+  onShowAddUserFormChange: (show: boolean) => void;
+  onNewUserFormChange: (form: { email: string; name: string; isManager: boolean; isAdmin: boolean }) => void;
+  onCreateUser: (e: React.FormEvent) => void;
+
+  // Manager Allotments
+  managers: Employee[];
+  managersLoading: boolean;
+  selectedManagerId: string | null;
+  selectedManagerAllotment: ManagerAllotmentDetails | null;
+  allotmentLoading: boolean;
+  depositForm: { amount: string; description: string };
+  depositLoading: boolean;
+  recurringForm: { amount: string };
+  recurringLoading: boolean;
+  onLoadManagers: () => void;
+  onSelectManager: (managerId: string) => void;
+  onDepositFormChange: (form: { amount: string; description: string }) => void;
+  onRecurringFormChange: (form: { amount: string }) => void;
+  onDeposit: (e: React.FormEvent) => void;
+  onSetRecurring: (e: React.FormEvent) => void;
+}
+
+export default function SettingsTab({
+  user,
+  settingsTab,
+  onSettingsTabChange,
+  emailTemplates,
+  templatesLoading,
+  savingTemplateKey,
+  onTemplateChange,
+  onSaveTemplate,
+  employees,
+  employeesLoading,
+  updatingEmployeeId,
+  showAddUserForm,
+  newUserForm,
+  creatingUser,
+  onLoadEmployees,
+  onUpdateRoles,
+  onShowAddUserFormChange,
+  onNewUserFormChange,
+  onCreateUser,
+  managers,
+  managersLoading,
+  selectedManagerId,
+  selectedManagerAllotment,
+  allotmentLoading,
+  depositForm,
+  depositLoading,
+  recurringForm,
+  recurringLoading,
+  onLoadManagers,
+  onSelectManager,
+  onDepositFormChange,
+  onRecurringFormChange,
+  onDeposit,
+  onSetRecurring,
+}: SettingsTabProps) {
+  return (
+    <div className="space-y-6">
+      {/* Settings Sub-tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => onSettingsTabChange('smtp')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'smtp'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            SMTP / Email
+          </button>
+          <button
+            onClick={() => onSettingsTabChange('email-templates')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'email-templates'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Email Templates
+          </button>
+          <button
+            onClick={() => onSettingsTabChange('roles')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'roles'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Role Management
+          </button>
+          <button
+            onClick={() => onSettingsTabChange('allotments')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'allotments'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Manager Allotments
+          </button>
+        </nav>
+      </div>
+
+      {/* SMTP Settings Sub-tab */}
+      {settingsTab === 'smtp' && <SmtpSettings />}
+
+      {/* Email Templates Sub-tab */}
+      {settingsTab === 'email-templates' && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Email Templates</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Edit the subject and HTML for notification emails. Variables can be used with
+            <code className="ml-1 px-1 py-0.5 bg-gray-100 rounded">{'{{variable}}'}</code>.
+          </p>
+
+          {templatesLoading ? (
+            <div className="text-center py-6 text-gray-500">Loading templates...</div>
+          ) : emailTemplates.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No templates available.</div>
+          ) : (
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              {emailTemplates.map((template) => (
+                <div key={template.key} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">{template.name}</h3>
+                      <p className="text-xs text-gray-500">{template.description}</p>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={template.isEnabled}
+                        onChange={(e) =>
+                          onTemplateChange(template.key, { isEnabled: e.target.checked })
+                        }
+                      />
+                      Enabled
+                    </label>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
+                    <input
+                      type="text"
+                      value={template.subject}
+                      onChange={(e) =>
+                        onTemplateChange(template.key, { subject: e.target.value })
+                      }
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">HTML</label>
+                    <textarea
+                      rows={6}
+                      value={template.html}
+                      onChange={(e) =>
+                        onTemplateChange(template.key, { html: e.target.value })
+                      }
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-gray-500">
+                      Variables: {template.variables.join(', ')}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onSaveTemplate(template)}
+                      disabled={savingTemplateKey === template.key}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+                    >
+                      {savingTemplateKey === template.key ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Role Management Sub-tab */}
+      {settingsTab === 'roles' && (
+        <div className="space-y-6">
+          {/* Add User Form */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Add New User</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add a new user to the Guincoin Rewards Program. They will receive an email notification with a link to access their dashboard.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  onShowAddUserFormChange(!showAddUserForm);
+                  if (showAddUserForm) {
+                    onNewUserFormChange({ email: '', name: '', isManager: false, isAdmin: false });
+                  }
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                {showAddUserForm ? 'Cancel' : 'Add User'}
+              </button>
+            </div>
+
+            {showAddUserForm && (
+              <form onSubmit={onCreateUser} className="space-y-4 border-t border-gray-200 pt-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={newUserForm.email}
+                      onChange={(e) => onNewUserFormChange({ ...newUserForm, email: e.target.value })}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newUserForm.name}
+                      onChange={(e) => onNewUserFormChange({ ...newUserForm, name: e.target.value })}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Roles</p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newUserForm.isManager}
+                        onChange={(e) => onNewUserFormChange({ ...newUserForm, isManager: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Manager (can award Guincoins to employees)</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newUserForm.isAdmin}
+                        onChange={(e) => onNewUserFormChange({ ...newUserForm, isAdmin: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Admin (full system access)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <button
+                    type="submit"
+                    disabled={creatingUser}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+                  >
+                    {creatingUser ? 'Creating...' : 'Create User'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Employee List */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Role Management</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Manage employee roles and permissions. Managers can award coins, Admins have full system access.
+                </p>
+              </div>
+              <button
+                onClick={onLoadEmployees}
+                disabled={employeesLoading}
+                className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:bg-gray-200 disabled:text-gray-500"
+              >
+                {employeesLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+
+            {employeesLoading && employees.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">Loading employees...</div>
+            ) : employees.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">No employees found.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Manager
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Admin
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Role
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {employees.map((employee) => {
+                      const roleName =
+                        employee.isAdmin && employee.isManager
+                          ? 'Admin & Manager'
+                          : employee.isAdmin
+                          ? 'Admin'
+                          : employee.isManager
+                          ? 'Manager'
+                          : 'Employee';
+                      const isCurrentUser = employee.id === user?.id;
+
+                      return (
+                        <tr key={employee.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                            {isCurrentUser && (
+                              <div className="text-xs text-gray-500">(You)</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{employee.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={employee.isManager}
+                              onChange={(e) =>
+                                onUpdateRoles(employee.id, { isManager: e.target.checked })
+                              }
+                              disabled={updatingEmployeeId === employee.id || isCurrentUser}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={employee.isAdmin}
+                              onChange={(e) =>
+                                onUpdateRoles(employee.id, { isAdmin: e.target.checked })
+                              }
+                              disabled={
+                                updatingEmployeeId === employee.id ||
+                                (isCurrentUser && employee.isAdmin)
+                              }
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                              title={
+                                isCurrentUser && employee.isAdmin
+                                  ? 'You cannot remove your own admin status'
+                                  : ''
+                              }
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                employee.isAdmin
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : employee.isManager
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {roleName}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Manager Allotments Sub-tab */}
+      {settingsTab === 'allotments' && (
+        <div className="space-y-6">
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Manager Allotments</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Deposit funds into manager allotment balances. Managers use allotments exclusively for awarding coins to employees.
+                </p>
+              </div>
+              <button
+                onClick={onLoadManagers}
+                disabled={managersLoading}
+                className="px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 disabled:bg-gray-200 disabled:text-gray-500"
+              >
+                {managersLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+
+            {managersLoading && managers.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">Loading managers...</div>
+            ) : managers.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                No managers found. Assign the manager role to employees in the Role Management tab.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Manager List */}
+                <div className="lg:col-span-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Select a Manager</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {managers.map((manager) => (
+                      <button
+                        key={manager.id}
+                        onClick={() => onSelectManager(manager.id)}
+                        className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                          selectedManagerId === manager.id
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/50'
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-gray-900">{manager.name}</div>
+                        <div className="text-xs text-gray-500">{manager.email}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Allotment Details & Actions */}
+                <div className="lg:col-span-2">
+                  {!selectedManagerId ? (
+                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center text-gray-500">
+                      Select a manager to view and manage their allotment balance
+                    </div>
+                  ) : allotmentLoading ? (
+                    <div className="text-center py-8 text-gray-500">Loading allotment details...</div>
+                  ) : selectedManagerAllotment ? (
+                    <div className="space-y-6">
+                      {/* Current Balance Card */}
+                      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-medium text-purple-900">
+                            {selectedManagerAllotment.employee.name}'s Allotment
+                          </h3>
+                          <span className="text-2xl">🎁</span>
+                        </div>
+                        <div className="text-center py-4">
+                          <p className="text-sm text-purple-600 mb-1">Current Balance</p>
+                          <p className="text-4xl font-bold text-purple-900">
+                            {selectedManagerAllotment.allotment.balance.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-purple-500 mt-1">Guincoin</p>
+                        </div>
+                        <div className="bg-purple-100 rounded-lg p-3 mt-4">
+                          <div className="grid grid-cols-2 gap-4 text-center">
+                            <div>
+                              <p className="text-xs text-purple-600">Awarded This Period</p>
+                              <p className="text-lg font-semibold text-purple-900">
+                                {selectedManagerAllotment.allotment.usedThisPeriod.toFixed(2)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-purple-600">Recurring Budget</p>
+                              <p className="text-lg font-semibold text-purple-900">
+                                {selectedManagerAllotment.allotment.recurringBudget > 0
+                                  ? `${selectedManagerAllotment.allotment.recurringBudget.toFixed(2)}/period`
+                                  : 'Not set'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Deposit Form */}
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Deposit Funds</h4>
+                        <form onSubmit={onDeposit} className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Amount
+                            </label>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={depositForm.amount}
+                              onChange={(e) =>
+                                onDepositFormChange({ ...depositForm, amount: e.target.value })
+                              }
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
+                              placeholder="100.00"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Description (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={depositForm.description}
+                              onChange={(e) =>
+                                onDepositFormChange({ ...depositForm, description: e.target.value })
+                              }
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
+                              placeholder="Q1 2026 allotment"
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={depositLoading}
+                              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
+                            >
+                              {depositLoading ? 'Depositing...' : 'Deposit'}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Recurring Budget Form */}
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Recurring Budget</h4>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Set an automatic recurring deposit amount. Enter 0 to disable.
+                        </p>
+                        <form onSubmit={onSetRecurring} className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Amount per Period
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={recurringForm.amount}
+                              onChange={(e) =>
+                                onRecurringFormChange({ ...recurringForm, amount: e.target.value })
+                              }
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
+                              placeholder={selectedManagerAllotment.allotment.recurringBudget > 0
+                                ? selectedManagerAllotment.allotment.recurringBudget.toString()
+                                : '500.00'
+                              }
+                              required
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={recurringLoading}
+                              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
+                            >
+                              {recurringLoading ? 'Saving...' : 'Set Recurring'}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Recent Deposits */}
+                      {selectedManagerAllotment.recentDeposits && selectedManagerAllotment.recentDeposits.length > 0 && (
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">Recent Deposits</h4>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {selectedManagerAllotment.recentDeposits.map((deposit, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    +{deposit.amount.toFixed(2)} Guincoin
+                                  </p>
+                                  {deposit.description && (
+                                    <p className="text-xs text-gray-500">{deposit.description}</p>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-400">
+                                  {new Date(deposit.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Failed to load allotment details
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

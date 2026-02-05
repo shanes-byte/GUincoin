@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../Toast';
 
 interface TransferFormProps {
   onTransfer: (data: { recipientEmail: string; amount: number; message?: string }) => void;
@@ -10,18 +11,19 @@ export default function TransferForm({ onTransfer, remaining }: TransferFormProp
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(amount);
 
     if (!recipientEmail || !amountNum || amountNum <= 0) {
-      alert('Please fill in all required fields');
+      addToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (amountNum > remaining) {
-      alert(`Amount exceeds remaining transfer limit (${remaining.toFixed(2)})`);
+      addToast(`Amount exceeds remaining transfer limit (${remaining.toFixed(2)})`, 'error');
       return;
     }
 

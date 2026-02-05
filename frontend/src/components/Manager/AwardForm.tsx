@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../Toast';
 
 interface AwardFormProps {
   onAward: (data: { employeeEmail: string; amount: number; description?: string }) => void;
@@ -10,18 +11,19 @@ export default function AwardForm({ onAward, remaining }: AwardFormProps) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(amount);
 
     if (!employeeEmail || !amountNum || amountNum <= 0) {
-      alert('Please fill in all required fields');
+      addToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (amountNum > remaining) {
-      alert(`Amount exceeds remaining allotment (${remaining.toFixed(2)})`);
+      addToast(`Amount exceeds remaining allotment (${remaining.toFixed(2)})`, 'error');
       return;
     }
 

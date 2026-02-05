@@ -1,10 +1,22 @@
+/**
+ * File upload service for handling document and image uploads.
+ *
+ * Provides secure file upload handling with:
+ * - MIME type validation
+ * - Magic number verification to prevent type spoofing
+ * - Unique filename generation
+ * - Configurable file size limits
+ *
+ * @module services/fileService
+ */
+
 import { Request } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
-// File size limit: 5MB
+/** Maximum file size in bytes (default: 5MB) */
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '5242880');
 
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -27,7 +39,16 @@ const MAGIC_NUMBERS: Record<string, number[][]> = {
   'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]], // GIF87a, GIF89a
 };
 
-/** Verify file content matches its declared MIME type via magic number check */
+/**
+ * Verifies that a file's content matches its declared MIME type.
+ *
+ * Reads the first 8 bytes of the file and compares against known magic number signatures.
+ * This prevents attackers from uploading malicious files with spoofed extensions.
+ *
+ * @param filePath - Path to the uploaded file
+ * @param declaredMime - The MIME type declared by the client
+ * @returns True if the file content matches the declared type, false otherwise
+ */
 function verifyFileMagicNumber(filePath: string, declaredMime: string): boolean {
   const signatures = MAGIC_NUMBERS[declaredMime];
   if (!signatures) return true; // No signature to check, allow
@@ -117,14 +138,31 @@ export const publicUpload = multer({
   },
 });
 
+/**
+ * Generates the full URL for accessing an uploaded file.
+ *
+ * @param filename - The unique filename generated during upload
+ * @returns Full URL to access the file via the API
+ */
 export const getFileUrl = (filename: string): string => {
   const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
   return `${baseUrl}/api/files/${filename}`;
 };
 
+/**
+ * Generates the full URL for accessing a public file (e.g., store product images).
+ *
+ * @param filename - The unique filename generated during upload
+ * @returns Full URL to access the public file
+ */
 export const getPublicFileUrl = (filename: string): string => {
   const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
   return `${baseUrl}/api/files/public/${filename}`;
 };
 
+/**
+ * Returns the directory path for public uploads (store images).
+ *
+ * @returns Absolute path to the public upload directory
+ */
 export const getPublicUploadDir = (): string => publicUploadDir;

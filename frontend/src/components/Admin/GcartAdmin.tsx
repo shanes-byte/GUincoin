@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useToast } from '../Toast';
 import {
   getAdminGcartTiers,
   getAdminGcartTasks,
@@ -29,6 +30,7 @@ import {
 type AdminTab = 'submissions' | 'tiers' | 'tasks' | 'employees';
 
 export default function GcartAdmin() {
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function GcartAdmin() {
       loadData();
     } catch (err) {
       console.error('Failed to approve submission:', err);
-      alert('Failed to approve submission');
+      addToast('Failed to approve submission', 'error');
     }
   };
 
@@ -99,7 +101,7 @@ export default function GcartAdmin() {
       loadData();
     } catch (err) {
       console.error('Failed to reject submission:', err);
-      alert('Failed to reject submission');
+      addToast('Failed to reject submission', 'error');
     }
   };
 
@@ -109,13 +111,13 @@ export default function GcartAdmin() {
       loadData();
     } catch (err) {
       console.error('Failed to assign tier:', err);
-      alert('Failed to assign tier');
+      addToast('Failed to assign tier', 'error');
     }
   };
 
   const handleBulkAssign = async () => {
     if (selectedEmployees.length === 0 || !bulkAssignTierId) {
-      alert('Please select employees and a tier');
+      addToast('Please select employees and a tier', 'warning');
       return;
     }
     try {
@@ -126,7 +128,7 @@ export default function GcartAdmin() {
       loadData();
     } catch (err) {
       console.error('Failed to bulk assign:', err);
-      alert('Failed to bulk assign employees');
+      addToast('Failed to bulk assign employees', 'error');
     }
   };
 
@@ -502,6 +504,7 @@ function TierFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { addToast } = useToast();
   const [form, setForm] = useState({
     name: tier?.name || '',
     code: tier?.code || '',
@@ -526,7 +529,7 @@ function TierFormModal({
       onClose();
     } catch (err) {
       console.error('Failed to save tier:', err);
-      alert('Failed to save tier');
+      addToast('Failed to save tier', 'error');
     } finally {
       setSaving(false);
     }
@@ -626,6 +629,7 @@ function TaskFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { addToast } = useToast();
   const [form, setForm] = useState({
     tierId: task?.tierId || '',
     name: task?.name || '',
@@ -679,7 +683,7 @@ function TaskFormModal({
       onClose();
     } catch (err) {
       console.error('Failed to save task:', err);
-      alert('Failed to save task');
+      addToast('Failed to save task', 'error');
     } finally {
       setSaving(false);
     }

@@ -1,10 +1,12 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import crypto from 'crypto';
 import path from 'path';
 import dotenv from 'dotenv';
 import session, { Store } from 'express-session';
 import pgSession from 'connect-pg-simple';
+import swaggerUi from 'swagger-ui-express';
 import passport from './config/auth';
 import { rateLimiter, authRateLimiter } from './middleware/rateLimiter';
 import { getHealthSummary, setSessionStoreType } from './utils/health';
@@ -12,6 +14,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { setupGracefulShutdown } from './utils/gracefulShutdown';
 import { SESSION_MAX_AGE_MS } from './config/constants';
+import { swaggerSpec } from './config/swagger';
 import authRoutes from './routes/auth';
 import accountRoutes from './routes/accounts';
 import managerRoutes from './routes/manager';
@@ -61,6 +64,25 @@ const PORT = env.PORT;
 
 // Trust first proxy (nginx/Railway) so secure cookies work behind reverse proxy
 app.set('trust proxy', 1);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for Tailwind
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"], // Allow images from HTTPS sources
+      connectSrc: ["'self'", env.FRONTEND_URL, env.BACKEND_URL],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Disable for compatibility with external resources
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for API
+}));
 
 // Middleware
 app.use(cors({
@@ -150,6 +172,19 @@ app.get('/health', async (req, res, next) => {
     next(error);
   }
 });
+
+// API Documentation (Swagger UI)
+// Swagger UI requires relaxed CSP, so we apply custom headers for /api-docs routes
+app.use('/api-docs', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+  );
+  next();
+}, swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Guincoin API Documentation',
+  customCss: '.swagger-ui .topbar { display: none }',
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);

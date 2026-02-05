@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+/**
+ * Environment variable validation schema using Zod.
+ *
+ * Required variables:
+ * - DATABASE_URL: PostgreSQL connection string
+ * - SESSION_SECRET: Secret for signing session cookies (16+ chars, 32+ in production)
+ *
+ * Required in production:
+ * - GOOGLE_CLIENT_ID: OAuth 2.0 Client ID from Google Cloud Console
+ * - GOOGLE_CLIENT_SECRET: OAuth 2.0 Client Secret
+ *
+ * See .env.example for full documentation of all variables.
+ */
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -18,6 +31,7 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   COOKIE_DOMAIN: z.string().optional(),
   GOOGLE_CHAT_VERIFICATION_TOKEN: z.string().optional(),
+  REDIS_URL: z.string().optional(),
 });
 
 // In production, enforce required vars
@@ -54,4 +68,5 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: parsed.data.RATE_LIMIT_WINDOW_MS,
   COOKIE_DOMAIN: parsed.data.COOKIE_DOMAIN,
   GOOGLE_CHAT_VERIFICATION_TOKEN: parsed.data.GOOGLE_CHAT_VERIFICATION_TOKEN,
+  REDIS_URL: parsed.data.REDIS_URL,
 };

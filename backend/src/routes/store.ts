@@ -9,6 +9,13 @@ import { validate } from '../middleware/validation';
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Store
+ *     description: Product catalog, purchases, wishlist, and savings goals
+ */
+
 const AMAZON_HOST_HINTS = ['amazon.', 'media-amazon', 'ssl-images-amazon', 'images-na.ssl-images-amazon'];
 
 const isAmazonImageUrl = (value: string): boolean => {
@@ -57,7 +64,25 @@ const getStoreProductDelegate = () => {
   return delegate;
 };
 
-// Get available store products
+/**
+ * @openapi
+ * /api/store/products:
+ *   get:
+ *     tags: [Store]
+ *     summary: Get available store products
+ *     description: Returns all active products available for purchase in the store
+ *     responses:
+ *       200:
+ *         description: List of available products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/StoreProduct'
+ *       401:
+ *         description: Not authenticated
+ */
 router.get('/products', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();
@@ -110,7 +135,51 @@ router.get('/amazon-image', requireAuth, async (req: AuthRequest, res, next: Nex
   }
 });
 
-// Purchase a product
+/**
+ * @openapi
+ * /api/store/purchase:
+ *   post:
+ *     tags: [Store]
+ *     summary: Purchase a product
+ *     description: Purchases a product using Guincoin balance. Creates a transaction and purchase order.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID of the product to purchase
+ *               shippingAddress:
+ *                 type: string
+ *                 description: Shipping address for physical products
+ *     responses:
+ *       200:
+ *         description: Purchase successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 purchaseOrder:
+ *                   $ref: '#/components/schemas/PurchaseOrder'
+ *                 newBalance:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *       400:
+ *         description: Insufficient balance or product unavailable
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Product or account not found
+ */
 const purchaseSchema = z.object({
   body: z.object({
     productId: z.string().uuid(),
@@ -242,7 +311,25 @@ router.post('/purchase', requireAuth, validate(purchaseSchema), async (req: Auth
   }
 });
 
-// Get user's purchases
+/**
+ * @openapi
+ * /api/store/purchases:
+ *   get:
+ *     tags: [Store]
+ *     summary: Get user's purchase history
+ *     description: Returns all purchase orders for the authenticated user
+ *     responses:
+ *       200:
+ *         description: List of purchase orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PurchaseOrder'
+ *       401:
+ *         description: Not authenticated
+ */
 router.get('/purchases', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const purchases = await prisma.storePurchaseOrder.findMany({
@@ -272,7 +359,46 @@ router.get('/purchases', requireAuth, async (req: AuthRequest, res, next: NextFu
   }
 });
 
-// Wishlist routes
+/**
+ * @openapi
+ * /api/store/wishlist/{productId}:
+ *   post:
+ *     tags: [Store]
+ *     summary: Add product to wishlist
+ *     description: Adds a product to the user's wishlist
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the product to add
+ *     responses:
+ *       200:
+ *         description: Product added to wishlist
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Product not found
+ *   delete:
+ *     tags: [Store]
+ *     summary: Remove product from wishlist
+ *     description: Removes a product from the user's wishlist
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the product to remove
+ *     responses:
+ *       200:
+ *         description: Product removed from wishlist
+ *       401:
+ *         description: Not authenticated
+ */
 router.post('/wishlist/:productId', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const storeProduct = getStoreProductDelegate();

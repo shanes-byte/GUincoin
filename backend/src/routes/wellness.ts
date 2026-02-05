@@ -9,6 +9,32 @@ import { FrequencyRule } from '@prisma/client';
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Wellness
+ *     description: Wellness program tasks and submissions
+ */
+
+/**
+ * @openapi
+ * /api/wellness/tasks:
+ *   get:
+ *     tags: [Wellness]
+ *     summary: Get available wellness tasks
+ *     description: Returns all active wellness tasks that employees can complete for coin rewards
+ *     responses:
+ *       200:
+ *         description: List of available wellness tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/WellnessTask'
+ *       401:
+ *         description: Not authenticated
+ */
 // Get available wellness tasks
 router.get('/tasks', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
@@ -28,7 +54,33 @@ router.get('/tasks', requireAuth, async (req: AuthRequest, res, next: NextFuncti
   }
 });
 
-// Get wellness task by ID
+/**
+ * @openapi
+ * /api/wellness/tasks/{id}:
+ *   get:
+ *     tags: [Wellness]
+ *     summary: Get wellness task by ID
+ *     description: Returns details of a specific wellness task
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Wellness task ID
+ *     responses:
+ *       200:
+ *         description: Wellness task details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/WellnessTask'
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Task not found
+ */
 router.get('/tasks/:id', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const task = await prisma.wellnessTask.findUnique({
@@ -48,7 +100,52 @@ router.get('/tasks/:id', requireAuth, async (req: AuthRequest, res, next: NextFu
   }
 });
 
-// Submit wellness task
+/**
+ * @openapi
+ * /api/wellness/submit:
+ *   post:
+ *     tags: [Wellness]
+ *     summary: Submit wellness task completion
+ *     description: Submits proof of wellness task completion with supporting document. Creates a pending transaction for admin review.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - wellnessTaskId
+ *               - document
+ *             properties:
+ *               wellnessTaskId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID of the wellness task being submitted
+ *               document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Proof document (PDF, image, etc.)
+ *     responses:
+ *       200:
+ *         description: Submission created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 submission:
+ *                   type: object
+ *                 transaction:
+ *                   $ref: '#/components/schemas/Transaction'
+ *       400:
+ *         description: Invalid submission (missing document, frequency limit reached, etc.)
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Task or account not found
+ */
 router.post(
   '/submit',
   requireAuth,
@@ -164,7 +261,41 @@ router.post(
   }
 );
 
-// Get employee's wellness submissions
+/**
+ * @openapi
+ * /api/wellness/submissions:
+ *   get:
+ *     tags: [Wellness]
+ *     summary: Get user's wellness submissions
+ *     description: Returns all wellness task submissions for the authenticated user
+ *     responses:
+ *       200:
+ *         description: List of wellness submissions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     format: uuid
+ *                   status:
+ *                     type: string
+ *                     enum: [pending, approved, rejected]
+ *                   submittedAt:
+ *                     type: string
+ *                     format: date-time
+ *                   documentUrl:
+ *                     type: string
+ *                   wellnessTask:
+ *                     $ref: '#/components/schemas/WellnessTask'
+ *                   transaction:
+ *                     $ref: '#/components/schemas/Transaction'
+ *       401:
+ *         description: Not authenticated
+ */
 router.get('/submissions', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
   try {
     const submissions = await prisma.wellnessSubmission.findMany({
