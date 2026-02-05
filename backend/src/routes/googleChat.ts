@@ -24,10 +24,13 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     });
 
     // Handle the event
+    console.log('[GoogleChat] Calling handleEvent...');
     const response = await googleChatService.handleEvent(event);
+    console.log('[GoogleChat] Got response:', JSON.stringify(response).substring(0, 200));
 
     // Return the response to Google Chat
     res.json(response);
+    console.log('[GoogleChat] Response sent to Google Chat');
   } catch (error) {
     console.error('[GoogleChat] Error handling webhook:', error);
 

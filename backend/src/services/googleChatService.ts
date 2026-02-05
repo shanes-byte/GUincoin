@@ -482,8 +482,12 @@ export class GoogleChatService {
       return buildErrorCard('Error', 'Unable to identify user.');
     }
 
+    console.log('[GoogleChat] Processing command for user:', userEmail);
+
     // Determine command from ID or text
     let commandName: string | null = null;
+
+    console.log('[GoogleChat] Determining command from ID:', commandId);
 
     if (commandId === COMMAND_IDS.help) {
       commandName = 'help';
