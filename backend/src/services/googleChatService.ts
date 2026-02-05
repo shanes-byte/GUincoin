@@ -639,16 +639,19 @@ export class GoogleChatService {
         }
       }
 
-      // Unknown command
-      await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Unknown command');
+      // Unknown command - return help
+      console.log('[GoogleChat] Unknown command, returning help');
+      if (debugSkipDB) {
+        return { text: 'Unknown command. Use /help to see available commands.' };
+      }
       const employee = await this.findEmployeeByEmail(userEmail);
       return buildHelpCard(employee?.isManager ?? false);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       console.error('[GoogleChat] Error:', errorMessage);
-      await this.updateAuditLog(auditId, ChatCommandStatus.failed, errorMessage);
-      return buildErrorCard('Error', errorMessage);
+      // Return simple error response (audit log may not exist in debug mode)
+      return { text: `Error: ${errorMessage}` };
     }
   }
 }
