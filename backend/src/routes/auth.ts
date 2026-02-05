@@ -99,7 +99,10 @@ router.get(
 router.get(
   '/google/callback',
   requireOAuthConfig,
-  passport.authenticate('google', { failureRedirect: `${env.FRONTEND_URL}/login?error=auth` }),
+  passport.authenticate('google', {
+    failureRedirect: `${env.FRONTEND_URL}/login?error=auth`,
+    keepSessionInfo: true, // Preserve oauthNonce - don't regenerate session during login
+  }),
   (req: AuthRequest, res) => {
     // Detailed logging for OAuth callback debugging
     console.log('[OAuth Callback] Session ID:', req.sessionID);
