@@ -158,7 +158,12 @@ if (env.RATE_LIMIT_ENABLED) {
 // Apply stricter rate limiting to auth routes
 app.use('/api/auth', authRateLimiter(10, 15 * 60 * 1000));
 
-// Health check endpoint
+// Simple liveness check (doesn't depend on database)
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+// Full health check endpoint (checks all dependencies)
 app.get('/health', async (req, res, next) => {
   try {
     const summary = await getHealthSummary();
@@ -233,13 +238,33 @@ if (env.NODE_ENV === 'production') {
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server with graceful shutdown
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${env.NODE_ENV}`);
-});
+// Pre-warm database connection before accepting requests
+const startServer = async () => {
+  try {
+    // Import prisma and test connection
+    const prisma = (await import('./config/database')).default;
+    console.log('[Startup] Connecting to database...');
+    await prisma.$connect();
+    console.log('[Startup] Database connected successfully');
 
-// Setup graceful shutdown handling
-setupGracefulShutdown(server);
+    // Warm up with a simple query
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('[Startup] Database warmed up');
+  } catch (error) {
+    console.error('[Startup] Database connection failed:', error);
+    // Continue anyway - health check will report the issue
+  }
+
+  // Start server after warming up
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${env.NODE_ENV}`);
+  });
+
+  // Setup graceful shutdown handling
+  setupGracefulShutdown(server);
+};
+
+startServer();
 
 export default app;
