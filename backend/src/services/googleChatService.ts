@@ -531,7 +531,13 @@ export class GoogleChatService {
    */
   async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
     console.log('[GoogleChat] handleEvent START');
-    console.log('[GoogleChat] Raw event:', JSON.stringify(rawEvent, null, 2).substring(0, 500));
+    const rawJson = JSON.stringify(rawEvent, null, 2);
+    console.log('[GoogleChat] Raw event (length=%d):', rawJson.length, rawJson.substring(0, 2000));
+    // Log all top-level keys so we can see the full event structure
+    console.log('[GoogleChat] Event top-level keys:', Object.keys(rawEvent));
+    if (rawEvent.chat) console.log('[GoogleChat] chat keys:', Object.keys(rawEvent.chat));
+    if (rawEvent.message) console.log('[GoogleChat] message keys:', Object.keys(rawEvent.message));
+    if (rawEvent.appCommandPayload) console.log('[GoogleChat] appCommandPayload keys:', Object.keys(rawEvent.appCommandPayload));
 
     // Determine actual event type for audit logging
     const eventType = this.getEventType(rawEvent);
