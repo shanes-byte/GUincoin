@@ -135,9 +135,10 @@ router.post(
       }
 
       // Group by confidence level
+      // [ORIGINAL - 2026-02-06] Medium threshold was 0.7, noMatch was < 0.7 — lowered to 0.5
       const highConfidence = mergedRows.filter(r => r.confidence >= 0.9 && r.email);
-      const mediumConfidence = mergedRows.filter(r => r.confidence >= 0.7 && r.confidence < 0.9 && r.email);
-      const noMatch = mergedRows.filter(r => !r.email || r.confidence < 0.7);
+      const mediumConfidence = mergedRows.filter(r => r.confidence >= 0.5 && r.confidence < 0.9 && r.email);
+      const noMatch = mergedRows.filter(r => !r.email || r.confidence < 0.5);
 
       res.json({
         rows: mergedRows,

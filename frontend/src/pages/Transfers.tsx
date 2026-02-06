@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, getTransferLimits, sendTransfer, getTransferHistory, getPendingTransfers, cancelTransfer, User, Transaction } from '../services/api';
+import { getCurrentUser, getTransferLimits, sendTransfer, getTransferHistory, getPendingTransfers, cancelTransfer, getBalance, User, Balance, Transaction } from '../services/api';
 import Layout from '../components/Layout';
 import TransferForm from '../components/Transfers/TransferForm';
 import TransferLimits from '../components/Transfers/TransferLimits';
@@ -12,6 +12,7 @@ export default function Transfers() {
   const navigate = useNavigate();
   const { addToast, confirm } = useToast();
   const [user, setUser] = useState<User | null>(null);
+  const [balance, setBalance] = useState<Balance | null>(null);
   const [limits, setLimits] = useState<any>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
@@ -23,11 +24,13 @@ export default function Transfers() {
       setLoading(true);
       setError(null);
       try {
+        // [ORIGINAL - 2026-02-06] Did not fetch balance — added getBalance() for display on Transfers page
         const results = await Promise.allSettled([
           getCurrentUser(),
           getTransferLimits(),
           getTransferHistory(),
           getPendingTransfers(),
+          getBalance(),
         ]);
 
         const hasAuthError = results.some(
@@ -40,7 +43,7 @@ export default function Transfers() {
           return;
         }
 
-        const [userRes, limitsRes, historyRes, pendingRes] = results;
+        const [userRes, limitsRes, historyRes, pendingRes, balanceRes] = results;
 
         if (userRes.status === 'fulfilled') {
           setUser(userRes.value.data);
@@ -56,6 +59,10 @@ export default function Transfers() {
 
         if (pendingRes.status === 'fulfilled') {
           setPendingTransfers(pendingRes.value.data || []);
+        }
+
+        if (balanceRes.status === 'fulfilled') {
+          setBalance(balanceRes.value.data);
         }
 
         if (results.some((result) => result.status === 'rejected')) {
@@ -77,14 +84,16 @@ export default function Transfers() {
   }, [navigate]);
 
   const reloadTransferData = async () => {
-    const [limitsRes, historyRes, pendingRes] = await Promise.all([
+    const [limitsRes, historyRes, pendingRes, balanceRes] = await Promise.all([
       getTransferLimits(),
       getTransferHistory(),
       getPendingTransfers(),
+      getBalance(),
     ]);
     setLimits(limitsRes.data);
     setHistory(historyRes.data.transactions || []);
     setPendingTransfers(pendingRes.data || []);
+    setBalance(balanceRes.data);
   };
 
   const handleTransfer = async (data: { recipientEmail: string; amount: number; message?: string }) => {
@@ -124,9 +133,27 @@ export default function Transfers() {
   return (
     <Layout user={user || undefined}>
       <div className="px-4 py-6 sm:px-0">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Peer Transfers</h1>
-          <p className="mt-1 text-sm text-gray-500">Send coins to your colleagues</p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Peer Transfers</h1>
+            <p className="mt-1 text-sm text-gray-500">Send coins to your colleagues</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {balance && (
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Your Balance</p>
+                <p className="text-xl font-semibold text-gray-900">{balance.total.toFixed(2)}</p>
+              </div>
+            )}
+            {user?.isManager && (
+              <a
+                href="/manager"
+                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100"
+              >
+                Switch to Manager Portal
+              </a>
+            )}
+          </div>
         </div>
 
         {error && (

@@ -200,7 +200,8 @@ app.use((req, res, next) => {
 // Apply rate limiting to API routes (except health check)
 if (env.RATE_LIMIT_ENABLED) {
   const isProd = env.NODE_ENV === 'production';
-  const maxRequests = env.RATE_LIMIT_MAX ?? (isProd ? 100 : 1000);
+  // [ORIGINAL - 2026-02-06] Production default was 100 — too aggressive for SPA (dashboard=5 calls, transfers=4)
+  const maxRequests = env.RATE_LIMIT_MAX ?? (isProd ? 500 : 1000);
   const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000;
   if (Number.isFinite(maxRequests) && maxRequests > 0) {
     app.use('/api', rateLimiter(maxRequests, windowMs));

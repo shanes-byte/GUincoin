@@ -117,27 +117,17 @@ router.post(
           throw new Error('Account not found');
         }
 
-        // Check balance within transaction (get latest posted balance)
-        const postedBalance = await tx.ledgerTransaction.aggregate({
-          where: {
-            accountId: senderAccount.id,
-            status: 'posted',
-          },
-          _sum: { amount: true },
-        });
-
-        const pendingDebit = await tx.ledgerTransaction.aggregate({
+        // [ORIGINAL - 2026-02-06] Balance check via aggregate of all posted amounts + pending negatives
+        // Replaced: use account.balance (authoritative, maintained by postTransaction()) minus pending outbound
+        const pendingDebits = await tx.ledgerTransaction.aggregate({
           where: {
             accountId: senderAccount.id,
             status: 'pending',
-            amount: { lt: 0 },
+            transactionType: { in: ['peer_transfer_sent', 'store_purchase'] },
           },
           _sum: { amount: true },
         });
-
-        const availableBalance =
-          Number(postedBalance._sum.amount || 0) +
-          Number(pendingDebit._sum.amount || 0);
+        const availableBalance = Number(senderAccount.balance) - Number(pendingDebits._sum.amount || 0);
 
         if (availableBalance < amount) {
           throw new Error('Insufficient balance');
@@ -189,11 +179,12 @@ router.post(
           }
 
           // Create pending transfer transaction (use peer_transfer_sent type, stays pending)
+          // [ORIGINAL - 2026-02-06] amount was: -amount (caused double-negation when postTransaction negates debit types)
           const senderTransaction = await tx.ledgerTransaction.create({
             data: {
               accountId: senderAccount.id,
               transactionType: 'peer_transfer_sent',
-              amount: -amount,
+              amount: amount,
               description: message || `Pending transfer to ${normalizedRecipientEmail}`,
               status: 'pending',
               sourceEmployeeId: req.user!.id,
@@ -222,11 +213,13 @@ router.post(
         }
 
         // Create and post transactions atomically
+        // [ORIGINAL - 2026-02-06] sentTransaction amount was: -amount (double-negation bug)
+        // [ORIGINAL - 2026-02-06] posting was manual status update, not postTransaction() — balance never changed
         const sentTransaction = await tx.ledgerTransaction.create({
           data: {
             accountId: senderAccount.id,
             transactionType: 'peer_transfer_sent',
-            amount: -amount,
+            amount: amount,
             description: message || `Transfer to ${recipient.name}`,
             status: 'pending',
             sourceEmployeeId: req.user!.id,
@@ -245,16 +238,9 @@ router.post(
           },
         });
 
-        // Post both transactions
-        await tx.ledgerTransaction.update({
-          where: { id: sentTransaction.id },
-          data: { status: 'posted', postedAt: new Date() },
-        });
-
-        await tx.ledgerTransaction.update({
-          where: { id: receivedTransaction.id },
-          data: { status: 'posted', postedAt: new Date() },
-        });
+        // Post both transactions via transactionService (updates account.balance)
+        await transactionService.postTransaction(sentTransaction.id, tx);
+        await transactionService.postTransaction(receivedTransaction.id, tx);
 
         return {
           type: 'completed' as const,

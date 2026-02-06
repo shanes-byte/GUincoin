@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-05
+> **Last Updated**: 2026-02-06
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -540,6 +540,7 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | Method | Path | Middleware | Service Calls |
 |--------|------|-----------|---------------|
 | GET | `/api/accounts/balance` | requireAuth | transactionService.getAccountBalance() |
+| GET | `/api/accounts/full-balance` | requireAuth | transactionService.getAccountBalance(), prisma.account (allotmentBalance) |
 | GET | `/api/accounts/transactions` | requireAuth, validate | transactionService.getTransactionHistory() |
 | GET | `/api/accounts/pending` | requireAuth | transactionService.getPendingTransactions() |
 
@@ -754,8 +755,8 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 |-------------------|------|-------------|---------|
 | `getCurrentUser()` | GET | /auth/me | Login, Dashboard, ManagerPortal, Transfers, Wellness, Store, AdminPortal |
 | `logout()` | POST | /auth/logout | Layout |
-| `getBalance()` | GET | /accounts/balance | Dashboard, Store |
-| `getFullBalance()` | GET | /accounts/full-balance | (not widely used) |
+| `getBalance()` | GET | /accounts/balance | Transfers, Store |
+| `getFullBalance()` | GET | /accounts/full-balance | Dashboard |
 | `getTransactions(params)` | GET | /accounts/transactions | Dashboard |
 | `getPendingTransactions()` | GET | /accounts/pending | (available) |
 | `getManagerAllotment()` | GET | /manager/allotment | ManagerPortal |
@@ -851,9 +852,9 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 - **Behavior**: Redirects to /dashboard or /login
 
 ### Dashboard (`pages/Dashboard.tsx`)
-- **API**: getCurrentUser(), getBalance(), getTransactions({limit:10}), getGoals(), checkGoalAchievements()
-- **Components**: Layout, BalanceCard, TransactionList
-- **Features**: Confetti on goal achievement, goal deletion
+- **API**: getCurrentUser(), getFullBalance(), getTransactions({limit:10}), getGoals(), checkGoalAchievements()
+- **Components**: Layout, BalanceCard (with allotment), TransactionList
+- **Features**: Confetti on goal achievement, goal deletion, dual balance display (personal + allotment)
 
 ### ManagerPortal (`pages/ManagerPortal.tsx`)
 - **API**: getCurrentUser(), getManagerAllotment(), getAwardHistory({limit:20}), awardCoins()
@@ -861,8 +862,9 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 - **Guard**: Redirects non-managers to dashboard
 
 ### Transfers (`pages/Transfers.tsx`)
-- **API**: getCurrentUser(), getTransferLimits(), getTransferHistory(), getPendingTransfers(), sendTransfer(), cancelTransfer()
+- **API**: getCurrentUser(), getTransferLimits(), getTransferHistory(), getPendingTransfers(), getBalance(), sendTransfer(), cancelTransfer()
 - **Components**: Layout, TransferLimits, TransferForm, TransactionList
+- **Features**: Shows personal balance, "Switch to Manager Portal" button for managers
 
 ### Wellness (`pages/Wellness.tsx`)
 - **API**: getCurrentUser(), getWellnessTasks(), getWellnessSubmissions()

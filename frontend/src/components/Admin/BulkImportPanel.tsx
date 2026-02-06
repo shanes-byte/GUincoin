@@ -575,7 +575,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
               {mergedRows.map((row, index) => (
                 <tr key={index} className={
                   row.confidence >= 0.9 ? 'bg-green-50' :
-                  row.confidence >= 0.7 ? 'bg-yellow-50' :
+                  row.confidence >= 0.5 ? 'bg-yellow-50' :
                   'bg-red-50'
                 }>
                   <td className="px-4 py-3">
@@ -583,7 +583,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         Auto
                       </span>
-                    ) : row.confidence >= 0.7 && row.email ? (
+                    ) : row.confidence >= 0.5 && row.email ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         Review
                       </span>
@@ -595,7 +595,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
                   </td>
                   <td className="px-4 py-3 font-medium">{row.name}</td>
                   <td className="px-4 py-3">
-                    {!row.email || row.confidence < 0.7 ? (
+                    {!row.email || row.confidence < 0.5 ? (
                       <input
                         type="email"
                         value={row.email}
@@ -611,7 +611,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
                   <td className="px-4 py-3 text-center">
                     <span className={`text-sm font-medium ${
                       row.confidence >= 0.9 ? 'text-green-700' :
-                      row.confidence >= 0.7 ? 'text-yellow-700' :
+                      row.confidence >= 0.5 ? 'text-yellow-700' :
                       'text-red-700'
                     }`}>
                       {Math.round(row.confidence * 100)}%

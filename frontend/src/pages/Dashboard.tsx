@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import {
   getCurrentUser,
-  getBalance,
+  getFullBalance,
   getTransactions,
   getGoals,
   checkGoalAchievements,
@@ -23,6 +23,8 @@ export default function Dashboard() {
   const { addToast, confirm } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [balance, setBalance] = useState<Balance | null>(null);
+  const [allotmentBalance, setAllotmentBalance] = useState<Balance | null>(null);
+  const [isManager, setIsManager] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,10 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
+        // [ORIGINAL - 2026-02-06] Used getBalance() — replaced with getFullBalance() for dual-balance display
         const results = await Promise.allSettled([
           getCurrentUser(),
-          getBalance(),
+          getFullBalance(),
           getTransactions({ limit: 10 }),
           getGoals(),
           checkGoalAchievements(),
@@ -64,7 +67,10 @@ export default function Dashboard() {
         }
 
         if (balanceRes.status === 'fulfilled') {
-          setBalance(balanceRes.value.data);
+          const fullBal = balanceRes.value.data;
+          setBalance(fullBal.personal);
+          setAllotmentBalance(fullBal.allotment);
+          setIsManager(fullBal.isManager);
         }
 
         if (transactionsRes.status === 'fulfilled') {
@@ -119,8 +125,14 @@ export default function Dashboard() {
           }
         }
 
-        if (results.some((result) => result.status === 'rejected')) {
-          setError('We could not load all dashboard data. Please refresh and try again.');
+        // [ORIGINAL - 2026-02-06] Generic error: 'We could not load all dashboard data.'
+        const failedItems: string[] = [];
+        if (userRes.status === 'rejected') failedItems.push('profile');
+        if (balanceRes.status === 'rejected') failedItems.push('balance');
+        if (transactionsRes.status === 'rejected') failedItems.push('transactions');
+        if (goalsRes.status === 'rejected') failedItems.push('goals');
+        if (failedItems.length > 0) {
+          setError(`Could not load: ${failedItems.join(', ')}. Please refresh.`);
         }
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
@@ -197,7 +209,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-1 space-y-6">
               {balance ? (
-                <BalanceCard balance={balance} />
+                <BalanceCard balance={balance} allotmentBalance={allotmentBalance} isManager={isManager} />
               ) : (
                 <div className="rounded-md border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-600">
                   Balance is unavailable right now.

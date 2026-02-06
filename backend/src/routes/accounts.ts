@@ -67,6 +67,56 @@ router.get('/balance', requireAuth, async (req: AuthRequest, res, next: NextFunc
 
 /**
  * @openapi
+ * /api/accounts/full-balance:
+ *   get:
+ *     tags: [Accounts]
+ *     summary: Get full balance including allotment
+ *     description: Returns the personal balance and (if manager) allotment balance
+ *     responses:
+ *       200:
+ *         description: Full balance information
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Account not found
+ */
+// Get full balance (personal + allotment)
+router.get('/full-balance', requireAuth, async (req: AuthRequest, res, next: NextFunction) => {
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { id: req.user!.id },
+      include: { account: true },
+    });
+
+    if (!employee || !employee.account) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    const personal = await transactionService.getAccountBalance(
+      employee.account.id,
+      true
+    );
+
+    const allotment = employee.isManager
+      ? {
+          posted: Number(employee.account.allotmentBalance),
+          pending: 0,
+          total: Number(employee.account.allotmentBalance),
+        }
+      : null;
+
+    res.json({
+      personal,
+      allotment,
+      isManager: employee.isManager,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @openapi
  * /api/accounts/transactions:
  *   get:
  *     tags: [Accounts]

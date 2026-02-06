@@ -181,9 +181,10 @@ export function calculateNameSimilarity(a: ParsedName, b: ParsedName): number {
 /**
  * Get confidence level based on similarity score
  */
+// [ORIGINAL - 2026-02-06] Medium threshold was 0.7 — lowered to 0.5
 export function getConfidenceLevel(similarity: number): 'high' | 'medium' | 'low' {
   if (similarity >= 0.9) return 'high';
-  if (similarity >= 0.7) return 'medium';
+  if (similarity >= 0.5) return 'medium';
   return 'low';
 }
 
@@ -292,7 +293,8 @@ export function mergeDataFiles(
       }
     }
 
-    if (bestMatch && bestMatch.similarity >= 0.7) {
+    // [ORIGINAL - 2026-02-06] Threshold was 0.7 — lowered to 0.5 to catch more near-matches
+    if (bestMatch && bestMatch.similarity >= 0.5) {
       // Match found
       const emailRow = emailData[bestMatch.index];
       usedEmailIndices.add(bestMatch.index);
