@@ -3,8 +3,10 @@
  */
 
 // Google Chat Event Types
+// [ORIGINAL - 2026-02-05] Did not include SLASH_COMMAND event type
 export type GoogleChatEventType =
   | 'MESSAGE'
+  | 'SLASH_COMMAND'
   | 'ADDED_TO_SPACE'
   | 'REMOVED_FROM_SPACE'
   | 'CARD_CLICKED';
