@@ -39,6 +39,7 @@ export class GoogleChatService {
     commandId: number | null;
     spaceName: string | null;
     messageId: string | null;
+    mentionedUserEmail: string | null;
   } {
     // Handle nested chat structure (new format from 2024+)
     const chatData = rawEvent.chat || rawEvent;
@@ -56,6 +57,7 @@ export class GoogleChatService {
     let commandId: number | null = null;
     let spaceName: string | null = null;
     let messageId: string | null = null;
+    let mentionedUserEmail: string | null = null;
 
     // Check for appCommandPayload (slash command via newest format 2024+)
     if (chatData.appCommandPayload) {
@@ -80,6 +82,16 @@ export class GoogleChatService {
         }
       }
 
+      // Extract mentioned user email from annotations (for @mentions in transfer/award)
+      if (message?.annotations) {
+        const userMention = message.annotations.find(
+          (a: any) => a.type === 'USER_MENTION' && a.userMention?.user?.email
+        );
+        if (userMention) {
+          mentionedUserEmail = userMention.userMention.user.email.toLowerCase();
+        }
+      }
+
       // Get space name from payload
       if (payload.space?.name) {
         spaceName = payload.space.name;
@@ -95,6 +107,16 @@ export class GoogleChatService {
         // [ORIGINAL - 2026-02-05] commandId = message.slashCommand.commandId;
         commandId = Number(message.slashCommand.commandId);
       }
+
+      // Extract mentioned user email from annotations
+      if (message.annotations) {
+        const userMention = message.annotations.find(
+          (a: any) => a.type === 'USER_MENTION' && a.userMention?.user?.email
+        );
+        if (userMention) {
+          mentionedUserEmail = userMention.userMention.user.email.toLowerCase();
+        }
+      }
     }
 
     // Get space name from various locations
@@ -102,9 +124,9 @@ export class GoogleChatService {
       spaceName = chatData.space?.name || rawEvent.space?.name || null;
     }
 
-    console.log('[GoogleChat] Normalized event:', { userEmail, messageText, commandId, spaceName });
+    console.log('[GoogleChat] Normalized event:', { userEmail, messageText, commandId, spaceName, mentionedUserEmail });
 
-    return { userEmail, messageText, commandId, spaceName, messageId };
+    return { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail };
   }
 
   /**
@@ -451,28 +473,43 @@ export class GoogleChatService {
 
   /**
    * Parse transfer/award arguments from message text
-   * Handles formats:
-   *   /transfer user@domain.com 50 Great work!
-   *   @user@domain.com 50 message
-   *   user@domain.com 50
-   *   <users/123456> 50 message  (Google Chat mention format)
+   * When mentionedEmail is provided (from annotations), uses it as the target
+   * and only parses amount + message from text.
+   * Otherwise falls back to parsing target from text (email format required).
    */
-  // [ORIGINAL - 2026-02-05] Only handled simple @user amount message regex
-  private parseArguments(text: string): { target: string; amount: number; message: string } | null {
+  // [ORIGINAL - 2026-02-05] Only handled simple @user amount message regex, no annotation support
+  private parseArguments(text: string, mentionedEmail: string | null): { target: string; amount: number; message: string } | null {
     // Remove the command prefix if present
     const cleaned = text.replace(/^\/?(?:transfer|award)\s*/i, '').trim();
 
-    console.log('[GoogleChat] parseArguments input:', JSON.stringify(text), '-> cleaned:', JSON.stringify(cleaned));
+    console.log('[GoogleChat] parseArguments input:', JSON.stringify(text), '-> cleaned:', JSON.stringify(cleaned), 'mentionedEmail:', mentionedEmail);
 
-    if (!cleaned) {
+    if (!cleaned && !mentionedEmail) {
       return null;
     }
 
-    // Strip Google Chat mention wrapper: <users/123456789> → keep as-is for lookup
-    // Also handle mailto: links that Google Chat may insert
-    let normalized = cleaned
-      .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')  // <mailto:user@domain.com|user@domain.com>
-      .replace(/<([^>]+)>/g, '$1');                   // <users/12345> → users/12345
+    // If we have a mentioned email from annotations, use it as the target
+    // and parse the remaining text for just amount + message
+    if (mentionedEmail) {
+      // Strip everything before the first number (the @mention text)
+      const amountMatch = cleaned.match(/(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
+      if (amountMatch) {
+        return {
+          target: mentionedEmail,
+          amount: parseFloat(amountMatch[1]),
+          message: amountMatch[2]?.trim() || '',
+        };
+      }
+      // Mentioned user but no amount provided
+      console.log('[GoogleChat] parseArguments: mentioned user found but no amount in:', JSON.stringify(cleaned));
+      return null;
+    }
+
+    // No annotation — parse target from text (must be email, no spaces)
+    // Strip Google Chat mention wrapper and mailto: links
+    const normalized = cleaned
+      .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')
+      .replace(/<([^>]+)>/g, '$1');
 
     // Match: @user or user (email), then amount, then optional message
     const match = normalized.match(/^@?(\S+)\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
@@ -501,9 +538,9 @@ export class GoogleChatService {
 
     // Normalize the event data
     console.log('[GoogleChat] Normalizing event...');
-    const { userEmail, messageText, commandId, spaceName, messageId } = this.normalizeEvent(rawEvent);
+    const { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail } = this.normalizeEvent(rawEvent);
 
-    console.log('[GoogleChat] Normalized:', { userEmail, messageText, commandId, spaceName });
+    console.log('[GoogleChat] Normalized:', { userEmail, messageText, commandId, spaceName, mentionedUserEmail });
 
     // Check for user email
     if (!userEmail) {
@@ -578,15 +615,14 @@ export class GoogleChatService {
       }
 
       if (commandName === 'transfer') {
-        const args = this.parseArguments(messageText);
+        const args = this.parseArguments(messageText, mentionedUserEmail);
 
         if (!args) {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
-          // [ORIGINAL - 2026-02-05] return buildErrorCard('Invalid Command', 'Usage: /transfer @user amount [message]');
           return buildErrorCard(
             'Transfer Usage',
-            'Type the full command with arguments after /transfer',
-            'Example: /transfer user@guinco.com 50 Great work on the project!'
+            'Type the command with a recipient, amount, and optional message.',
+            'Example: /transfer @Landon 50 Great work! — or — /transfer user@guinco.com 50 Thanks!'
           );
         }
 
@@ -615,15 +651,14 @@ export class GoogleChatService {
           return buildErrorCard('Unauthorized', 'Only managers can use the /award command.');
         }
 
-        const args = this.parseArguments(messageText);
+        const args = this.parseArguments(messageText, mentionedUserEmail);
 
         if (!args) {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
-          // [ORIGINAL - 2026-02-05] return buildErrorCard('Invalid Command', 'Usage: /award @user amount [message]');
           return buildErrorCard(
             'Award Usage',
-            'Type the full command with arguments after /award',
-            'Example: /award user@guinco.com 25 Great job on the presentation!'
+            'Type the command with a recipient, amount, and optional message.',
+            'Example: /award @Landon 25 Great presentation! — or — /award user@guinco.com 25 Nice job!'
           );
         }
 
