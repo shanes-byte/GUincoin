@@ -523,46 +523,12 @@ export class GoogleChatService {
 
     console.log('[GoogleChat] Command determined:', commandName);
 
-    // [ORIGINAL - 2026-02-05] const debugSkipDB = true;
-    const debugSkipDB = false;
-
     try {
-      // Handle commands - help first (most common for testing)
+      // Handle help command — no DB needed, return immediately for fast response
+      // [ORIGINAL - 2026-02-05] Help path used debugSkipDB flag and made 3 DB calls when disabled
       if (commandName === 'help' || !commandName) {
-        console.log('[GoogleChat] Handling HELP command');
-
-        // Return immediately without any database calls for debugging
-        if (debugSkipDB) {
-          console.log('[GoogleChat] DEBUG: Returning simple help response (no DB)');
-          const response = {
-            text: `*Guincoin Commands*\n\n` +
-              `/balance - Check your coin balance\n` +
-              `/transfer @user amount message - Send coins\n` +
-              `/help - Show this help\n` +
-              `/award @user amount message - Award coins (managers only)\n` +
-              `\nBot is working! User: ${userEmail}`,
-          };
-          console.log('[GoogleChat] DEBUG: Response prepared:', JSON.stringify(response));
-          return response;
-        }
-
-        // Create audit log
-        const auditId = await this.createAuditLog(
-          userEmail,
-          commandName,
-          messageText,
-          spaceName,
-          messageId,
-          ChatCommandStatus.received,
-          eventType
-        );
-
-        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-        const employee = await this.findEmployeeByEmail(userEmail);
-        console.log('[GoogleChat] Returning help response for:', userEmail);
-
-        // Return the card response - use buildHelpCard
-        return buildHelpCard(employee?.isManager ?? false);
+        console.log('[GoogleChat] Handling HELP command (no DB)');
+        return buildHelpCard(false);
       }
 
       // Create audit log for non-help commands
@@ -649,13 +615,9 @@ export class GoogleChatService {
         }
       }
 
-      // Unknown command - return help
+      // Unknown command - return help (no DB needed)
       console.log('[GoogleChat] Unknown command, returning help');
-      if (debugSkipDB) {
-        return { text: 'Unknown command. Use /help to see available commands.' };
-      }
-      const employee = await this.findEmployeeByEmail(userEmail);
-      return buildHelpCard(employee?.isManager ?? false);
+      return buildHelpCard(false);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
