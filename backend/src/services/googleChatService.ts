@@ -119,7 +119,7 @@ export class GoogleChatService {
       spaceName = chatData.space?.name || rawEvent.space?.name || null;
     }
 
-    console.log('[GoogleChat] Normalized event:', { userEmail, messageText, commandId, spaceName, mentionedUserEmail });
+    console.log('[GoogleChat] Normalized: user=%s cmd=%s mention=%s', userEmail, commandId, mentionedUserEmail);
 
     return { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail };
   }
@@ -477,8 +477,6 @@ export class GoogleChatService {
     // Remove the command prefix if present
     const cleaned = text.replace(/^\/?(?:transfer|award)\s*/i, '').trim();
 
-    console.log('[GoogleChat] parseArguments input:', JSON.stringify(text), '-> cleaned:', JSON.stringify(cleaned), 'mentionedEmail:', mentionedEmail);
-
     if (!cleaned && !mentionedEmail) {
       return null;
     }
@@ -496,7 +494,6 @@ export class GoogleChatService {
         };
       }
       // Mentioned user but no amount provided
-      console.log('[GoogleChat] parseArguments: mentioned user found but no amount in:', JSON.stringify(cleaned));
       return null;
     }
 
@@ -510,7 +507,7 @@ export class GoogleChatService {
     const match = normalized.match(/^@?(\S+)\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
 
     if (!match) {
-      console.log('[GoogleChat] parseArguments: no match for normalized:', JSON.stringify(normalized));
+      console.warn('[GoogleChat] parseArguments failed for:', normalized);
       return null;
     }
 
@@ -525,36 +522,20 @@ export class GoogleChatService {
    * Handle incoming Google Chat webhook event
    */
   async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
-    console.log('[GoogleChat] handleEvent START');
-    const rawJson = JSON.stringify(rawEvent, null, 2);
-    console.log('[GoogleChat] Raw event (length=%d):', rawJson.length, rawJson.substring(0, 2000));
-    // Log all top-level keys so we can see the full event structure
-    console.log('[GoogleChat] Event top-level keys:', Object.keys(rawEvent));
-    if (rawEvent.chat) console.log('[GoogleChat] chat keys:', Object.keys(rawEvent.chat));
-    if (rawEvent.message) console.log('[GoogleChat] message keys:', Object.keys(rawEvent.message));
-    if (rawEvent.appCommandPayload) console.log('[GoogleChat] appCommandPayload keys:', Object.keys(rawEvent.appCommandPayload));
-
     // Determine actual event type for audit logging
     const eventType = this.getEventType(rawEvent);
 
     // Normalize the event data
-    console.log('[GoogleChat] Normalizing event...');
     const { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail } = this.normalizeEvent(rawEvent);
-
-    console.log('[GoogleChat] Normalized:', { userEmail, messageText, commandId, spaceName, mentionedUserEmail });
 
     // Check for user email
     if (!userEmail) {
-      console.error('[GoogleChat] No user email found');
+      console.error('[GoogleChat] No user email found in event');
       return { text: 'Unable to identify user.' };
     }
 
-    console.log('[GoogleChat] Processing command for user:', userEmail);
-
     // Determine command from ID or text
     let commandName: string | null = null;
-
-    console.log('[GoogleChat] Determining command from ID:', commandId);
 
     if (commandId === COMMAND_IDS.help) {
       commandName = 'help';
@@ -578,13 +559,11 @@ export class GoogleChatService {
       }
     }
 
-    console.log('[GoogleChat] Command determined:', commandName);
+    console.log('[GoogleChat] %s command=%s user=%s', eventType, commandName || 'help', userEmail);
 
     try {
       // Handle help command — no DB needed, return immediately for fast response
-      // [ORIGINAL - 2026-02-05] Help path used debugSkipDB flag and made 3 DB calls when disabled
       if (commandName === 'help' || !commandName) {
-        console.log('[GoogleChat] Handling HELP command (no DB)');
         return buildHelpCard(false);
       }
 
@@ -681,7 +660,6 @@ export class GoogleChatService {
       }
 
       // Unknown command - return help (no DB needed)
-      console.log('[GoogleChat] Unknown command, returning help');
       return buildHelpCard(false);
 
     } catch (error) {
