@@ -429,7 +429,9 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Function | Calls | Depended On By |
 |----------|-------|----------------|
-| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog() | googleChat.ts route (webhook) |
+| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard() | googleChat.ts route (webhook) |
+| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award budget DM) |
+| `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent() |
 | `executeBalance(userEmail)` | findEmployeeByEmail(), transactionService.getAccountBalance() | handleEvent() |
 | `executeAward(managerEmail, targetEmail, amount, desc)` | findEmployeeByEmail(), allotmentService.canAward(), allotmentService.awardCoins(), allotmentService.getCurrentAllotment() | handleEvent() |
 | `executeTransfer(senderEmail, targetEmail, amount, message?)` | findEmployeeByEmail(), transactionService.getAccountBalance() + direct Prisma ops | handleEvent() |

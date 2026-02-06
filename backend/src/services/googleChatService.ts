@@ -15,11 +15,14 @@ import {
   buildErrorCard,
   buildBalanceCard,
   buildAwardCard,
+  buildPublicAwardCard,
+  buildPrivateBudgetCard,
   buildTransferCard,
   buildHelpCard,
   buildTextResponse,
 } from '../utils/googleChatCards';
 import { env } from '../config/env';
+import { google } from 'googleapis';
 
 // Slash command IDs (configured in Google Chat API)
 const COMMAND_IDS = {
@@ -519,6 +522,73 @@ export class GoogleChatService {
   }
 
   /**
+   * Check if DM sending is available (service account configured)
+   */
+  private isDmAvailable(): boolean {
+    return !!env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY;
+  }
+
+  /**
+   * Send a direct message to a user via Google Chat API
+   * Requires GOOGLE_CHAT_SERVICE_ACCOUNT_KEY env var (service account JSON)
+   */
+  async sendDirectMessage(userEmail: string, message: GoogleChatResponse): Promise<void> {
+    if (!env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY) {
+      console.warn('[GoogleChat] DM feature disabled — GOOGLE_CHAT_SERVICE_ACCOUNT_KEY not set');
+      return;
+    }
+
+    try {
+      const credentials = JSON.parse(env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY);
+
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/chat.bot'],
+      });
+
+      const chat = google.chat({ version: 'v1', auth });
+
+      // Find existing DM space with the user
+      let spaceName: string | null = null;
+
+      try {
+        const dmSpace = await chat.spaces.findDirectMessage({ name: `users/${userEmail}` });
+        spaceName = dmSpace.data.name || null;
+      } catch {
+        // DM space doesn't exist yet — create one via spaces.setup
+        try {
+          const setupResponse = await chat.spaces.setup({
+            requestBody: {
+              space: { spaceType: 'DIRECT_MESSAGE' },
+              memberships: [{ member: { name: `users/${userEmail}`, type: 'HUMAN' } }],
+            },
+          });
+          spaceName = setupResponse.data.name || null;
+        } catch (setupError) {
+          console.error('[GoogleChat] Failed to create DM space for %s:', userEmail, setupError);
+          return;
+        }
+      }
+
+      if (!spaceName) {
+        console.error('[GoogleChat] No DM space name resolved for %s', userEmail);
+        return;
+      }
+
+      // Send the message card
+      await chat.spaces.messages.create({
+        parent: spaceName,
+        requestBody: message,
+      });
+
+      console.log('[GoogleChat] Budget DM sent to %s', userEmail);
+    } catch (error) {
+      // DM failure is non-fatal — log and continue
+      console.error('[GoogleChat] Failed to send DM to %s:', userEmail, error);
+    }
+  }
+
+  /**
    * Handle incoming Google Chat webhook event
    */
   async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
@@ -649,12 +719,27 @@ export class GoogleChatService {
 
         if (result.success) {
           await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
-          return buildAwardCard(
-            result.data?.recipientName as string,
-            result.data?.amount as number,
-            result.data?.description as string,
-            result.data?.remainingBudget as number
-          );
+
+          const recipientName = result.data?.recipientName as string;
+          const awardAmount = result.data?.amount as number;
+          const description = result.data?.description as string;
+          const remainingBudget = result.data?.remainingBudget as number;
+
+          // [ORIGINAL - 2026-02-06] Returned buildAwardCard (with budget visible to all)
+          // Now: public card (no budget) + DM budget to manager, with fallback
+          if (this.isDmAvailable()) {
+            // Fire-and-forget DM with budget info to the manager
+            this.sendDirectMessage(
+              userEmail,
+              buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount)
+            );
+
+            // Return public card (no budget) visible to everyone
+            return buildPublicAwardCard(recipientName, awardAmount, description);
+          }
+
+          // Fallback: DM not configured — include budget in public card (original behavior)
+          return buildAwardCard(recipientName, awardAmount, description, remainingBudget);
         } else {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
           return buildErrorCard('Award Error', result.message);

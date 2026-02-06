@@ -31,6 +31,7 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   COOKIE_DOMAIN: z.string().optional(),
   GOOGLE_CHAT_VERIFICATION_TOKEN: z.string().optional(),
+  GOOGLE_CHAT_SERVICE_ACCOUNT_KEY: z.string().optional(),
   REDIS_URL: z.string().optional(),
 });
 
@@ -68,5 +69,6 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: parsed.data.RATE_LIMIT_WINDOW_MS,
   COOKIE_DOMAIN: parsed.data.COOKIE_DOMAIN,
   GOOGLE_CHAT_VERIFICATION_TOKEN: parsed.data.GOOGLE_CHAT_VERIFICATION_TOKEN,
+  GOOGLE_CHAT_SERVICE_ACCOUNT_KEY: parsed.data.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY,
   REDIS_URL: parsed.data.REDIS_URL,
 };

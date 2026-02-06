@@ -150,8 +150,9 @@ export function buildBalanceCard(
   return { cardsV2: [card] };
 }
 
+// [ORIGINAL - 2026-02-06] buildAwardCard included remainingBudget in public response — kept as fallback when DM is unavailable
 /**
- * Build an award success card
+ * Build an award success card (includes budget — fallback when DM is unavailable)
  */
 export function buildAwardCard(
   recipientName: string,
@@ -189,6 +190,87 @@ export function buildAwardCard(
         title: 'Award Sent!',
         subtitle: 'Guincoin Manager Award',
         imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/stars/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build a public award card (no budget info — visible to everyone in the space)
+ */
+export function buildPublicAwardCard(
+  recipientName: string,
+  amount: number,
+  description: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        startIcon: { knownIcon: 'STAR' },
+        text: `<b>Awarded ${amount.toLocaleString()} Guincoins to ${recipientName}</b>`,
+      },
+    },
+    { divider: {} },
+    {
+      decoratedText: {
+        topLabel: 'Message',
+        text: description || 'Award from manager',
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'award-card',
+    card: {
+      header: {
+        title: 'Award Sent!',
+        subtitle: 'Guincoin Manager Award',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/stars/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build a private budget card (sent via DM to the manager only)
+ */
+export function buildPrivateBudgetCard(
+  remainingBudget: number,
+  recipientName: string,
+  amount: number
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        startIcon: { knownIcon: GUINCOIN_ICON },
+        topLabel: 'Remaining Budget',
+        text: `<b>${remainingBudget.toLocaleString()}</b> Guincoins`,
+      },
+    },
+    { divider: {} },
+    {
+      decoratedText: {
+        topLabel: 'Last Award',
+        text: `${amount.toLocaleString()} Guincoins to ${recipientName}`,
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'budget-dm-card',
+    card: {
+      header: {
+        title: 'Budget Update',
+        subtitle: 'Guincoin Manager Budget',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/account_balance_wallet/default/48px.svg',
         imageType: 'CIRCLE',
       },
       sections: [{ widgets }],
