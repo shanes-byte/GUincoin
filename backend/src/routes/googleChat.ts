@@ -43,8 +43,10 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     // New Google Chat API (SLASH_COMMAND events with appCommandPayload) requires
     // responses wrapped in hostAppDataAction; old MESSAGE events use bare Message format.
     // See: https://developers.google.com/workspace/add-ons/chat/commands
+    // Detect new Google Chat format (requires hostAppDataAction wrapper)
     const isNewFormat = !!(event.type === 'SLASH_COMMAND'
       || (event as any).chat?.appCommandPayload
+      || (event as any).chat?.messagePayload
       || (event as any).appCommandPayload);
 
     const response = isNewFormat
@@ -61,6 +63,7 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     const errEvent = req.body as any;
     const errIsNewFormat = !!(errEvent?.type === 'SLASH_COMMAND'
       || errEvent?.chat?.appCommandPayload
+      || errEvent?.chat?.messagePayload
       || errEvent?.appCommandPayload);
     const errMessage = { text: 'An error occurred while processing your request. Please try again later.' };
     const errResponse = errIsNewFormat

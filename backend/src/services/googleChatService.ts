@@ -59,52 +59,47 @@ export class GoogleChatService {
     let messageId: string | null = null;
     let mentionedUserEmail: string | null = null;
 
-    // Check for appCommandPayload (slash command via newest format 2024+)
+    // Resolve the message object from whichever format Google Chat uses:
+    // 1. appCommandPayload.message (slash commands without args)
+    // 2. messagePayload.message (slash commands with args/mentions)
+    // 3. chatData.message or rawEvent.message (old format)
+    let message: any = null;
+
     if (chatData.appCommandPayload) {
       const payload = chatData.appCommandPayload;
 
-      // Get command ID from appCommandMetadata (new location)
+      // Get command ID from appCommandMetadata
       if (payload.appCommandMetadata?.appCommandId) {
-        // [ORIGINAL - 2026-02-05] commandId = payload.appCommandMetadata.appCommandId;
         commandId = Number(payload.appCommandMetadata.appCommandId);
       }
 
-      // Get message content if present
-      const message = payload.message;
-      if (message) {
-        messageText = message.argumentText || message.text || '';
-        messageId = message.name || null;
-
-        // Also check for command ID in message.slashCommand (backup)
-        if (!commandId && message.slashCommand?.commandId) {
-          // [ORIGINAL - 2026-02-05] commandId = message.slashCommand.commandId;
-          commandId = Number(message.slashCommand.commandId);
-        }
-      }
-
-      // Extract mentioned user email from annotations (for @mentions in transfer/award)
-      if (message?.annotations) {
-        const userMention = message.annotations.find(
-          (a: any) => a.type === 'USER_MENTION' && a.userMention?.user?.email
-        );
-        if (userMention) {
-          mentionedUserEmail = userMention.userMention.user.email.toLowerCase();
-        }
-      }
+      message = payload.message;
 
       // Get space name from payload
       if (payload.space?.name) {
         spaceName = payload.space.name;
       }
     }
-    // Check for direct message (old format)
+    // [ORIGINAL - 2026-02-05] Did not handle messagePayload format (slash commands with args/mentions)
+    else if (chatData.messagePayload) {
+      message = chatData.messagePayload.message;
+
+      // Get space name from messagePayload
+      if (chatData.messagePayload.space?.name) {
+        spaceName = chatData.messagePayload.space.name;
+      }
+    }
     else if (chatData.message || rawEvent.message) {
-      const message = chatData.message || rawEvent.message;
+      message = chatData.message || rawEvent.message;
+    }
+
+    // Extract data from the resolved message object
+    if (message) {
       messageText = message.argumentText || message.text || '';
       messageId = message.name || null;
 
-      if (message.slashCommand?.commandId) {
-        // [ORIGINAL - 2026-02-05] commandId = message.slashCommand.commandId;
+      // Get command ID from slashCommand field
+      if (!commandId && message.slashCommand?.commandId) {
         commandId = Number(message.slashCommand.commandId);
       }
 
@@ -150,7 +145,7 @@ export class GoogleChatService {
     }
 
     // Default to MESSAGE if we have message content
-    if (chatData.message) {
+    if (chatData.message || chatData.messagePayload) {
       return 'MESSAGE';
     }
 
