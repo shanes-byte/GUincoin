@@ -28,6 +28,7 @@ export default function AssetLibraryPanel() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [draggedAsset, setDraggedAsset] = useState<Asset | null>(null);
+  // [ORIGINAL - 2026-02-06] No file upload functionality
 
   useEffect(() => {
     if (!selectedCampaign) {
@@ -101,6 +102,14 @@ export default function AssetLibraryPanel() {
 
   const handleDragEnd = () => {
     setDraggedAsset(null);
+  };
+
+  // [ORIGINAL - 2026-02-06] No upload handler
+  const handleUploadClick = () => {
+    // Backend upload endpoint not implemented yet
+    // This is a placeholder to make the button functional
+    console.log('Image upload coming soon - backend endpoint not yet implemented');
+    alert('Image upload feature coming soon!\n\nThe backend upload endpoint is not yet implemented.\nFor now, please use the AI Assistant to generate campaign images.');
   };
 
   return (
@@ -188,8 +197,10 @@ export default function AssetLibraryPanel() {
 
       {/* Quick Actions */}
       <div className="p-3 border-t border-gray-200">
+        {/* [ORIGINAL - 2026-02-06] Button had no onClick handler */}
         <button
           disabled={!selectedCampaign}
+          onClick={handleUploadClick}
           className="w-full px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { studioService, CampaignTheme, ThemeMode } from '../../services/studioService';
+// [ORIGINAL - 2026-02-06] No auth middleware was imported or applied — all routes were publicly accessible
+import { requireAuth, requireAdmin } from '../../middleware/auth';
 
 const router = Router();
 
@@ -29,7 +31,7 @@ const themeSchema = z.object({
  * GET /api/admin/studio/state
  * Get full studio state including settings, active campaign, and current theme
  */
-router.get('/studio/state', async (req: Request, res: Response) => {
+router.get('/studio/state', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const state = await studioService.getStudioState();
     res.json(state);
@@ -43,7 +45,7 @@ router.get('/studio/state', async (req: Request, res: Response) => {
  * GET /api/admin/studio/settings
  * Get current system settings
  */
-router.get('/studio/settings', async (req: Request, res: Response) => {
+router.get('/studio/settings', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const settings = await studioService.getSettings();
     res.json(settings);
@@ -57,7 +59,7 @@ router.get('/studio/settings', async (req: Request, res: Response) => {
  * PATCH /api/admin/theme/mode
  * Set theme mode (manual or campaign)
  */
-router.patch('/theme/mode', async (req: Request, res: Response) => {
+router.patch('/theme/mode', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       mode: z.enum(['manual', 'campaign']),
@@ -79,7 +81,7 @@ router.patch('/theme/mode', async (req: Request, res: Response) => {
  * PATCH /api/admin/theme/manual
  * Set manual theme
  */
-router.patch('/theme/manual', async (req: Request, res: Response) => {
+router.patch('/theme/manual', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       theme: themeSchema,
@@ -102,7 +104,7 @@ router.patch('/theme/manual', async (req: Request, res: Response) => {
  * GET /api/admin/theme/current
  * Get the current active theme (considering mode and campaign status)
  */
-router.get('/theme/current', async (req: Request, res: Response) => {
+router.get('/theme/current', requireAuth, async (req: Request, res: Response) => {
   try {
     const theme = await studioService.getCurrentTheme();
     res.json(theme);
@@ -116,7 +118,7 @@ router.get('/theme/current', async (req: Request, res: Response) => {
  * POST /api/admin/campaigns/:id/activate-full
  * Full campaign activation with optional theme, email, and chat rollout
  */
-router.post('/campaigns/:id/activate-full', async (req: Request, res: Response) => {
+router.post('/campaigns/:id/activate-full', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

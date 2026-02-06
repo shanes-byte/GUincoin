@@ -55,15 +55,13 @@ const TOOLS: Tool[] = [
 ];
 
 export default function CanvasToolbar() {
+  // [ORIGINAL - 2026-02-06] Used context's canUndo/canRedo which were never populated
+  // BannerCanvas has its own local undo/redo that works, so we don't need them here
   const {
     canvasState,
     setCanvasTool,
     setSelectedShapeType,
     setCanvasZoom,
-    canUndo,
-    canRedo,
-    undo,
-    redo,
   } = useStudio();
 
   const handleZoomReset = () => {
@@ -142,32 +140,11 @@ export default function CanvasToolbar() {
         )}
       </div>
 
-      {/* Center: Undo/Redo */}
+      {/* [ORIGINAL - 2026-02-06] Had Undo/Redo buttons here but they didn't work
+          because context history was never populated. BannerCanvas has its own
+          working undo/redo buttons, so these were redundant and broken. */}
       <div className="flex items-center gap-1">
-        <button
-          onClick={undo}
-          disabled={!canUndo}
-          className={`p-2 rounded-md transition-colors ${
-            canUndo ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
-          }`}
-          title="Undo (Ctrl+Z)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-          </svg>
-        </button>
-        <button
-          onClick={redo}
-          disabled={!canRedo}
-          className={`p-2 rounded-md transition-colors ${
-            canRedo ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
-          }`}
-          title="Redo (Ctrl+Y)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-          </svg>
-        </button>
+        {/* Undo/Redo removed - use the working buttons in BannerCanvas */}
       </div>
 
       {/* Right: Zoom & View */}

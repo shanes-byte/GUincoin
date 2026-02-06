@@ -52,7 +52,8 @@ export default function ActivationWizard() {
     setError(null);
 
     try {
-      await activateCampaignFull(selectedCampaign.id, {
+      // [ORIGINAL - 2026-02-06] Did not check for errors array in response
+      const result = await activateCampaignFull(selectedCampaign.id, {
         applyTheme: rolloutOptions.applyTheme,
         sendEmail: rolloutOptions.sendEmail,
         postChat: rolloutOptions.postChat,
@@ -62,6 +63,18 @@ export default function ActivationWizard() {
       await selectCampaign(selectedCampaign.id);
 
       setActivationComplete(true);
+
+      // Check if there were stub errors (email/chat not configured)
+      if (result.data.errors && result.data.errors.length > 0) {
+        // Show warning toast for stub errors
+        console.warn('Activation completed with warnings:', result.data.errors);
+        // Note: Since this component doesn't have access to a toast system,
+        // we log the errors. In a production setting, you'd want to:
+        // - Add toast notification system to the project
+        // - Or display errors in the success message
+        // For now, we'll show them in the console and in an alert
+        alert('Campaign activated with warnings:\n\n' + result.data.errors.join('\n'));
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to activate campaign');
     } finally {

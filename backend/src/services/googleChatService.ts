@@ -562,21 +562,23 @@ export class GoogleChatService {
     console.log('[GoogleChat] %s command=%s user=%s', eventType, commandName || 'help', userEmail);
 
     try {
-      // Handle help command — no DB needed, return immediately for fast response
-      if (commandName === 'help' || !commandName) {
-        return buildHelpCard(false);
-      }
-
-      // Create audit log for non-help commands
+      // [ORIGINAL - 2026-02-06] Help/unknown commands returned before audit log — audit tab showed no data
+      // Create audit log for ALL commands (including help)
       const auditId = await this.createAuditLog(
         userEmail,
-        commandName,
+        commandName || 'help',
         messageText,
         spaceName,
         messageId,
         ChatCommandStatus.received,
         eventType
       );
+
+      // Handle help command
+      if (commandName === 'help' || !commandName) {
+        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+        return buildHelpCard(false);
+      }
 
       if (commandName === 'balance') {
         await this.updateAuditLog(auditId, ChatCommandStatus.authorized);

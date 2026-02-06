@@ -81,6 +81,7 @@ export class TransactionService {
 
       // Update balance based on transaction type
       let balanceChange = 0;
+      // [ORIGINAL - 2026-02-06] prediction_win and prediction_bet were missing — caused "Unknown transaction type" throw
       const creditTypes: TransactionType[] = [
         TransactionType.manager_award,
         TransactionType.peer_transfer_received,
@@ -91,6 +92,7 @@ export class TransactionService {
         TransactionType.jackpot_win,
         TransactionType.daily_bonus,
         TransactionType.bulk_import,
+        TransactionType.prediction_win,
       ];
       const debitTypes: TransactionType[] = [
         TransactionType.peer_transfer_sent,
@@ -98,6 +100,7 @@ export class TransactionService {
         TransactionType.game_bet,
         TransactionType.jackpot_contribution,
         TransactionType.allotment_deposit,
+        TransactionType.prediction_bet,
       ];
 
       if (creditTypes.includes(transaction.transactionType)) {
@@ -183,56 +186,72 @@ export class TransactionService {
    * // Get balance including pending
    * const { posted, pending, total } = await transactionService.getAccountBalance(accountId, true);
    */
+  // [ORIGINAL - 2026-02-06] Loaded ALL transactions into memory; pending calc only covered 6 of 16 types
   async getAccountBalance(accountId: string, includePending: boolean = false) {
     const account = await prisma.account.findUnique({
       where: { id: accountId },
-      include: {
-        transactions: {
-          where: includePending
-            ? {}
-            : {
-                status: TransactionStatus.posted,
-              },
-        },
-      },
     });
 
     if (!account) {
       throw new Error('Account not found');
     }
 
-    if (includePending) {
-      // Calculate balance including pending
-      const pendingTotal = account.transactions
-        .filter((t) => t.status === TransactionStatus.pending)
-        .reduce((sum, t) => {
-          if (
-            t.transactionType === TransactionType.manager_award ||
-            t.transactionType === TransactionType.peer_transfer_received ||
-            t.transactionType === TransactionType.wellness_reward ||
-            t.transactionType === TransactionType.adjustment
-          ) {
-            return sum + Number(t.amount);
-          } else if (
-            t.transactionType === TransactionType.peer_transfer_sent ||
-            t.transactionType === TransactionType.store_purchase
-          ) {
-            return sum - Number(t.amount);
-          }
-          return sum;
-        }, 0);
-
+    if (!includePending) {
       return {
         posted: Number(account.balance),
-        pending: pendingTotal,
-        total: Number(account.balance) + pendingTotal,
+        pending: 0,
+        total: Number(account.balance),
       };
     }
 
+    // Use aggregate queries instead of loading all transactions
+    const pendingCreditTypes: TransactionType[] = [
+      TransactionType.manager_award,
+      TransactionType.peer_transfer_received,
+      TransactionType.wellness_reward,
+      TransactionType.adjustment,
+      TransactionType.game_win,
+      TransactionType.game_refund,
+      TransactionType.jackpot_win,
+      TransactionType.daily_bonus,
+      TransactionType.bulk_import,
+      TransactionType.prediction_win,
+    ];
+    const pendingDebitTypes: TransactionType[] = [
+      TransactionType.peer_transfer_sent,
+      TransactionType.store_purchase,
+      TransactionType.game_bet,
+      TransactionType.jackpot_contribution,
+      TransactionType.allotment_deposit,
+      TransactionType.prediction_bet,
+    ];
+
+    const [pendingCredits, pendingDebits] = await Promise.all([
+      prisma.ledgerTransaction.aggregate({
+        where: {
+          accountId,
+          status: TransactionStatus.pending,
+          transactionType: { in: pendingCreditTypes },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.ledgerTransaction.aggregate({
+        where: {
+          accountId,
+          status: TransactionStatus.pending,
+          transactionType: { in: pendingDebitTypes },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const pendingTotal =
+      Number(pendingCredits._sum.amount || 0) - Number(pendingDebits._sum.amount || 0);
+
     return {
       posted: Number(account.balance),
-      pending: 0,
-      total: Number(account.balance),
+      pending: pendingTotal,
+      total: Number(account.balance) + pendingTotal,
     };
   }
 

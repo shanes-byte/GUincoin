@@ -19,7 +19,8 @@ export default function AwardHistory({ history }: AwardHistoryProps) {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">
-                    {transaction.account?.employee?.name || transaction.sourceEmployee?.name || 'Unknown Employee'}
+                    {/* [ORIGINAL - 2026-02-06] Fallback to sourceEmployee showed manager's own name */}
+                    {transaction.account?.employee?.name || transaction.transferReceiver?.name || 'Unknown Recipient'}
                   </p>
                   <p className="text-sm text-gray-500">{transaction.description}</p>
                   <p className="text-xs text-gray-400 mt-1">

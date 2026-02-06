@@ -524,7 +524,8 @@ export async function createImportJob(params: {
   await prisma.bulkImportJob.update({
     where: { id: job.id },
     data: {
-      status: errors.length === 0 ? BulkImportStatus.completed : BulkImportStatus.completed,
+      // [ORIGINAL - 2026-02-06] Both branches returned .completed — errors were hidden
+      status: errors.length === 0 ? BulkImportStatus.completed : BulkImportStatus.failed,
       processedRows: validRows.length,
       successCount,
       errorCount: errors.length,

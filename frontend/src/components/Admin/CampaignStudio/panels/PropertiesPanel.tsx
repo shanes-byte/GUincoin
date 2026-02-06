@@ -44,6 +44,8 @@ export default function PropertiesPanel() {
       setPosY(Math.round(selectedLayer.y));
       setWidth(Math.round(selectedLayer.width));
       setHeight(Math.round(selectedLayer.height));
+      // [ORIGINAL - 2026-02-06] Did not sync opacity from layer
+      setOpacity(selectedLayer.opacity ?? 100);
 
       if (selectedLayer.type === 'text' && selectedLayer.textStyle) {
         setTextColor(selectedLayer.textStyle.color);
@@ -338,12 +340,19 @@ export default function PropertiesPanel() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Opacity: {opacity}%
             </label>
+            {/* [ORIGINAL - 2026-02-06] Slider only updated local state, never called updateLayer */}
             <input
               type="range"
               min="0"
               max="100"
               value={opacity}
-              onChange={(e) => setOpacity(parseInt(e.target.value))}
+              onChange={(e) => {
+                const newOpacity = parseInt(e.target.value);
+                setOpacity(newOpacity);
+                if (selectedLayer) {
+                  updateLayer(selectedLayer.id, { opacity: newOpacity });
+                }
+              }}
               className="w-full"
             />
           </div>

@@ -521,16 +521,12 @@ export default function BannerCanvas() {
       pushLayers([...layers, newLayer]);
       setSelectedObjects([layerId]);
 
-      // Show success toast
-      if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-        (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Image added', 'success');
-      }
+      // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+      console.log('Image added successfully');
     } catch (err) {
       console.error('Failed to parse dropped asset:', err);
-      // Show error toast
-      if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-        (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Failed to add image', 'error');
-      }
+      // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+      console.error('Failed to add image');
     }
   };
 
@@ -730,10 +726,8 @@ export default function BannerCanvas() {
         setSelectedObjects([layerId]);
         setCanvasTool('select');
 
-        // Show success toast
-        if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-          (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Shape added', 'success');
-        }
+        // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+        console.log('Shape added successfully');
       }
 
       setIsDrawingShape(false);
@@ -777,10 +771,8 @@ export default function BannerCanvas() {
     setShowTextDialog(false);
     setCanvasTool('select');
 
-    // Show success toast
-    if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-      (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Text created', 'success');
-    }
+    // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+    console.log('Text created successfully');
   };
 
   // Delete selected layer
@@ -929,16 +921,12 @@ export default function BannerCanvas() {
               link.href = canvas.toDataURL('image/png');
               link.click();
 
-              // Show success toast
-              if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-                (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Image exported successfully', 'success');
-              }
+              // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+              console.log('Image exported successfully');
             } catch (err) {
               console.error('Failed to export canvas:', err);
-              // Show error toast
-              if (typeof window !== 'undefined' && (window as { showToast?: (msg: string, type: string) => void }).showToast) {
-                (window as { showToast?: (msg: string, type: string) => void }).showToast?.('Failed to export image. Some images may have CORS restrictions.', 'error');
-              }
+              // [ORIGINAL - 2026-02-06] Used window.showToast which doesn't exist
+              console.error('Failed to export image. Some images may have CORS restrictions.');
             }
           }}
         >

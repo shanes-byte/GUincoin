@@ -47,12 +47,13 @@ router.get('/limits', requireAuth, async (req: AuthRequest, res, next: NextFunct
       });
     }
 
-    // Calculate used amount
+    // [ORIGINAL - 2026-02-06] status: 'posted' — display didn't match validation which includes pending
+    // Calculate used amount (include pending to match validation in /send route)
     const usedAmount = await prisma.ledgerTransaction.aggregate({
       where: {
         sourceEmployeeId: req.user!.id,
         transactionType: 'peer_transfer_sent',
-        status: 'posted',
+        status: { in: ['posted', 'pending'] },
         createdAt: {
           gte: periodStart,
           lte: periodEnd,
@@ -315,14 +316,26 @@ router.get('/history', requireAuth, async (req: AuthRequest, res, next: NextFunc
       return res.status(404).json({ error: 'Account not found' });
     }
 
-    const history = await transactionService.getTransactionHistory(
-      account.id,
-      {
-        transactionType: 'peer_transfer_sent',
-      }
-    );
+    // [ORIGINAL - 2026-02-06] Only fetched peer_transfer_sent — received transfers were invisible
+    const [sentHistory, receivedHistory] = await Promise.all([
+      transactionService.getTransactionHistory(account.id, {
+        transactionType: 'peer_transfer_sent' as any,
+      }),
+      transactionService.getTransactionHistory(account.id, {
+        transactionType: 'peer_transfer_received' as any,
+      }),
+    ]);
 
-    res.json(history);
+    // Merge and sort by createdAt descending
+    const allTransactions = [
+      ...sentHistory.transactions,
+      ...receivedHistory.transactions,
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({
+      transactions: allTransactions,
+      total: sentHistory.total + receivedHistory.total,
+    });
   } catch (error) {
     next(error);
   }

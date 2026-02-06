@@ -145,6 +145,7 @@ export class AllotmentService {
   /**
    * Get award history for a manager
    */
+  // [ORIGINAL - 2026-02-06] Did not include targetEmployee — fallback showed manager's own name
   async getAwardHistory(managerId: string, limit: number = 50, offset: number = 0) {
     const [transactions, total] = await Promise.all([
       prisma.ledgerTransaction.findMany({
@@ -162,6 +163,13 @@ export class AllotmentService {
                   email: true,
                 },
               },
+            },
+          },
+          transferReceiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
         },

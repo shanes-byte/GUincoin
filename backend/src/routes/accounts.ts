@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import prisma from '../config/database';
 import transactionService from '../services/transactionService';
+import allotmentService from '../services/allotmentService';
 
 const router = express.Router();
 
@@ -97,13 +98,16 @@ router.get('/full-balance', requireAuth, async (req: AuthRequest, res, next: Nex
       true
     );
 
-    const allotment = employee.isManager
-      ? {
-          posted: Number(employee.account.allotmentBalance),
-          pending: 0,
-          total: Number(employee.account.allotmentBalance),
-        }
-      : null;
+    // [ORIGINAL - 2026-02-06] Read employee.account.allotmentBalance which is never written — always 0
+    let allotment = null;
+    if (employee.isManager) {
+      const allotmentData = await allotmentService.getCurrentAllotment(employee.id);
+      allotment = {
+        posted: allotmentData.remaining,
+        pending: 0,
+        total: allotmentData.remaining,
+      };
+    }
 
     res.json({
       personal,
@@ -173,6 +177,7 @@ const transactionHistorySchema = z.object({
     limit: z.string().optional().transform((val) => (val ? parseInt(val) : 50)),
     offset: z.string().optional().transform((val) => (val ? parseInt(val) : 0)),
     status: z.enum(['pending', 'posted', 'rejected']).optional(),
+    // [ORIGINAL - 2026-02-06] Only 5 of 16 types — API rejected valid filters for newer types
     transactionType: z
       .enum([
         'manager_award',
@@ -180,6 +185,17 @@ const transactionHistorySchema = z.object({
         'peer_transfer_received',
         'wellness_reward',
         'adjustment',
+        'store_purchase',
+        'allotment_deposit',
+        'bulk_import',
+        'game_bet',
+        'game_win',
+        'game_refund',
+        'jackpot_contribution',
+        'jackpot_win',
+        'daily_bonus',
+        'prediction_bet',
+        'prediction_win',
       ])
       .optional(),
   }),

@@ -11,6 +11,7 @@ export default function TransactionList({ transactions }: TransactionListProps) 
     return Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : '0.00';
   };
 
+  // [ORIGINAL - 2026-02-06] Only 5 of 16 types had labels
   const getTransactionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       manager_award: 'Manager Award',
@@ -18,9 +19,31 @@ export default function TransactionList({ transactions }: TransactionListProps) 
       peer_transfer_received: 'Received Transfer',
       wellness_reward: 'Wellness Reward',
       adjustment: 'Adjustment',
+      store_purchase: 'Store Purchase',
+      allotment_deposit: 'Allotment Deposit',
+      bulk_import: 'Imported Balance',
+      game_bet: 'Game Bet',
+      game_win: 'Game Win',
+      game_refund: 'Game Refund',
+      jackpot_contribution: 'Jackpot Contribution',
+      jackpot_win: 'Jackpot Win',
+      daily_bonus: 'Daily Bonus',
+      prediction_bet: 'Prediction Bet',
+      prediction_win: 'Prediction Win',
     };
-    return labels[type] || type;
+    return labels[type] || type.replace(/_/g, ' ');
   };
+
+  const DEBIT_TYPES = new Set([
+    'peer_transfer_sent',
+    'store_purchase',
+    'game_bet',
+    'jackpot_contribution',
+    'allotment_deposit',
+    'prediction_bet',
+  ]);
+
+  const isDebit = (transactionType: string) => DEBIT_TYPES.has(transactionType);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -60,14 +83,15 @@ export default function TransactionList({ transactions }: TransactionListProps) 
                   )}
                 </div>
                 <div className="ml-4 flex-shrink-0 text-right">
+                  {/* [ORIGINAL - 2026-02-06] Only peer_transfer_sent was red/negative */}
                   <p
                     className={`text-sm font-medium ${
-                      transaction.transactionType === 'peer_transfer_sent'
+                      isDebit(transaction.transactionType)
                         ? 'text-red-600'
                         : 'text-green-600'
                     }`}
                   >
-                    {transaction.transactionType === 'peer_transfer_sent' ? '-' : '+'}
+                    {isDebit(transaction.transactionType) ? '-' : '+'}
                     {formatAmount(transaction.amount)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">

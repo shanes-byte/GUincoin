@@ -120,12 +120,26 @@ router.post(
 
         mergedRows = bulkImportService.mergeDataFiles(balanceData, emailData);
       } else {
+        // [ORIGINAL - 2026-02-06] Used balanceRawData[index] but index was from filtered balanceData —
+        // after extractBalanceData filters out empty/zero rows, indices no longer match balanceRawData.
+        // Fix: build email map from raw data before filtering, keyed by name.
+        const emailByName: Record<string, string> = {};
+        if (parsedBalanceMapping.emailColumn) {
+          for (const rawRow of balanceRawData) {
+            const name = parsedBalanceMapping.nameColumn
+              ? String(rawRow[parsedBalanceMapping.nameColumn] || '').trim()
+              : '';
+            const email = String(rawRow[parsedBalanceMapping.emailColumn] || '').toLowerCase().trim();
+            if (name && email) {
+              emailByName[name] = email;
+            }
+          }
+        }
+
         // Single file with email column - create merged rows directly
         mergedRows = balanceData.map((row, index) => ({
           name: row.name,
-          email: parsedBalanceMapping.emailColumn
-            ? String(balanceRawData[index][parsedBalanceMapping.emailColumn] || '').toLowerCase()
-            : '',
+          email: emailByName[row.name] || '',
           amount: row.amount,
           market: row.market,
           confidence: 1,

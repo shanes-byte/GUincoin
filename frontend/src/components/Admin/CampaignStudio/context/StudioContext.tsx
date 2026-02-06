@@ -31,6 +31,8 @@ export interface CanvasLayer {
   textStyle?: TextStyle;
   shapeType?: 'rectangle' | 'circle' | 'line';
   shapeStyle?: ShapeStyle;
+  // [ORIGINAL - 2026-02-06] No opacity property
+  opacity?: number; // 0-100 percentage
 }
 
 export interface CanvasState {
@@ -38,8 +40,8 @@ export interface CanvasState {
   selectedShapeType: 'rectangle' | 'circle' | 'line';
   zoom: number;
   selectedObjectIds: string[];
-  history: unknown[];
-  historyIndex: number;
+  // [ORIGINAL - 2026-02-06] Had history/historyIndex but they were never used
+  // BannerCanvas has its own local history implementation
 }
 
 export interface PreviewState {
@@ -90,10 +92,8 @@ interface StudioContextType {
   setSelectedShapeType: (shapeType: CanvasState['selectedShapeType']) => void;
   setCanvasZoom: (zoom: number) => void;
   setSelectedObjects: (ids: string[]) => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  undo: () => void;
-  redo: () => void;
+  // [ORIGINAL - 2026-02-06] Had canUndo/canRedo/undo/redo but history was never populated
+  // BannerCanvas manages its own local history that works, so these were misleading
 
   // Layer State (shared with BannerCanvas)
   layers: CanvasLayer[];
@@ -174,13 +174,12 @@ export function StudioProvider({ children }: StudioProviderProps) {
   const [themePresets, setThemePresets] = useState<Record<string, CampaignTheme>>({});
 
   // Canvas state
+  // [ORIGINAL - 2026-02-06] Had history: [] and historyIndex: -1 but they were never populated
   const [canvasState, setCanvasState] = useState<CanvasState>({
     selectedTool: 'select',
     selectedShapeType: 'rectangle',
     zoom: 1,
     selectedObjectIds: [],
-    history: [],
-    historyIndex: -1,
   });
 
   // Preview state
@@ -364,26 +363,9 @@ export function StudioProvider({ children }: StudioProviderProps) {
     setCanvasState(prev => ({ ...prev, selectedObjectIds: ids }));
   }, []);
 
-  const canUndo = canvasState.historyIndex > 0;
-  const canRedo = canvasState.historyIndex < canvasState.history.length - 1;
-
-  const undo = useCallback(() => {
-    if (canUndo) {
-      setCanvasState(prev => ({
-        ...prev,
-        historyIndex: prev.historyIndex - 1,
-      }));
-    }
-  }, [canUndo]);
-
-  const redo = useCallback(() => {
-    if (canRedo) {
-      setCanvasState(prev => ({
-        ...prev,
-        historyIndex: prev.historyIndex + 1,
-      }));
-    }
-  }, [canRedo]);
+  // [ORIGINAL - 2026-02-06] Had broken canUndo/canRedo/undo/redo implementation
+  // that relied on history array that was never populated. Removed since
+  // BannerCanvas has its own working local history system.
 
   // Preview controls
   const togglePreview = useCallback(() => {
@@ -452,10 +434,7 @@ export function StudioProvider({ children }: StudioProviderProps) {
     setSelectedShapeType,
     setCanvasZoom,
     setSelectedObjects,
-    canUndo,
-    canRedo,
-    undo,
-    redo,
+    // [ORIGINAL - 2026-02-06] Exported broken canUndo/canRedo/undo/redo
 
     // Layers
     layers,
