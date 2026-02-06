@@ -451,15 +451,34 @@ export class GoogleChatService {
 
   /**
    * Parse transfer/award arguments from message text
+   * Handles formats:
+   *   /transfer user@domain.com 50 Great work!
+   *   @user@domain.com 50 message
+   *   user@domain.com 50
+   *   <users/123456> 50 message  (Google Chat mention format)
    */
+  // [ORIGINAL - 2026-02-05] Only handled simple @user amount message regex
   private parseArguments(text: string): { target: string; amount: number; message: string } | null {
     // Remove the command prefix if present
     const cleaned = text.replace(/^\/?(?:transfer|award)\s*/i, '').trim();
 
-    // Match: @user or user, then amount, then optional message
-    const match = cleaned.match(/^@?(\S+)\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
+    console.log('[GoogleChat] parseArguments input:', JSON.stringify(text), '-> cleaned:', JSON.stringify(cleaned));
+
+    if (!cleaned) {
+      return null;
+    }
+
+    // Strip Google Chat mention wrapper: <users/123456789> → keep as-is for lookup
+    // Also handle mailto: links that Google Chat may insert
+    let normalized = cleaned
+      .replace(/<mailto:([^|>]+)\|[^>]*>/g, '$1')  // <mailto:user@domain.com|user@domain.com>
+      .replace(/<([^>]+)>/g, '$1');                   // <users/12345> → users/12345
+
+    // Match: @user or user (email), then amount, then optional message
+    const match = normalized.match(/^@?(\S+)\s+(\d+(?:\.\d{1,2})?)\s*(.*)?$/);
 
     if (!match) {
+      console.log('[GoogleChat] parseArguments: no match for normalized:', JSON.stringify(normalized));
       return null;
     }
 
@@ -563,7 +582,12 @@ export class GoogleChatService {
 
         if (!args) {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
-          return buildErrorCard('Invalid Command', 'Usage: /transfer @user amount [message]');
+          // [ORIGINAL - 2026-02-05] return buildErrorCard('Invalid Command', 'Usage: /transfer @user amount [message]');
+          return buildErrorCard(
+            'Transfer Usage',
+            'Type the full command with arguments after /transfer',
+            'Example: /transfer user@guinco.com 50 Great work on the project!'
+          );
         }
 
         await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
@@ -595,7 +619,12 @@ export class GoogleChatService {
 
         if (!args) {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
-          return buildErrorCard('Invalid Command', 'Usage: /award @user amount [message]');
+          // [ORIGINAL - 2026-02-05] return buildErrorCard('Invalid Command', 'Usage: /award @user amount [message]');
+          return buildErrorCard(
+            'Award Usage',
+            'Type the full command with arguments after /award',
+            'Example: /award user@guinco.com 25 Great job on the presentation!'
+          );
         }
 
         await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
