@@ -63,7 +63,8 @@ export class GoogleChatService {
 
       // Get command ID from appCommandMetadata (new location)
       if (payload.appCommandMetadata?.appCommandId) {
-        commandId = payload.appCommandMetadata.appCommandId;
+        // [ORIGINAL - 2026-02-05] commandId = payload.appCommandMetadata.appCommandId;
+        commandId = Number(payload.appCommandMetadata.appCommandId);
       }
 
       // Get message content if present
@@ -74,7 +75,8 @@ export class GoogleChatService {
 
         // Also check for command ID in message.slashCommand (backup)
         if (!commandId && message.slashCommand?.commandId) {
-          commandId = message.slashCommand.commandId;
+          // [ORIGINAL - 2026-02-05] commandId = message.slashCommand.commandId;
+          commandId = Number(message.slashCommand.commandId);
         }
       }
 
@@ -90,7 +92,8 @@ export class GoogleChatService {
       messageId = message.name || null;
 
       if (message.slashCommand?.commandId) {
-        commandId = message.slashCommand.commandId;
+        // [ORIGINAL - 2026-02-05] commandId = message.slashCommand.commandId;
+        commandId = Number(message.slashCommand.commandId);
       }
     }
 
@@ -142,13 +145,15 @@ export class GoogleChatService {
     spaceName: string | null,
     messageId: string | null,
     status: ChatCommandStatus,
+    // [ORIGINAL - 2026-02-05] eventType was hardcoded to 'MESSAGE'
+    eventType: string = 'MESSAGE',
     errorMessage?: string,
     transactionId?: string
   ): Promise<string> {
     const audit = await prisma.chatCommandAudit.create({
       data: {
         provider: ChatProvider.google_chat,
-        eventType: 'MESSAGE',
+        eventType,
         messageId,
         spaceName,
         userEmail,
@@ -472,6 +477,9 @@ export class GoogleChatService {
     console.log('[GoogleChat] handleEvent START');
     console.log('[GoogleChat] Raw event:', JSON.stringify(rawEvent, null, 2).substring(0, 500));
 
+    // Determine actual event type for audit logging
+    const eventType = this.getEventType(rawEvent);
+
     // Normalize the event data
     console.log('[GoogleChat] Normalizing event...');
     const { userEmail, messageText, commandId, spaceName, messageId } = this.normalizeEvent(rawEvent);
@@ -515,8 +523,8 @@ export class GoogleChatService {
 
     console.log('[GoogleChat] Command determined:', commandName);
 
-    // DEBUG MODE: Skip database calls entirely for testing
-    const debugSkipDB = true;
+    // [ORIGINAL - 2026-02-05] const debugSkipDB = true;
+    const debugSkipDB = false;
 
     try {
       // Handle commands - help first (most common for testing)
@@ -545,7 +553,8 @@ export class GoogleChatService {
           messageText,
           spaceName,
           messageId,
-          ChatCommandStatus.received
+          ChatCommandStatus.received,
+          eventType
         );
 
         await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
@@ -563,7 +572,8 @@ export class GoogleChatService {
         messageText,
         spaceName,
         messageId,
-        ChatCommandStatus.received
+        ChatCommandStatus.received,
+        eventType
       );
 
       if (commandName === 'balance') {
