@@ -1,7 +1,8 @@
 import { EmailTemplate, Employee, ManagerAllotmentDetails, User } from '../../../services/api';
 import SmtpSettings from '../SmtpSettings';
+import AwardPresetsPanel from '../AwardPresetsPanel';
 
-type SettingsSubTab = 'smtp' | 'email-templates' | 'roles' | 'allotments';
+type SettingsSubTab = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
 
 interface SettingsTabProps {
   user: User | null;
@@ -126,6 +127,16 @@ export default function SettingsTab({
             }`}
           >
             Manager Allotments
+          </button>
+          <button
+            onClick={() => onSettingsTabChange('award-presets')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'award-presets'
+                ? 'border-yellow-500 text-yellow-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Award Presets
           </button>
         </nav>
       </div>
@@ -424,6 +435,9 @@ export default function SettingsTab({
           </div>
         </div>
       )}
+
+      {/* Award Presets Sub-tab */}
+      {settingsTab === 'award-presets' && <AwardPresetsPanel />}
 
       {/* Manager Allotments Sub-tab */}
       {settingsTab === 'allotments' && (

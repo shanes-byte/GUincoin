@@ -803,6 +803,20 @@ model PendingImportBalance {
 }
 
 // =====================
+// Award Presets
+// =====================
+
+model AwardPreset {
+  id           String   @id @default(uuid())
+  title        String               // e.g., "Great teamwork!"
+  amount       Decimal  @db.Decimal(10, 2)
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// =====================
 // Financial Audit Log
 // =====================
 

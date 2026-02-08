@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-06
+> **Last Updated**: 2026-02-08
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -65,6 +65,7 @@ For **every** code change:
 | **BulkImportJob** | bulkImportService | admin/bulkImport | AdminPortal (BulkImportPanel) |
 | **PendingImportBalance** | bulkImportService | admin/bulkImport | AdminPortal (pending balances) |
 | **AuditLog** | auditService | (no direct route) | (no direct display) |
+| **AwardPreset** | googleChatService (wizard flow) | admin/awardPresets, manager (award-presets) | AdminPortal (AwardPresetsPanel), AwardForm (preset chips) |
 
 ### If you change a TransactionType enum value...
 
@@ -297,6 +298,10 @@ AuditAction: transaction_created | transaction_posted | transaction_rejected | b
 - Unique: (importJobId+recipientEmail)
 - → BulkImportJob, → LedgerTransaction
 
+#### AwardPreset
+- `id` (UUID), `title`, `amount` Decimal(10,2), `displayOrder` Int, `isActive` Bool
+- Used by: admin/awardPresets route (CRUD), manager route (list active), googleChatService (wizard flow), AwardForm (preset chips)
+
 #### AuditLog
 - `id` (UUID), `action`, `actorId`, `actorEmail`, `targetType`, `targetId`, `description`, `metadata` (JSON), `ipAddress`, `userAgent`
 
@@ -429,15 +434,16 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Function | Calls | Depended On By |
 |----------|-------|----------------|
-| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard() | googleChat.ts route (webhook) |
-| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award budget DM) |
-| `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent() |
+| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildAwardAmountPickerCard() | googleChat.ts route (webhook) |
+| `handleCardClicked(rawEvent)` | createAuditLog(), updateAuditLog(), executeAward(), isDmAvailable(), sendDirectMessage(), buildAwardMessagePromptCard(), buildPublicAwardCard(), buildAwardCard(), buildErrorCard() | handleEvent() (CARD_CLICKED delegation) |
+| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent(), handleCardClicked() (fire-and-forget for award budget DM) |
+| `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent(), handleCardClicked() |
 | `executeBalance(userEmail)` | findEmployeeByEmail(), transactionService.getAccountBalance() | handleEvent() |
-| `executeAward(managerEmail, targetEmail, amount, desc)` | findEmployeeByEmail(), allotmentService.canAward(), allotmentService.awardCoins(), allotmentService.getCurrentAllotment() | handleEvent() |
+| `executeAward(managerEmail, targetEmail, amount, desc)` | findEmployeeByEmail(), allotmentService.canAward(), allotmentService.awardCoins(), allotmentService.getCurrentAllotment() | handleEvent(), handleCardClicked() |
 | `executeTransfer(senderEmail, targetEmail, amount, message?)` | findEmployeeByEmail(), transactionService.getAccountBalance() + direct Prisma ops | handleEvent() |
-| `createAuditLog(...)` | — (Prisma direct) | handleEvent() |
-| `updateAuditLog(auditId, status, error?, txId?)` | — (Prisma direct) | handleEvent() |
-| `findEmployeeByEmail(email)` | — (Prisma direct) | handleEvent(), executeBalance(), executeAward(), executeTransfer() |
+| `createAuditLog(...)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
+| `updateAuditLog(auditId, status, error?, txId?)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
+| `findEmployeeByEmail(email)` | — (Prisma direct) | handleEvent(), handleCardClicked(), executeBalance(), executeAward(), executeTransfer() |
 
 ### emailTemplateService.ts
 **Location**: `backend/src/services/emailTemplateService.ts`
@@ -550,6 +556,7 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Method | Path | Middleware | Service Calls |
 |--------|------|-----------|---------------|
+| GET | `/api/manager/award-presets` | requireAuth | prisma.awardPreset.findMany (active only) |
 | GET | `/api/manager/allotment` | requireManager | allotmentService.getCurrentAllotment() |
 | POST | `/api/manager/award` | requireManager, validate | allotmentService.awardCoins(), emailService.sendManagerAwardNotification(), emailService.sendManagerAwardSentNotification() |
 | GET | `/api/manager/history` | requireManager, validate | allotmentService.getAwardHistory() |
@@ -643,6 +650,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 
 | Route Group | Key Service Calls |
 |-------------|-------------------|
+| `/api/admin/award-presets` | prisma.awardPreset (direct CRUD) |
 | `/api/admin/email-templates` | emailTemplateService.listEmailTemplates(), .upsertEmailTemplate() |
 | `/api/admin/google-chat` | prisma.chatCommandAudit (direct) |
 | `/api/admin/banners` | bannerService.* |
@@ -761,6 +769,11 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `getFullBalance()` | GET | /accounts/full-balance | Dashboard |
 | `getTransactions(params)` | GET | /accounts/transactions | Dashboard |
 | `getPendingTransactions()` | GET | /accounts/pending | (available) |
+| `getAwardPresets()` | GET | /manager/award-presets | AwardForm (preset chips) |
+| `getAdminAwardPresets()` | GET | /admin/award-presets | AdminPortal (AwardPresetsPanel) |
+| `createAwardPreset(data)` | POST | /admin/award-presets | AdminPortal (AwardPresetsPanel) |
+| `updateAwardPreset(id, data)` | PUT | /admin/award-presets/{id} | AdminPortal (AwardPresetsPanel) |
+| `deleteAwardPreset(id)` | DELETE | /admin/award-presets/{id} | AdminPortal (AwardPresetsPanel) |
 | `getManagerAllotment()` | GET | /manager/allotment | ManagerPortal |
 | `awardCoins(data)` | POST | /manager/award | ManagerPortal |
 | `getAwardHistory(params)` | GET | /manager/history | ManagerPortal |

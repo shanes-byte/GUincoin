@@ -11,6 +11,7 @@ import gamesRoutes from './games';
 import studioRoutes from './studio';
 import settingsRoutes from './settings';
 import bulkImportRoutes from './bulkImport';
+import awardPresetsRoutes from './awardPresets';
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/games', gamesRoutes);
 router.use(studioRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/bulk-import', bulkImportRoutes);
+router.use(awardPresetsRoutes);
 
 export default router;

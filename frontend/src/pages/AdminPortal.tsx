@@ -67,7 +67,7 @@ interface Submission {
 }
 
 type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'bulk-import' | 'settings';
-type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments';
+type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
 
 export default function AdminPortal() {
   const navigate = useNavigate();

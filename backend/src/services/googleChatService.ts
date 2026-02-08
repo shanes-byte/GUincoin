@@ -20,6 +20,8 @@ import {
   buildTransferCard,
   buildHelpCard,
   buildTextResponse,
+  buildAwardAmountPickerCard,
+  buildAwardMessagePromptCard,
 } from '../utils/googleChatCards';
 import { env } from '../config/env';
 import { google } from 'googleapis';
@@ -130,6 +132,7 @@ export class GoogleChatService {
   /**
    * Determine event type from the raw event
    */
+  // [ORIGINAL - 2026-02-08] Did not detect CARD_CLICKED or cardClickedPayload
   private getEventType(rawEvent: any): string {
     // Old format
     if (rawEvent.type) {
@@ -137,6 +140,11 @@ export class GoogleChatService {
     }
 
     const chatData = rawEvent.chat || rawEvent;
+
+    // New format — detect CARD_CLICKED before MESSAGE
+    if (chatData.cardClickedPayload) {
+      return 'CARD_CLICKED';
+    }
 
     // New format - determine from structure
     if (chatData.appCommandPayload) {
@@ -589,11 +597,153 @@ export class GoogleChatService {
   }
 
   /**
+   * Handle CARD_CLICKED events from the award wizard flow
+   */
+  private async handleCardClicked(rawEvent: any): Promise<GoogleChatResponse> {
+    // Extract action info from various possible locations
+    const chatData = rawEvent.chat || rawEvent;
+    const clickedPayload = chatData.cardClickedPayload || rawEvent;
+    const action = clickedPayload?.action || clickedPayload?.message?.action || rawEvent.action;
+    const common = rawEvent.common || chatData.common || {};
+
+    const functionName = action?.actionMethodName || action?.function || common?.invokedFunction || '';
+    const paramsList: { key: string; value: string }[] = action?.parameters || [];
+
+    // Convert parameter array to key-value map
+    const params: Record<string, string> = {};
+    for (const p of paramsList) {
+      params[p.key] = p.value;
+    }
+
+    // Get user email for audit logging
+    let userEmail: string | null = null;
+    if (chatData.user?.email) {
+      userEmail = chatData.user.email.toLowerCase();
+    } else if (rawEvent.user?.email) {
+      userEmail = rawEvent.user.email.toLowerCase();
+    }
+
+    console.log('[GoogleChat] CARD_CLICKED: function=%s user=%s params=%j', functionName, userEmail, params);
+
+    // Audit log the click event
+    const auditId = await this.createAuditLog(
+      userEmail,
+      `card_click:${functionName}`,
+      JSON.stringify(params),
+      null,
+      null,
+      ChatCommandStatus.received,
+      'CARD_CLICKED'
+    );
+
+    try {
+      if (functionName === 'award_select_amount') {
+        // Step 1 → Step 2: User selected an amount, show message prompt
+        const { targetEmail, targetName, amount, presetTitle } = params;
+        if (!targetEmail || !targetName || !amount || !presetTitle) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing wizard parameters');
+          return {
+            ...buildErrorCard('Wizard Error', 'Missing parameters. Please start over with /award.'),
+            actionResponse: { type: 'UPDATE_MESSAGE' },
+          };
+        }
+
+        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+        return {
+          ...buildAwardMessagePromptCard(targetEmail, targetName, parseFloat(amount), presetTitle),
+          actionResponse: { type: 'UPDATE_MESSAGE' },
+        };
+      }
+
+      if (functionName === 'award_confirm') {
+        // Step 2 → Final: Execute the award and show success card
+        const { targetEmail, targetName, amount, message } = params;
+        if (!targetEmail || !targetName || !amount) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing confirmation parameters');
+          return {
+            ...buildErrorCard('Wizard Error', 'Missing parameters. Please start over with /award.'),
+            actionResponse: { type: 'UPDATE_MESSAGE' },
+          };
+        }
+
+        if (!userEmail) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Unknown user');
+          return {
+            ...buildErrorCard('Error', 'Unable to identify you. Please try again.'),
+            actionResponse: { type: 'UPDATE_MESSAGE' },
+          };
+        }
+
+        await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
+        const result = await this.executeAward(
+          userEmail,
+          targetEmail,
+          parseFloat(amount),
+          message || `Award from manager via Google Chat`
+        );
+
+        if (result.success) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
+
+          const recipientName = result.data?.recipientName as string;
+          const awardAmount = result.data?.amount as number;
+          const description = result.data?.description as string;
+          const remainingBudget = result.data?.remainingBudget as number;
+
+          // Fire-and-forget DM with budget info to the manager
+          if (this.isDmAvailable()) {
+            this.sendDirectMessage(
+              userEmail,
+              buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount)
+            );
+
+            return {
+              ...buildPublicAwardCard(recipientName, awardAmount, description),
+              actionResponse: { type: 'UPDATE_MESSAGE' },
+            };
+          }
+
+          return {
+            ...buildAwardCard(recipientName, awardAmount, description, remainingBudget),
+            actionResponse: { type: 'UPDATE_MESSAGE' },
+          };
+        } else {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
+          return {
+            ...buildErrorCard('Award Error', result.message),
+            actionResponse: { type: 'UPDATE_MESSAGE' },
+          };
+        }
+      }
+
+      // Unknown action
+      await this.updateAuditLog(auditId, ChatCommandStatus.failed, `Unknown action: ${functionName}`);
+      return {
+        ...buildErrorCard('Unknown Action', 'Unrecognized card action.'),
+        actionResponse: { type: 'UPDATE_MESSAGE' },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      console.error('[GoogleChat] CARD_CLICKED error:', errorMessage);
+      await this.updateAuditLog(auditId, ChatCommandStatus.failed, errorMessage);
+      return {
+        ...buildErrorCard('Error', errorMessage),
+        actionResponse: { type: 'UPDATE_MESSAGE' },
+      };
+    }
+  }
+
+  /**
    * Handle incoming Google Chat webhook event
    */
   async handleEvent(rawEvent: any): Promise<GoogleChatResponse> {
     // Determine actual event type for audit logging
     const eventType = this.getEventType(rawEvent);
+
+    // Delegate CARD_CLICKED events to the wizard handler
+    if (eventType === 'CARD_CLICKED') {
+      return this.handleCardClicked(rawEvent);
+    }
 
     // Normalize the event data
     const { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail } = this.normalizeEvent(rawEvent);
@@ -705,7 +855,30 @@ export class GoogleChatService {
 
         const args = this.parseArguments(messageText, mentionedUserEmail);
 
+        // [ORIGINAL - 2026-02-08] Missing args returned error card. Now launches preset wizard when user is mentioned but no amount.
         if (!args) {
+          // If we have a mentioned user, launch the wizard with presets
+          if (mentionedUserEmail) {
+            const activePresets = await prisma.awardPreset.findMany({
+              where: { isActive: true },
+              orderBy: { displayOrder: 'asc' },
+            });
+
+            if (activePresets.length > 0) {
+              // Resolve the mentioned user's display name
+              const target = await this.findEmployeeByEmail(mentionedUserEmail);
+              const targetName = target?.name || mentionedUserEmail;
+
+              await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+              return buildAwardAmountPickerCard(
+                mentionedUserEmail,
+                targetName,
+                activePresets.map(p => ({ title: p.title, amount: Number(p.amount) }))
+              );
+            }
+          }
+
+          // Fallback: no presets or no mentioned user — show usage error
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
           return buildErrorCard(
             'Award Usage',

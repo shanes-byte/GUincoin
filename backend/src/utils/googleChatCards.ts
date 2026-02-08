@@ -424,6 +424,124 @@ export function buildHelpCard(isManager: boolean): GoogleChatResponse {
 }
 
 /**
+ * Build an award amount picker card for the wizard flow.
+ * Shows one button per preset — no custom amount option.
+ */
+export function buildAwardAmountPickerCard(
+  targetEmail: string,
+  targetName: string,
+  presets: { title: string; amount: number }[]
+): GoogleChatResponse {
+  const buttons: GoogleChatWidget['buttonList'] = {
+    buttons: presets.map(preset => ({
+      text: `${preset.title} — ${preset.amount} gc`,
+      onClick: {
+        action: {
+          function: 'award_select_amount',
+          parameters: [
+            { key: 'targetEmail', value: targetEmail },
+            { key: 'targetName', value: targetName },
+            { key: 'amount', value: preset.amount.toString() },
+            { key: 'presetTitle', value: preset.title },
+          ],
+        },
+      },
+    })),
+  };
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'award-wizard-amount',
+    card: {
+      header: {
+        title: `Award to ${targetName}`,
+        subtitle: 'Guincoin Manager Award',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/stars/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [
+        {
+          header: 'Select Award Amount',
+          widgets: [{ buttonList: buttons }],
+        },
+      ],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the message prompt card (step 2 of wizard).
+ * Offers "Send with this message" or "Skip — No Message".
+ */
+export function buildAwardMessagePromptCard(
+  targetEmail: string,
+  targetName: string,
+  amount: number,
+  presetTitle: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        topLabel: 'Message',
+        text: `<b>${presetTitle}</b>`,
+      },
+    },
+    { divider: {} },
+    {
+      buttonList: {
+        buttons: [
+          {
+            text: 'Send with this message',
+            onClick: {
+              action: {
+                function: 'award_confirm',
+                parameters: [
+                  { key: 'targetEmail', value: targetEmail },
+                  { key: 'targetName', value: targetName },
+                  { key: 'amount', value: amount.toString() },
+                  { key: 'message', value: presetTitle },
+                ],
+              },
+            },
+            color: { red: 0.13, green: 0.55, blue: 0.13 },
+          },
+          {
+            text: 'Skip — No Message',
+            onClick: {
+              action: {
+                function: 'award_confirm',
+                parameters: [
+                  { key: 'targetEmail', value: targetEmail },
+                  { key: 'targetName', value: targetName },
+                  { key: 'amount', value: amount.toString() },
+                  { key: 'message', value: '' },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'award-wizard-message',
+    card: {
+      header: {
+        title: `Award ${amount} gc to ${targetName}`,
+        subtitle: 'Guincoin Manager Award',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/stars/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
  * Build a simple text response (fallback for non-card scenarios)
  */
 export function buildTextResponse(text: string): GoogleChatResponse {

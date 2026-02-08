@@ -151,6 +151,29 @@ export const getTransactions = (params?: {
 }) => api.get<{ transactions: Transaction[]; total: number }>('/accounts/transactions', { params });
 export const getPendingTransactions = () => api.get<Transaction[]>('/accounts/pending');
 
+// Award Presets
+export interface AwardPreset {
+  id: string;
+  title: string;
+  amount: number;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Manager-facing (active presets only)
+export const getAwardPresets = () => api.get<AwardPreset[]>('/manager/award-presets');
+
+// Admin CRUD
+export const getAdminAwardPresets = () => api.get<AwardPreset[]>('/admin/award-presets');
+export const createAwardPreset = (data: { title: string; amount: number; displayOrder?: number }) =>
+  api.post<AwardPreset>('/admin/award-presets', data);
+export const updateAwardPreset = (id: string, data: Partial<{ title: string; amount: number; displayOrder: number; isActive: boolean }>) =>
+  api.put<AwardPreset>(`/admin/award-presets/${id}`, data);
+export const deleteAwardPreset = (id: string) =>
+  api.delete(`/admin/award-presets/${id}`);
+
 // Manager
 export const getManagerAllotment = () => api.get<Allotment>('/manager/allotment');
 export const awardCoins = (data: { employeeEmail: string; amount: number; description?: string }) =>
