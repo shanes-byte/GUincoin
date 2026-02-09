@@ -1,3 +1,4 @@
+// [ORIGINAL - 2026-02-09] Superseded by GuincoinCard — kept for reference/rollback
 interface AllotmentStatusProps {
   allotment: {
     amount: number;

@@ -14,7 +14,8 @@ import {
   Goal,
 } from '../services/api';
 import Layout from '../components/Layout';
-import BalanceCard from '../components/Dashboard/BalanceCard';
+// [ORIGINAL - 2026-02-09] import BalanceCard from '../components/Dashboard/BalanceCard';
+import GuincoinCard from '../components/GuincoinCard';
 import TransactionList from '../components/Dashboard/TransactionList';
 import { useToast } from '../components/Toast';
 
@@ -208,8 +209,15 @@ export default function Dashboard() {
         {user && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-1 space-y-6">
+              {/* [ORIGINAL - 2026-02-09] <BalanceCard balance={balance} allotmentBalance={allotmentBalance} isManager={isManager} /> */}
               {balance ? (
-                <BalanceCard balance={balance} allotmentBalance={allotmentBalance} isManager={isManager} />
+                <GuincoinCard
+                  variant="personal"
+                  holderName={user.name}
+                  balance={balance}
+                  allotmentBalance={allotmentBalance}
+                  isManager={isManager}
+                />
               ) : (
                 <div className="rounded-md border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-600">
                   Balance is unavailable right now.

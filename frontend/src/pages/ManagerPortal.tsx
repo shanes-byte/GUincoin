@@ -4,7 +4,8 @@ import { getCurrentUser, getManagerAllotment, awardCoins, getAwardHistory, User 
 import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
 import AwardForm from '../components/Manager/AwardForm';
-import AllotmentStatus from '../components/Manager/AllotmentStatus';
+// [ORIGINAL - 2026-02-09] import AllotmentStatus from '../components/Manager/AllotmentStatus';
+import GuincoinCard from '../components/GuincoinCard';
 import AwardHistory from '../components/Manager/AwardHistory';
 
 export default function ManagerPortal() {
@@ -89,8 +90,15 @@ export default function ManagerPortal() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* [ORIGINAL - 2026-02-09] {allotment && <AllotmentStatus allotment={allotment} />} */}
           <div className="lg:col-span-1">
-            {allotment && <AllotmentStatus allotment={allotment} />}
+            {allotment && (
+              <GuincoinCard
+                variant="manager"
+                holderName={user.name}
+                allotment={allotment}
+              />
+            )}
           </div>
           <div className="lg:col-span-2">
             <AwardForm onAward={handleAward} remaining={allotment?.remaining || 0} />

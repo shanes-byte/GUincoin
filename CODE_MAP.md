@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-08
+> **Last Updated**: 2026-02-09
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -868,12 +868,12 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 
 ### Dashboard (`pages/Dashboard.tsx`)
 - **API**: getCurrentUser(), getFullBalance(), getTransactions({limit:10}), getGoals(), checkGoalAchievements()
-- **Components**: Layout, BalanceCard (with allotment), TransactionList
-- **Features**: Confetti on goal achievement, goal deletion, dual balance display (personal + allotment)
+- **Components**: Layout, GuincoinCard (personal variant), TransactionList
+- **Features**: Confetti on goal achievement, goal deletion, dual balance display (personal + allotment), flip-to-hide card
 
 ### ManagerPortal (`pages/ManagerPortal.tsx`)
 - **API**: getCurrentUser(), getManagerAllotment(), getAwardHistory({limit:20}), awardCoins()
-- **Components**: Layout, AllotmentStatus, AwardForm, AwardHistory
+- **Components**: Layout, GuincoinCard (manager variant), AwardForm, AwardHistory
 - **Guard**: Redirects non-managers to dashboard
 
 ### Transfers (`pages/Transfers.tsx`)
@@ -920,13 +920,20 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 - **Context**: addToast(message, type), confirm(message) → Promise<boolean>
 - **Used By**: All pages for notifications/confirmations
 
+### GuincoinCard (`components/GuincoinCard.tsx`)
+- **Props**: variant ('personal'|'manager'), holderName, balance?, allotmentBalance?, isManager?, allotment?
+- **Sub-components**: ChipSVG, PersonalFront, ManagerFront, CardBack
+- **Features**: CSS flip animation (card-scene/card-flipper), embossed text, keyboard accessible (Enter/Space), reduced-motion support
+- **Used By**: Dashboard (personal variant), ManagerPortal (manager variant)
+- **Supersedes**: BalanceCard, AllotmentStatus (originals preserved with deprecation comments)
+
 ### Component Hierarchy
 ```
 App (Router + ErrorBoundary + ToastProvider + ThemeProvider)
 ├── Login
 ├── OAuthCallback
-├── Dashboard → Layout → BalanceCard, TransactionList
-├── ManagerPortal → Layout → AllotmentStatus, AwardForm, AwardHistory
+├── Dashboard → Layout → GuincoinCard (personal), TransactionList
+├── ManagerPortal → Layout → GuincoinCard (manager), AwardForm, AwardHistory
 ├── Transfers → Layout → TransferLimits, TransferForm, TransactionList
 ├── Wellness → Layout → WellnessTaskList (→ WellnessTaskModal), WellnessSubmissions
 ├── Store → Layout → (inline product cards, modals)

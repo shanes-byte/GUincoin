@@ -90,3 +90,38 @@ body {
     rgb(var(--color-accent) / 0.7) 100%
   );
 }
+
+/* Guincoin Card — flip animation */
+.card-scene {
+  perspective: 1000px;
+}
+
+.card-flipper {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  position: relative;
+}
+
+.card-flipper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+}
+
+.card-embossed {
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3), 0 -1px 1px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-flipper {
+    transition: none;
+  }
+}
