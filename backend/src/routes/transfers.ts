@@ -64,8 +64,10 @@ router.get('/limits', requireAuth, async (req: AuthRequest, res, next: NextFunct
       },
     });
 
+    // [ORIGINAL - 2026-02-10] maxAmount leaked as raw Prisma Decimal — now normalized
     res.json({
       ...limit,
+      maxAmount: Number(limit.maxAmount),
       usedAmount: Number(usedAmount._sum.amount || 0),
       remaining:
         Number(limit.maxAmount) - Number(usedAmount._sum.amount || 0),
@@ -332,6 +334,7 @@ router.get('/history', requireAuth, async (req: AuthRequest, res, next: NextFunc
       ...receivedHistory.transactions,
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    // Note: amounts already normalized by transactionService.getTransactionHistory()
     res.json({
       transactions: allTransactions,
       total: sentHistory.total + receivedHistory.total,

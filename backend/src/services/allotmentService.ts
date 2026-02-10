@@ -47,8 +47,10 @@ export class AllotmentService {
     // Calculate used amount from posted manager awards in this period
     const usedAmount = await this.calculateUsedAmount(managerId, periodStart, periodEnd);
 
+    // [ORIGINAL - 2026-02-10] spread leaked raw Prisma Decimal `amount` — now normalized
     return {
       ...allotment,
+      amount: Number(allotment.amount),
       usedAmount: Number(usedAmount),
       remaining: Number(allotment.amount) - Number(usedAmount),
       balance: Number(allotment.amount) - Number(usedAmount),
@@ -124,6 +126,7 @@ export class AllotmentService {
       }
 
       // Create pending transaction
+      // [ORIGINAL - 2026-02-10] missing targetEmployeeId — transferReceiver was always null for awards
       const transaction = await tx.ledgerTransaction.create({
         data: {
           accountId: employee.account!.id,
@@ -132,6 +135,7 @@ export class AllotmentService {
           status: 'pending',
           description: description || 'Award from manager',
           sourceEmployeeId: managerId,
+          targetEmployeeId: employee.id,
         },
       });
 
@@ -185,8 +189,9 @@ export class AllotmentService {
       }),
     ]);
 
+    // [ORIGINAL - 2026-02-10] returned raw Prisma Decimal objects — serialized as strings in JSON
     return {
-      transactions,
+      transactions: transactions.map(tx => ({ ...tx, amount: Number(tx.amount) })),
       total,
       limit,
       offset,

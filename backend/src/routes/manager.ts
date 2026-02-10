@@ -108,10 +108,14 @@ router.get(
   validate(historySchema),
   async (req: AuthRequest, res, next: NextFunction) => {
     try {
+      // [ORIGINAL - 2026-02-10] used TypeScript cast instead of parseInt — validation middleware discards transforms
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+
       const history = await allotmentService.getAwardHistory(
         req.user!.id,
-        req.query.limit as unknown as number,
-        req.query.offset as unknown as number
+        limit,
+        offset
       );
       res.json(history);
     } catch (error) {

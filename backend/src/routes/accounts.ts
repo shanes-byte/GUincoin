@@ -89,8 +89,13 @@ router.get('/full-balance', requireAuth, async (req: AuthRequest, res, next: Nex
       include: { account: true },
     });
 
+    // [ORIGINAL - 2026-02-10] returned 404 when account missing — caused Dashboard "Could not load" error
     if (!employee || !employee.account) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.json({
+        personal: { posted: 0, pending: 0, total: 0 },
+        allotment: null,
+        isManager: employee?.isManager || false,
+      });
     }
 
     const personal = await transactionService.getAccountBalance(
@@ -212,15 +217,20 @@ router.get(
         include: { account: true },
       });
 
+      // [ORIGINAL - 2026-02-10] returned 404 when account missing — caused Dashboard "Could not load" error
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+
       if (!employee || !employee.account) {
-        return res.status(404).json({ error: 'Account not found' });
+        return res.json({ transactions: [], total: 0, limit, offset });
       }
 
+      // [ORIGINAL - 2026-02-10] used TypeScript cast instead of parseInt — validation middleware discards transforms
       const history = await transactionService.getTransactionHistory(
         employee.account.id,
         {
-          limit: req.query.limit as unknown as number,
-          offset: req.query.offset as unknown as number,
+          limit,
+          offset,
           status: req.query.status as any,
           transactionType: req.query.transactionType as any,
         }
@@ -261,8 +271,9 @@ router.get('/pending', requireAuth, async (req: AuthRequest, res, next: NextFunc
       include: { account: true },
     });
 
+    // [ORIGINAL - 2026-02-10] returned 404 when account missing — caused Dashboard "Could not load" error
     if (!employee || !employee.account) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.json([]);
     }
 
     const pending = await transactionService.getPendingTransactions(

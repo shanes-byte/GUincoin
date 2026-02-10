@@ -305,8 +305,9 @@ export class TransactionService {
       prisma.ledgerTransaction.count({ where }),
     ]);
 
+    // [ORIGINAL - 2026-02-10] returned raw Prisma Decimal objects — serialized as strings in JSON
     return {
-      transactions,
+      transactions: transactions.map(tx => ({ ...tx, amount: Number(tx.amount) })),
       total,
       limit: options?.limit || 50,
       offset: options?.offset || 0,
@@ -322,8 +323,9 @@ export class TransactionService {
    * @param accountId - The account ID to get pending transactions for
    * @returns Array of pending transactions with related data
    */
+  // [ORIGINAL - 2026-02-10] returned raw Prisma Decimal objects — serialized as strings in JSON
   async getPendingTransactions(accountId: string) {
-    return await prisma.ledgerTransaction.findMany({
+    const transactions = await prisma.ledgerTransaction.findMany({
       where: {
         accountId,
         status: TransactionStatus.pending,
@@ -344,6 +346,8 @@ export class TransactionService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return transactions.map(tx => ({ ...tx, amount: Number(tx.amount) }));
   }
 }
 
