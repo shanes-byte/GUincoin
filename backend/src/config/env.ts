@@ -23,10 +23,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_WORKSPACE_DOMAIN: z.string().optional(),
+  // [ORIGINAL - 2026-02-10] defaulted to true (undefined !== 'false') — caused rate limit errors on Railway
   RATE_LIMIT_ENABLED: z
     .string()
     .optional()
-    .transform((val) => val !== 'false'),
+    .transform((val) => val === 'true'),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   COOKIE_DOMAIN: z.string().optional(),

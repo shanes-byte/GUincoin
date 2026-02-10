@@ -208,8 +208,11 @@ if (env.RATE_LIMIT_ENABLED) {
   }
 }
 
-// Apply stricter rate limiting to auth routes
-app.use('/api/auth', authRateLimiter(10, 15 * 60 * 1000));
+// Apply stricter rate limiting to auth routes (only when rate limiting is enabled)
+// [ORIGINAL - 2026-02-10] applied unconditionally — ignored RATE_LIMIT_ENABLED flag
+if (env.RATE_LIMIT_ENABLED) {
+  app.use('/api/auth', authRateLimiter(10, 15 * 60 * 1000));
+}
 
 // Simple liveness check (doesn't depend on database)
 app.get('/healthz', (req, res) => {
