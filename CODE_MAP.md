@@ -434,10 +434,11 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Function | Calls | Depended On By |
 |----------|-------|----------------|
-| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildPrivateTransferBalanceCard(), buildAwardAmountPickerCard() | googleChat.ts route (webhook) |
-| `handleCardClicked(rawEvent)` | createAuditLog(), updateAuditLog(), executeAward(), isDmAvailable(), sendDirectMessage(), buildAwardMessagePromptCard(), buildPublicAwardCard(), buildAwardCard(), buildErrorCard() | handleEvent() (CARD_CLICKED delegation) |
-| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award budget DM + transfer balance DM), handleCardClicked() (award wizard budget DM) |
-| `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent(), handleCardClicked() |
+| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildPrivateTransferBalanceCard(), buildAwardAmountPickerCard(), buildTextResponse() | googleChat.ts route (webhook). **Award wizard now sends picker card via DM (not public), returns "Check your DMs" text to space** (2026-02-10). |
+| `handleCardClicked(rawEvent)` | createAuditLog(), updateAuditLog(), executeAward(), postMessageToSpace(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildErrorCard() | handleEvent() (CARD_CLICKED delegation). **`award_dm_execute` handler: single-click award from DM, posts public card to space, updates DM with budget. Legacy `award_select_amount`/`award_confirm` return "expired" message** (2026-02-10). |
+| `postMessageToSpace(spaceName, message)` | googleapis (Google Chat API) | handleCardClicked() (posts public award card to original space after DM wizard completes). **Added 2026-02-10**. |
+| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award picker DM + transfer balance DM) |
+| `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent() |
 | `executeBalance(userEmail)` | findEmployeeByEmail(), transactionService.getAccountBalance() | handleEvent() |
 | `executeAward(managerEmail, targetEmail, amount, desc)` | findEmployeeByEmail(), allotmentService.canAward(), allotmentService.awardCoins(), allotmentService.getCurrentAllotment() | handleEvent(), handleCardClicked() |
 | `executeTransfer(senderEmail, targetEmail, amount, message?)` | findEmployeeByEmail(), transactionService.getAccountBalance() (pre-check + post-transfer remaining) + direct Prisma ops | handleEvent(). **Now returns `remainingBalance` in result data** (2026-02-10). |
@@ -663,7 +664,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 
 | Method | Path | Service Calls |
 |--------|------|---------------|
-| POST | `/api/integrations/google-chat/webhook` | googleChatService.handleEvent() |
+| POST | `/api/integrations/google-chat/webhook` | googleChatService.handleEvent(). **Format detection: old-format `CARD_CLICKED` (type at top level) uses bare Message response; only `chat.cardClickedPayload` uses hostAppDataAction wrapper. `actionResponse` stripped before wrapping** (2026-02-10). |
 
 ---
 
