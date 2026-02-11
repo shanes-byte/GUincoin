@@ -604,6 +604,36 @@ export class GoogleChatService {
   }
 
   /**
+   * Post a message to a Google Chat space via the API
+   * Used to post public award cards back to the original space after DM wizard completes
+   */
+  async postMessageToSpace(spaceName: string, message: GoogleChatResponse): Promise<void> {
+    if (!env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY) {
+      console.warn('[GoogleChat] Cannot post to space — GOOGLE_CHAT_SERVICE_ACCOUNT_KEY not set');
+      return;
+    }
+
+    try {
+      const credentials = JSON.parse(env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY);
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/chat.bot'],
+      });
+      const chat = google.chat({ version: 'v1', auth });
+
+      await chat.spaces.messages.create({
+        parent: spaceName,
+        requestBody: message,
+      });
+
+      console.log('[GoogleChat] Public card posted to space %s', spaceName);
+    } catch (error) {
+      // Non-fatal — log and continue
+      console.error('[GoogleChat] Failed to post to space %s:', spaceName, error);
+    }
+  }
+
+  /**
    * Handle CARD_CLICKED events from the award wizard flow
    */
   private async handleCardClicked(rawEvent: any): Promise<GoogleChatResponse> {
@@ -644,29 +674,13 @@ export class GoogleChatService {
     );
 
     try {
-      if (functionName === 'award_select_amount') {
-        // Step 1 → Step 2: User selected an amount, show message prompt
-        const { targetEmail, targetName, amount, presetTitle } = params;
+      // [ORIGINAL - 2026-02-10] Had award_select_amount (public 2-step wizard) and award_confirm handlers.
+      // Replaced with award_dm_execute: single-click award from private DM picker card.
+      if (functionName === 'award_dm_execute') {
+        // Single-click award: execute immediately from DM preset button
+        const { targetEmail, targetName, amount, presetTitle, spaceName } = params;
         if (!targetEmail || !targetName || !amount || !presetTitle) {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing wizard parameters');
-          return {
-            ...buildErrorCard('Wizard Error', 'Missing parameters. Please start over with /award.'),
-            actionResponse: { type: 'UPDATE_MESSAGE' },
-          };
-        }
-
-        await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-        return {
-          ...buildAwardMessagePromptCard(targetEmail, targetName, parseFloat(amount), presetTitle),
-          actionResponse: { type: 'UPDATE_MESSAGE' },
-        };
-      }
-
-      if (functionName === 'award_confirm') {
-        // Step 2 → Final: Execute the award and show success card
-        const { targetEmail, targetName, amount, message } = params;
-        if (!targetEmail || !targetName || !amount) {
-          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Missing confirmation parameters');
           return {
             ...buildErrorCard('Wizard Error', 'Missing parameters. Please start over with /award.'),
             actionResponse: { type: 'UPDATE_MESSAGE' },
@@ -686,7 +700,7 @@ export class GoogleChatService {
           userEmail,
           targetEmail,
           parseFloat(amount),
-          message || `Award from manager via Google Chat`
+          presetTitle
         );
 
         if (result.success) {
@@ -697,21 +711,14 @@ export class GoogleChatService {
           const description = result.data?.description as string;
           const remainingBudget = result.data?.remainingBudget as number;
 
-          // Fire-and-forget DM with budget info to the manager
-          if (this.isDmAvailable()) {
-            this.sendDirectMessage(
-              userEmail,
-              buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount)
-            );
-
-            return {
-              ...buildPublicAwardCard(recipientName, awardAmount, description),
-              actionResponse: { type: 'UPDATE_MESSAGE' },
-            };
+          // Post public award card to the original space (fire-and-forget)
+          if (spaceName) {
+            this.postMessageToSpace(spaceName, buildPublicAwardCard(recipientName, awardAmount, description));
           }
 
+          // Update the DM card with budget info for the manager
           return {
-            ...buildAwardCard(recipientName, awardAmount, description, remainingBudget),
+            ...buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount),
             actionResponse: { type: 'UPDATE_MESSAGE' },
           };
         } else {
@@ -721,6 +728,24 @@ export class GoogleChatService {
             actionResponse: { type: 'UPDATE_MESSAGE' },
           };
         }
+      }
+
+      if (functionName === 'award_select_amount') {
+        // Legacy handler — kept for any in-flight old-format cards
+        await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Legacy wizard — please use /award again');
+        return {
+          ...buildErrorCard('Please Try Again', 'This award card has expired. Please use /award again.'),
+          actionResponse: { type: 'UPDATE_MESSAGE' },
+        };
+      }
+
+      if (functionName === 'award_confirm') {
+        // Legacy handler — kept for any in-flight old-format cards
+        await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Legacy wizard — please use /award again');
+        return {
+          ...buildErrorCard('Please Try Again', 'This award card has expired. Please use /award again.'),
+          actionResponse: { type: 'UPDATE_MESSAGE' },
+        };
       }
 
       // Unknown action
@@ -873,29 +898,38 @@ export class GoogleChatService {
         const args = this.parseArguments(messageText, mentionedUserEmail);
 
         // [ORIGINAL - 2026-02-08] Missing args returned error card. Now launches preset wizard when user is mentioned but no amount.
+        // [ORIGINAL - 2026-02-10] Returned picker card publicly — other users could see and click buttons.
+        // Now sends picker as DM to the manager so only they can interact with it.
         if (!args) {
-          // If we have a mentioned user, launch the wizard with presets
+          // If we have a mentioned user, launch the wizard via DM
           if (mentionedUserEmail) {
             const activePresets = await prisma.awardPreset.findMany({
               where: { isActive: true },
               orderBy: { displayOrder: 'asc' },
             });
 
-            if (activePresets.length > 0) {
+            if (activePresets.length > 0 && this.isDmAvailable()) {
               // Resolve the mentioned user's display name
               const target = await this.findEmployeeByEmail(mentionedUserEmail);
               const targetName = target?.name || mentionedUserEmail;
 
-              await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-              return buildAwardAmountPickerCard(
-                mentionedUserEmail,
-                targetName,
-                activePresets.map(p => ({ title: p.title, amount: Number(p.amount) }))
+              // Send the picker card privately to the manager via DM
+              this.sendDirectMessage(
+                userEmail,
+                buildAwardAmountPickerCard(
+                  mentionedUserEmail,
+                  targetName,
+                  activePresets.map(p => ({ title: p.title, amount: Number(p.amount) })),
+                  spaceName
+                )
               );
+
+              await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+              return buildTextResponse('Check your DMs for the award options.');
             }
           }
 
-          // Fallback: no presets or no mentioned user — show usage error
+          // Fallback: no presets, no mentioned user, or DM unavailable — show usage error
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
           return buildErrorCard(
             'Award Usage',

@@ -44,9 +44,11 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     // responses wrapped in hostAppDataAction; old MESSAGE events use bare Message format.
     // See: https://developers.google.com/workspace/add-ons/chat/commands
     // [ORIGINAL - 2026-02-08] Did not handle CARD_CLICKED events or UPDATE_MESSAGE actionResponse
-    // Detect new Google Chat format (requires hostAppDataAction wrapper)
+    // [ORIGINAL - 2026-02-10] Included event.type === 'CARD_CLICKED' — old-format CARD_CLICKED
+    // events were incorrectly wrapped in hostAppDataAction, causing "unable to process" errors.
+    // Old-format CARD_CLICKED (type at top level) uses bare Message response with actionResponse.
+    // Only chat.cardClickedPayload (new format, no top-level type) needs hostAppDataAction.
     const isNewFormat = !!(event.type === 'SLASH_COMMAND'
-      || event.type === 'CARD_CLICKED'
       || (event as any).chat?.appCommandPayload
       || (event as any).chat?.messagePayload
       || (event as any).chat?.cardClickedPayload
@@ -77,7 +79,6 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     // Return a user-friendly error response (use same format detection)
     const errEvent = req.body as any;
     const errIsNewFormat = !!(errEvent?.type === 'SLASH_COMMAND'
-      || errEvent?.type === 'CARD_CLICKED'
       || errEvent?.chat?.appCommandPayload
       || errEvent?.chat?.messagePayload
       || errEvent?.chat?.cardClickedPayload

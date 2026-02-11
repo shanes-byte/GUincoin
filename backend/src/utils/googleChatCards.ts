@@ -468,26 +468,35 @@ export function buildHelpCard(isManager: boolean): GoogleChatResponse {
  * Build an award amount picker card for the wizard flow.
  * Shows one button per preset — no custom amount option.
  */
+// [ORIGINAL - 2026-02-10] Used award_select_amount (2-step wizard). Now award_dm_execute (single-click award).
+// Added spaceName param so DM wizard can post public card back to original space.
 export function buildAwardAmountPickerCard(
   targetEmail: string,
   targetName: string,
-  presets: { title: string; amount: number }[]
+  presets: { title: string; amount: number }[],
+  spaceName?: string | null
 ): GoogleChatResponse {
   const buttons: GoogleChatWidget['buttonList'] = {
-    buttons: presets.map(preset => ({
-      text: `${preset.title} — ${preset.amount} gc`,
-      onClick: {
-        action: {
-          function: 'award_select_amount',
-          parameters: [
-            { key: 'targetEmail', value: targetEmail },
-            { key: 'targetName', value: targetName },
-            { key: 'amount', value: preset.amount.toString() },
-            { key: 'presetTitle', value: preset.title },
-          ],
+    buttons: presets.map(preset => {
+      const parameters = [
+        { key: 'targetEmail', value: targetEmail },
+        { key: 'targetName', value: targetName },
+        { key: 'amount', value: preset.amount.toString() },
+        { key: 'presetTitle', value: preset.title },
+      ];
+      if (spaceName) {
+        parameters.push({ key: 'spaceName', value: spaceName });
+      }
+      return {
+        text: `${preset.title} — ${preset.amount} gc`,
+        onClick: {
+          action: {
+            function: 'award_dm_execute',
+            parameters,
+          },
         },
-      },
-    })),
+      };
+    }),
   };
 
   const card: GoogleChatCardV2 = {
