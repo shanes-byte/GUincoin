@@ -716,9 +716,17 @@ export class GoogleChatService {
             this.postMessageToSpace(spaceName, buildPublicAwardCard(recipientName, awardAmount, description));
           }
 
-          // Update the DM card with budget info for the manager
+          // DM budget info to manager (fire-and-forget) — works whether picker was DM or public
+          if (this.isDmAvailable()) {
+            this.sendDirectMessage(
+              userEmail,
+              buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount)
+            );
+          }
+
+          // Update the picker card in place with the public award card (no budget shown)
           return {
-            ...buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount),
+            ...buildPublicAwardCard(recipientName, awardAmount, description),
             actionResponse: { type: 'UPDATE_MESSAGE' },
           };
         } else {
@@ -899,37 +907,41 @@ export class GoogleChatService {
 
         // [ORIGINAL - 2026-02-08] Missing args returned error card. Now launches preset wizard when user is mentioned but no amount.
         // [ORIGINAL - 2026-02-10] Returned picker card publicly — other users could see and click buttons.
-        // Now sends picker as DM to the manager so only they can interact with it.
+        // Now sends picker as DM to the manager so only they can interact with it (with public fallback).
         if (!args) {
-          // If we have a mentioned user, launch the wizard via DM
+          // If we have a mentioned user, launch the wizard
           if (mentionedUserEmail) {
             const activePresets = await prisma.awardPreset.findMany({
               where: { isActive: true },
               orderBy: { displayOrder: 'asc' },
             });
 
-            if (activePresets.length > 0 && this.isDmAvailable()) {
+            if (activePresets.length > 0) {
               // Resolve the mentioned user's display name
               const target = await this.findEmployeeByEmail(mentionedUserEmail);
               const targetName = target?.name || mentionedUserEmail;
 
-              // Send the picker card privately to the manager via DM
-              this.sendDirectMessage(
-                userEmail,
-                buildAwardAmountPickerCard(
-                  mentionedUserEmail,
-                  targetName,
-                  activePresets.map(p => ({ title: p.title, amount: Number(p.amount) })),
-                  spaceName
-                )
+              const pickerCard = buildAwardAmountPickerCard(
+                mentionedUserEmail,
+                targetName,
+                activePresets.map(p => ({ title: p.title, amount: Number(p.amount) })),
+                spaceName
               );
 
+              // Preferred: send picker privately via DM so only the manager sees the buttons
+              if (this.isDmAvailable()) {
+                this.sendDirectMessage(userEmail, pickerCard);
+                await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+                return buildTextResponse('Check your DMs for the award options.');
+              }
+
+              // Fallback: DM not configured — return picker card publicly (single-click buttons still enforce manager auth)
               await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-              return buildTextResponse('Check your DMs for the award options.');
+              return pickerCard;
             }
           }
 
-          // Fallback: no presets, no mentioned user, or DM unavailable — show usage error
+          // Fallback: no presets or no mentioned user — show usage error
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'Invalid arguments');
           return buildErrorCard(
             'Award Usage',
