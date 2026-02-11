@@ -18,6 +18,7 @@ import {
   buildPublicAwardCard,
   buildPrivateBudgetCard,
   buildTransferCard,
+  buildPrivateTransferBalanceCard,
   buildHelpCard,
   buildTextResponse,
   buildAwardAmountPickerCard,
@@ -421,11 +422,14 @@ export class GoogleChatService {
           },
         });
 
+        // Get updated balance after pending transfer
+        const pendingBalance = await transactionService.getAccountBalance(sender.account.id, true);
+
         return {
           success: true,
           message: 'Transfer pending',
           transactionId: senderTransaction.id,
-          data: { recipientName: targetEmail, amount, message, isPending: true },
+          data: { recipientName: targetEmail, amount, message, isPending: true, remainingBalance: pendingBalance.total },
         };
       }
 
@@ -463,11 +467,14 @@ export class GoogleChatService {
         return sentTransaction;
       });
 
+      // Get updated balance after transfer
+      const updatedBalance = await transactionService.getAccountBalance(sender.account.id, true);
+
       return {
         success: true,
         message: 'Transfer completed successfully',
         transactionId: result.id,
-        data: { recipientName: recipient.name, amount, message, isPending: false },
+        data: { recipientName: recipient.name, amount, message, isPending: false, remainingBalance: updatedBalance.total },
       };
     } catch (error) {
       return {
@@ -833,12 +840,22 @@ export class GoogleChatService {
 
         if (result.success) {
           await this.updateAuditLog(auditId, ChatCommandStatus.succeeded, undefined, result.transactionId);
-          return buildTransferCard(
-            result.data?.recipientName as string,
-            result.data?.amount as number,
-            result.data?.message as string | undefined,
-            result.data?.isPending as boolean
-          );
+
+          const recipientName = result.data?.recipientName as string;
+          const transferAmount = result.data?.amount as number;
+          const transferMessage = result.data?.message as string | undefined;
+          const isPending = result.data?.isPending as boolean;
+          const remainingBalance = result.data?.remainingBalance as number;
+
+          // DM sender their updated balance privately (same pattern as /award)
+          if (this.isDmAvailable()) {
+            this.sendDirectMessage(
+              userEmail,
+              buildPrivateTransferBalanceCard(remainingBalance, recipientName, transferAmount)
+            );
+          }
+
+          return buildTransferCard(recipientName, transferAmount, transferMessage, isPending);
         } else {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
           return buildErrorCard('Transfer Error', result.message);

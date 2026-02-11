@@ -338,6 +338,47 @@ export function buildTransferCard(
 }
 
 /**
+ * Build a private balance card (sent via DM to the sender after a transfer)
+ */
+export function buildPrivateTransferBalanceCard(
+  remainingBalance: number,
+  recipientName: string,
+  amount: number
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        startIcon: { knownIcon: GUINCOIN_ICON },
+        topLabel: 'Remaining Balance',
+        text: `<b>${remainingBalance.toLocaleString()}</b> Guincoins`,
+      },
+    },
+    { divider: {} },
+    {
+      decoratedText: {
+        topLabel: 'Last Transfer',
+        text: `${amount.toLocaleString()} Guincoins to ${recipientName}`,
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'transfer-balance-dm-card',
+    card: {
+      header: {
+        title: 'Balance Update',
+        subtitle: 'Guincoin Transfer',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/account_balance_wallet/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
  * Build a help card showing available commands
  */
 export function buildHelpCard(isManager: boolean): GoogleChatResponse {
