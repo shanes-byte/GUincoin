@@ -54,11 +54,15 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
 
     let response;
     if (isNewFormat) {
-      if (message.actionResponse?.type === 'UPDATE_MESSAGE') {
+      // [ORIGINAL - 2026-02-10] Included actionResponse inside message — invalid field on Message proto
+      // in new add-on format. Strip it and use it only to pick the wrapper type.
+      const { actionResponse, ...messageContent } = message as any;
+
+      if (actionResponse?.type === 'UPDATE_MESSAGE') {
         // CARD_CLICKED responses that update the existing card
-        response = { hostAppDataAction: { chatDataAction: { updateMessageAction: { message } } } };
+        response = { hostAppDataAction: { chatDataAction: { updateMessageAction: { message: messageContent } } } };
       } else {
-        response = { hostAppDataAction: { chatDataAction: { createMessageAction: { message } } } };
+        response = { hostAppDataAction: { chatDataAction: { createMessageAction: { message: messageContent } } } };
       }
     } else {
       response = message;
