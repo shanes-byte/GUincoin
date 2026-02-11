@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-09
+> **Last Updated**: 2026-02-10
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -326,11 +326,11 @@ AuditAction: transaction_created | transaction_posted | transaction_rejected | b
 
 | Function | Signature | Calls | Prisma Ops | Depended On By |
 |----------|-----------|-------|------------|----------------|
-| `getCurrentAllotment(managerId, periodType?)` | `(string, PeriodType?) → Promise<AllotmentResponse>` | calculateUsedAmount() | managerAllotment.findFirst, .create | manager.ts route, admin/users.ts route, googleChatService.executeAward(), canAward(), setRecurringBudget(), depositAllotment() |
+| `getCurrentAllotment(managerId, periodType?)` | `(string, PeriodType?) → Promise<AllotmentResponse>` | calculateUsedAmount() | managerAllotment.findFirst, .create | manager.ts route, admin/users.ts route, googleChatService.executeAward(), canAward(), setRecurringBudget(), depositAllotment(). **Normalizes `amount` Decimal→Number in spread** (2026-02-10). |
 | `calculateUsedAmount(managerId, start, end)` | `(string, Date, Date) → Promise<number>` | — | ledgerTransaction.aggregate | getCurrentAllotment() |
 | `canAward(managerId, amount, periodType?)` | `(string, number, PeriodType?) → Promise<boolean>` | getCurrentAllotment() | (delegates) | googleChatService.executeAward() |
-| `awardCoins(managerId, email, amount, desc)` | `(string, string, number, string) → Promise<LedgerTransaction>` | transactionService.postTransaction() | employee.findUnique, $transaction, ledgerTransaction.create | manager.ts route, googleChatService.executeAward() |
-| `getAwardHistory(managerId, limit?, offset?)` | `(string, number?, number?) → Promise<{transactions, total}>` | — | ledgerTransaction.findMany, .count | manager.ts route, admin/users.ts route |
+| `awardCoins(managerId, email, amount, desc)` | `(string, string, number, string) → Promise<LedgerTransaction>` | transactionService.postTransaction() | employee.findUnique, $transaction, ledgerTransaction.create | manager.ts route, googleChatService.executeAward(). **Now sets `targetEmployeeId`** (2026-02-10). |
+| `getAwardHistory(managerId, limit?, offset?)` | `(string, number?, number?) → Promise<{transactions, total}>` | — | ledgerTransaction.findMany, .count | manager.ts route, admin/users.ts route. **Normalizes `amount` Decimal→Number** (2026-02-10). |
 | `setRecurringBudget(managerId, amount, period)` | `(string, number, PeriodType) → Promise<ManagerAllotment>` | getCurrentAllotment() | managerAllotment.update | admin/users.ts route |
 | `depositAllotment(managerId, amount, desc?)` | `(string, number, string?) → Promise<ManagerAllotment>` | getCurrentAllotment() | managerAllotment.update | admin/users.ts route |
 | `getDepositHistory(managerId, limit?)` | `(string, number?) → Promise<{transactions}>` | — | managerAllotment.findMany | admin/users.ts route |
@@ -345,8 +345,8 @@ AuditAction: transaction_created | transaction_posted | transaction_rejected | b
 | `postTransaction(transactionId, tx?)` | `(string, TransactionClient?) → Promise<LedgerTransaction>` | — | ledgerTransaction.findUnique, account.update, ledgerTransaction.update | allotmentService.awardCoins(), pendingTransferService.claimPendingTransfers(), bulkImportService (2 functions), admin/wellness.ts (approve), store.ts (purchase), googleChatService.executeTransfer() |
 | `rejectTransaction(transactionId, reason?)` | `(string, string?) → Promise<LedgerTransaction>` | — | ledgerTransaction.update | pendingTransferService.cancelPendingTransfer(), admin/wellness.ts (reject) |
 | `getAccountBalance(accountId, includePending?)` | `(string, boolean?) → Promise<{posted, pending, total}>` | — | account.findUnique | accounts.ts route, store.ts route, googleChatService.executeBalance(), googleChatService.executeTransfer(), store.ts (goal check) |
-| `getTransactionHistory(accountId, options?)` | `(string, {limit?, offset?, status?, transactionType?}?) → Promise<{transactions, total}>` | — | ledgerTransaction.findMany, .count | accounts.ts route, transfers.ts route |
-| `getPendingTransactions(accountId)` | `(string) → Promise<LedgerTransaction[]>` | — | ledgerTransaction.findMany | accounts.ts route |
+| `getTransactionHistory(accountId, options?)` | `(string, {limit?, offset?, status?, transactionType?}?) → Promise<{transactions, total}>` | — | ledgerTransaction.findMany, .count | accounts.ts route, transfers.ts route. **Normalizes `amount` Decimal→Number** (2026-02-10). |
+| `getPendingTransactions(accountId)` | `(string) → Promise<LedgerTransaction[]>` | — | ledgerTransaction.findMany | accounts.ts route. **Normalizes `amount` Decimal→Number** (2026-02-10). |
 
 ### emailService.ts
 **Location**: `backend/src/services/emailService.ts`
@@ -434,13 +434,13 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Function | Calls | Depended On By |
 |----------|-------|----------------|
-| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildAwardAmountPickerCard() | googleChat.ts route (webhook) |
+| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildPrivateTransferBalanceCard(), buildAwardAmountPickerCard() | googleChat.ts route (webhook) |
 | `handleCardClicked(rawEvent)` | createAuditLog(), updateAuditLog(), executeAward(), isDmAvailable(), sendDirectMessage(), buildAwardMessagePromptCard(), buildPublicAwardCard(), buildAwardCard(), buildErrorCard() | handleEvent() (CARD_CLICKED delegation) |
-| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent(), handleCardClicked() (fire-and-forget for award budget DM) |
+| `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award budget DM + transfer balance DM), handleCardClicked() (award wizard budget DM) |
 | `isDmAvailable()` | env.GOOGLE_CHAT_SERVICE_ACCOUNT_KEY | handleEvent(), handleCardClicked() |
 | `executeBalance(userEmail)` | findEmployeeByEmail(), transactionService.getAccountBalance() | handleEvent() |
 | `executeAward(managerEmail, targetEmail, amount, desc)` | findEmployeeByEmail(), allotmentService.canAward(), allotmentService.awardCoins(), allotmentService.getCurrentAllotment() | handleEvent(), handleCardClicked() |
-| `executeTransfer(senderEmail, targetEmail, amount, message?)` | findEmployeeByEmail(), transactionService.getAccountBalance() + direct Prisma ops | handleEvent() |
+| `executeTransfer(senderEmail, targetEmail, amount, message?)` | findEmployeeByEmail(), transactionService.getAccountBalance() (pre-check + post-transfer remaining) + direct Prisma ops | handleEvent(). **Now returns `remainingBalance` in result data** (2026-02-10). |
 | `createAuditLog(...)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
 | `updateAuditLog(auditId, status, error?, txId?)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
 | `findEmployeeByEmail(email)` | — (Prisma direct) | handleEvent(), handleCardClicked(), executeBalance(), executeAward(), executeTransfer() |
@@ -548,9 +548,9 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | Method | Path | Middleware | Service Calls |
 |--------|------|-----------|---------------|
 | GET | `/api/accounts/balance` | requireAuth | transactionService.getAccountBalance() |
-| GET | `/api/accounts/full-balance` | requireAuth | transactionService.getAccountBalance(), prisma.account (allotmentBalance) |
-| GET | `/api/accounts/transactions` | requireAuth, validate | transactionService.getTransactionHistory() |
-| GET | `/api/accounts/pending` | requireAuth | transactionService.getPendingTransactions() |
+| GET | `/api/accounts/full-balance` | requireAuth | transactionService.getAccountBalance(), allotmentService.getCurrentAllotment(). **Returns empty defaults (not 404) when no account** (2026-02-10). |
+| GET | `/api/accounts/transactions` | requireAuth, validate | transactionService.getTransactionHistory(). **Returns empty `{transactions:[], total:0}` (not 404) when no account. Uses `parseInt()` for limit/offset** (2026-02-10). |
+| GET | `/api/accounts/pending` | requireAuth | transactionService.getPendingTransactions(). **Returns `[]` (not 404) when no account** (2026-02-10). |
 
 ### Manager Routes (`/api/manager`)
 
@@ -559,13 +559,13 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | GET | `/api/manager/award-presets` | requireAuth | prisma.awardPreset.findMany (active only) |
 | GET | `/api/manager/allotment` | requireManager | allotmentService.getCurrentAllotment() |
 | POST | `/api/manager/award` | requireManager, validate | allotmentService.awardCoins(), emailService.sendManagerAwardNotification(), emailService.sendManagerAwardSentNotification() |
-| GET | `/api/manager/history` | requireManager, validate | allotmentService.getAwardHistory() |
+| GET | `/api/manager/history` | requireManager, validate | allotmentService.getAwardHistory(). **Uses `parseInt()` for limit/offset** (2026-02-10). |
 
 ### Transfer Routes (`/api/transfers`)
 
 | Method | Path | Middleware | Service Calls |
 |--------|------|-----------|---------------|
-| GET | `/api/transfers/limits` | requireAuth | prisma.peerTransferLimit (direct), prisma.ledgerTransaction.aggregate |
+| GET | `/api/transfers/limits` | requireAuth | prisma.peerTransferLimit (direct), prisma.ledgerTransaction.aggregate. **Normalizes `maxAmount` Decimal→Number** (2026-02-10). |
 | POST | `/api/transfers/send` | requireAuth, validate | transactionService.createPendingTransaction() OR pendingTransferService.createPendingTransfer(), emailService.sendPeerTransfer*() |
 | GET | `/api/transfers/history` | requireAuth | transactionService.getTransactionHistory() |
 | GET | `/api/transfers/pending` | requireAuth | prisma.pendingTransfer.findMany (direct) |
@@ -680,8 +680,8 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 6. Session (PostgreSQL store, 24h max age)
 7. Passport (initialize + session)
 8. CSRF (double-submit cookie, exempt: auth/google, google-chat webhook)
-9. Rate Limiting (optional, 100/15min default)
-10. Auth Rate Limiting (10/15min on /api/auth)
+9. Rate Limiting (disabled by default, opt-in via RATE_LIMIT_ENABLED=true; 500/15min production default) (2026-02-10)
+10. Auth Rate Limiting (10/15min on /api/auth, also gated by RATE_LIMIT_ENABLED) (2026-02-10)
 ```
 
 ### Auth Middleware (`middleware/auth.ts`)
@@ -738,6 +738,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 - Zod validation of all environment variables
 - Required: DATABASE_URL, SESSION_SECRET
 - Production requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL (URL), SESSION_SECRET (32+ chars)
+- `RATE_LIMIT_ENABLED` defaults to `false` (opt-in with `'true'`) (2026-02-10)
 - **If modified**: Affects server startup, any code referencing `env.*`
 
 ### config/constants.ts
