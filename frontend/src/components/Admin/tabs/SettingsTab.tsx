@@ -22,12 +22,12 @@ interface SettingsTabProps {
   employeesLoading: boolean;
   updatingEmployeeId: string | null;
   showAddUserForm: boolean;
-  newUserForm: { email: string; name: string; isManager: boolean; isAdmin: boolean };
+  newUserForm: { email: string; name: string; isManager: boolean; isAdmin: boolean; isGameMaster: boolean };
   creatingUser: boolean;
   onLoadEmployees: () => void;
-  onUpdateRoles: (employeeId: string, updates: { isManager?: boolean; isAdmin?: boolean }) => void;
+  onUpdateRoles: (employeeId: string, updates: { isManager?: boolean; isAdmin?: boolean; isGameMaster?: boolean }) => void;
   onShowAddUserFormChange: (show: boolean) => void;
-  onNewUserFormChange: (form: { email: string; name: string; isManager: boolean; isAdmin: boolean }) => void;
+  onNewUserFormChange: (form: { email: string; name: string; isManager: boolean; isAdmin: boolean; isGameMaster: boolean }) => void;
   onCreateUser: (e: React.FormEvent) => void;
 
   // Bulk Upload
@@ -292,7 +292,7 @@ export default function SettingsTab({
                   onClick={() => {
                     onShowAddUserFormChange(!showAddUserForm);
                     if (showAddUserForm) {
-                      onNewUserFormChange({ email: '', name: '', isManager: false, isAdmin: false });
+                      onNewUserFormChange({ email: '', name: '', isManager: false, isAdmin: false, isGameMaster: false });
                     }
                   }}
                   className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
@@ -354,6 +354,15 @@ export default function SettingsTab({
                       />
                       <span className="text-sm text-gray-700">Admin (full system access)</span>
                     </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newUserForm.isGameMaster}
+                        onChange={(e) => onNewUserFormChange({ ...newUserForm, isGameMaster: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">Game Master (can manage games)</span>
+                    </label>
                   </div>
                 </div>
 
@@ -410,6 +419,9 @@ export default function SettingsTab({
                         Admin
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        GM
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -419,14 +431,11 @@ export default function SettingsTab({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {employees.map((employee) => {
-                      const roleName =
-                        employee.isAdmin && employee.isManager
-                          ? 'Admin & Manager'
-                          : employee.isAdmin
-                          ? 'Admin'
-                          : employee.isManager
-                          ? 'Manager'
-                          : 'Employee';
+                      const roles: string[] = [];
+                      if (employee.isAdmin) roles.push('Admin');
+                      if (employee.isManager) roles.push('Manager');
+                      if (employee.isGameMaster) roles.push('GM');
+                      const roleName = roles.length > 0 ? roles.join(' & ') : 'Employee';
                       const isCurrentUser = employee.id === user?.id;
 
                       return (
@@ -468,6 +477,17 @@ export default function SettingsTab({
                                   ? 'You cannot remove your own admin status'
                                   : ''
                               }
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={employee.isGameMaster}
+                              onChange={(e) =>
+                                onUpdateRoles(employee.id, { isGameMaster: e.target.checked })
+                              }
+                              disabled={updatingEmployeeId === employee.id}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

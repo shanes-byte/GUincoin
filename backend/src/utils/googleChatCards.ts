@@ -631,3 +631,612 @@ export function buildWelcomeCard(): GoogleChatResponse {
 
   return { cardsV2: [card] };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Chat Game Card Builders (added 2026-02-12)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Build the card shown when an Encrypted Office cipher game starts.
+ */
+export function buildCipherStartCard(
+  gameName: string,
+  difficulty: string,
+  encryptedText: string,
+  layers: number,
+  gameId: string
+): GoogleChatResponse {
+  const difficultyColor =
+    difficulty === 'hard'
+      ? '#dc3545'
+      : difficulty === 'medium'
+        ? '#f59e0b'
+        : '#22c55e';
+
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        topLabel: 'Difficulty',
+        text: `<font color="${difficultyColor}"><b>${difficulty.toUpperCase()}</b></font>`,
+        startIcon: { knownIcon: 'STAR' },
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Layers to Solve',
+        text: `<b>${layers}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Hint Tokens',
+        text: '<b>3</b> available',
+        startIcon: { knownIcon: 'DESCRIPTION' },
+      },
+    },
+    { divider: {} },
+    {
+      textParagraph: {
+        text: '<b>Encrypted Text:</b>',
+      },
+    },
+    {
+      textParagraph: {
+        text: `<code>${encryptedText}</code>`,
+      },
+    },
+    { divider: {} },
+    {
+      textParagraph: {
+        text: '<i>Use <b>/games solve &lt;answer&gt;</b> to attempt a solution or <b>/games hint</b> to use a hint token.</i>',
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: `cipher-start-${gameId}`,
+    card: {
+      header: {
+        title: 'Encrypted Office',
+        subtitle: `${gameName} — ${difficulty.toUpperCase()}`,
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/lock/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the card shown when a hint is used in the cipher game.
+ */
+export function buildCipherHintCard(
+  hint: string,
+  hintsRemaining: number
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      textParagraph: {
+        text: `<b>Hint:</b> ${hint}`,
+      },
+    },
+    { divider: {} },
+    {
+      decoratedText: {
+        topLabel: 'Hint Tokens Remaining',
+        text: `<b>${hintsRemaining}</b>`,
+        startIcon: { knownIcon: 'DESCRIPTION' },
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'cipher-hint-card',
+    card: {
+      header: {
+        title: 'Hint Revealed',
+        subtitle: 'Encrypted Office',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/lightbulb/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the card shown when a cipher layer is solved.
+ */
+export function buildCipherLayerSolvedCard(
+  playerName: string,
+  layerNumber: number,
+  totalLayers: number,
+  pointsEarned: number,
+  nextEncryptedText?: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        startIcon: { knownIcon: 'STAR' },
+        text: `<font color="#22c55e"><b>${playerName}</b> solved layer ${layerNumber}!</font>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Progress',
+        text: `<b>${layerNumber}</b> of <b>${totalLayers}</b> layers`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Points Earned',
+        text: `<b>+${pointsEarned}</b>`,
+        startIcon: { knownIcon: GUINCOIN_ICON },
+      },
+    },
+  ];
+
+  if (nextEncryptedText) {
+    widgets.push({ divider: {} });
+    widgets.push({
+      textParagraph: {
+        text: '<b>Next Layer:</b>',
+      },
+    });
+    widgets.push({
+      textParagraph: {
+        text: `<code>${nextEncryptedText}</code>`,
+      },
+    });
+  }
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'cipher-layer-solved-card',
+    card: {
+      header: {
+        title: 'Layer Solved!',
+        subtitle: `Encrypted Office — Layer ${layerNumber} of ${totalLayers}`,
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the card shown when the cipher game is fully solved.
+ */
+export function buildCipherCompleteCard(
+  winnerName: string,
+  totalScore: number,
+  coinsAwarded: number,
+  difficulty: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      textParagraph: {
+        text: `<font color="#22c55e"><b>${winnerName} cracked the cipher!</b></font>`,
+      },
+    },
+    { divider: {} },
+    {
+      decoratedText: {
+        topLabel: 'Difficulty',
+        text: `<b>${difficulty.toUpperCase()}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Total Score',
+        text: `<b>${totalScore.toLocaleString()}</b> points`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Guincoins Earned',
+        text: `<font color="#22c55e"><b>+${coinsAwarded.toLocaleString()}</b></font> Guincoins`,
+        startIcon: { knownIcon: GUINCOIN_ICON },
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'cipher-complete-card',
+    card: {
+      header: {
+        title: 'Cipher Complete!',
+        subtitle: 'Encrypted Office — Victory',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the card shown when a Skill Shot game starts.
+ */
+export function buildSkillShotStartCard(
+  rounds: number,
+  range: number,
+  currentRound: number,
+  gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        topLabel: 'Round',
+        text: `<b>${currentRound}</b> of <b>${rounds}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Range',
+        text: `<b>1</b> to <b>${range}</b>`,
+      },
+    },
+    { divider: {} },
+    {
+      textParagraph: {
+        text: '<b>How to play:</b>',
+      },
+    },
+    {
+      textParagraph: {
+        text: 'Guess the hidden number! The closest bid wins the round.',
+      },
+    },
+    {
+      decoratedText: {
+        startIcon: { knownIcon: 'BOOKMARK' },
+        text: '<b>/games bid &lt;number&gt;</b>',
+        bottomLabel: 'Place a standard bid',
+      },
+    },
+    {
+      decoratedText: {
+        startIcon: { knownIcon: 'BOOKMARK' },
+        text: '<b>/games bid &lt;number&gt; double</b>',
+        bottomLabel: 'Double Risk — 2x points if closest, but lose points if not',
+      },
+    },
+  ];
+
+  const card: GoogleChatCardV2 = {
+    cardId: `skillshot-start-${gameId}`,
+    card: {
+      header: {
+        title: 'Skill Shot',
+        subtitle: `Round ${currentRound} of ${rounds}`,
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/target/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the card showing Skill Shot round results.
+ */
+export function buildSkillShotRoundResultCard(
+  roundNumber: number,
+  target: number,
+  winnerName: string | null,
+  scores: Array<{ name: string; bid: number; points: number; doubleRisk: boolean }>,
+  nextRound: boolean
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+
+  // Target reveal section
+  const targetWidgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        topLabel: 'Target Number',
+        text: `<font color="#3b82f6"><b>${target}</b></font>`,
+        startIcon: { knownIcon: 'STAR' },
+      },
+    },
+  ];
+
+  if (winnerName) {
+    targetWidgets.push({
+      decoratedText: {
+        topLabel: 'Round Winner',
+        text: `<font color="#22c55e"><b>${winnerName}</b></font>`,
+      },
+    });
+  } else {
+    targetWidgets.push({
+      textParagraph: {
+        text: '<i>No winner this round.</i>',
+      },
+    });
+  }
+
+  sections.push({ header: 'Results', widgets: targetWidgets });
+
+  // Scores section — sorted by closeness (points descending)
+  const scoreWidgets: GoogleChatWidget[] = scores.map((entry, index) => {
+    const distance = Math.abs(entry.bid - target);
+    const doubleLabel = entry.doubleRisk ? ' <font color="#dc3545">[2x]</font>' : '';
+    const pointsColor = entry.points >= 0 ? '#22c55e' : '#dc3545';
+    const pointsSign = entry.points >= 0 ? '+' : '';
+
+    return {
+      decoratedText: {
+        topLabel: `${entry.name}${doubleLabel}`,
+        text: `Bid: <b>${entry.bid}</b> (off by ${distance}) — <font color="${pointsColor}"><b>${pointsSign}${entry.points}</b> pts</font>`,
+      },
+    } as GoogleChatWidget;
+  });
+
+  sections.push({ header: 'All Bids', widgets: scoreWidgets });
+
+  // Next round prompt
+  if (nextRound) {
+    sections.push({
+      widgets: [
+        {
+          textParagraph: {
+            text: '<i>Next round starting soon — place your bids!</i>',
+          },
+        },
+      ],
+    });
+  }
+
+  const card: GoogleChatCardV2 = {
+    cardId: `skillshot-round-${roundNumber}`,
+    card: {
+      header: {
+        title: `Round ${roundNumber} Results`,
+        subtitle: 'Skill Shot',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/target/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections,
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build the final results card for a Skill Shot game.
+ */
+export function buildSkillShotFinalCard(
+  rankings: Array<{ name: string; totalScore: number; coinsAwarded: number }>,
+  rounds: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+
+  const rankingWidgets: GoogleChatWidget[] = rankings.map((player, index) => {
+    const position = index + 1;
+    const positionLabel =
+      position === 1
+        ? '1st'
+        : position === 2
+          ? '2nd'
+          : position === 3
+            ? '3rd'
+            : `#${position}`;
+
+    const coinsText =
+      player.coinsAwarded > 0
+        ? ` — <font color="#22c55e"><b>+${player.coinsAwarded.toLocaleString()}</b> gc</font>`
+        : '';
+
+    return {
+      decoratedText: {
+        topLabel: `${positionLabel} — ${player.name}`,
+        text: `<b>${player.totalScore.toLocaleString()}</b> points${coinsText}`,
+        startIcon: { knownIcon: GUINCOIN_ICON },
+      },
+    } as GoogleChatWidget;
+  });
+
+  sections.push({ header: 'Final Rankings', widgets: rankingWidgets });
+
+  sections.push({
+    widgets: [
+      {
+        textParagraph: {
+          text: `<i>Game complete — ${rounds} rounds played.</i>`,
+        },
+      },
+    ],
+  });
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'skillshot-final-card',
+    card: {
+      header: {
+        title: 'Skill Shot — Final Results',
+        subtitle: 'Game Over',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections,
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build a card listing all active games in the space.
+ */
+export function buildActiveGamesCard(
+  games: Array<{
+    id: string;
+    type: string;
+    status: string;
+    playerCount: number;
+    createdAt: string;
+    expiresAt: string | null;
+  }>
+): GoogleChatResponse {
+  if (games.length === 0) {
+    const widgets: GoogleChatWidget[] = [
+      {
+        textParagraph: {
+          text: '<i>No active games. Start one with <b>/games start &lt;type&gt;</b></i>',
+        },
+      },
+    ];
+
+    const card: GoogleChatCardV2 = {
+      cardId: 'active-games-empty',
+      card: {
+        header: {
+          title: 'Active Games',
+          subtitle: 'Guincoin Games',
+          imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg',
+          imageType: 'CIRCLE',
+        },
+        sections: [{ widgets }],
+      },
+    };
+
+    return { cardsV2: [card] };
+  }
+
+  const sections: GoogleChatSection[] = [];
+
+  for (const game of games) {
+    const gameWidgets: GoogleChatWidget[] = [
+      {
+        decoratedText: {
+          topLabel: 'Type',
+          text: `<b>${game.type}</b>`,
+        },
+      },
+      {
+        decoratedText: {
+          topLabel: 'Status',
+          text: game.status,
+        },
+      },
+      {
+        decoratedText: {
+          topLabel: 'Players',
+          text: `<b>${game.playerCount}</b>`,
+        },
+      },
+    ];
+
+    if (game.expiresAt) {
+      gameWidgets.push({
+        decoratedText: {
+          topLabel: 'Expires',
+          text: game.expiresAt,
+        },
+      });
+    }
+
+    sections.push({
+      header: `Game ${game.id.slice(0, 8)}`,
+      widgets: gameWidgets,
+      collapsible: games.length > 2,
+      uncollapsibleWidgetsCount: 2,
+    });
+  }
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'active-games-card',
+    card: {
+      header: {
+        title: 'Active Games',
+        subtitle: `${games.length} game${games.length !== 1 ? 's' : ''} in progress`,
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections,
+    },
+  };
+
+  return { cardsV2: [card] };
+}
+
+/**
+ * Build a status card for a specific game.
+ */
+export function buildGameStatusCard(
+  game: {
+    type: string;
+    status: string;
+    playerCount: number;
+    config: any;
+    createdAt: string;
+  }
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    {
+      decoratedText: {
+        topLabel: 'Game Type',
+        text: `<b>${game.type}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Status',
+        text: `<b>${game.status}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Players',
+        text: `<b>${game.playerCount}</b>`,
+      },
+    },
+    {
+      decoratedText: {
+        topLabel: 'Started',
+        text: game.createdAt,
+      },
+    },
+  ];
+
+  // Add config details if present
+  if (game.config) {
+    widgets.push({ divider: {} });
+
+    const configEntries = Object.entries(game.config);
+    for (const [key, value] of configEntries) {
+      widgets.push({
+        decoratedText: {
+          topLabel: key.charAt(0).toUpperCase() + key.slice(1),
+          text: `${value}`,
+        },
+      });
+    }
+  }
+
+  const card: GoogleChatCardV2 = {
+    cardId: 'game-status-card',
+    card: {
+      header: {
+        title: `${game.type} — Status`,
+        subtitle: 'Guincoin Games',
+        imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/info/default/48px.svg',
+        imageType: 'CIRCLE',
+      },
+      sections: [{ widgets }],
+    },
+  };
+
+  return { cardsV2: [card] };
+}

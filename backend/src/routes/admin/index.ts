@@ -8,6 +8,7 @@ import googleChatRoutes from './googleChat';
 import campaignsRoutes from './campaigns';
 import bannersRoutes from './banners';
 import gamesRoutes from './games';
+import chatGamesRoutes from './chatGames';
 import studioRoutes from './studio';
 import settingsRoutes from './settings';
 
@@ -25,6 +26,7 @@ router.use(googleChatRoutes);
 router.use(campaignsRoutes);
 router.use(bannersRoutes);
 router.use('/games', gamesRoutes);
+router.use('/chat-games', chatGamesRoutes);
 router.use(studioRoutes);
 router.use('/settings', settingsRoutes);
 

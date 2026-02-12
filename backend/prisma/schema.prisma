@@ -11,13 +11,14 @@ datasource db {
 }
 
 model Employee {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  isManager Boolean  @default(false)
-  isAdmin   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  isManager    Boolean  @default(false)
+  isAdmin      Boolean  @default(false)
+  isGameMaster Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
   account              Account?
@@ -42,6 +43,9 @@ model Employee {
   jackpotContributions JackpotContribution[]
   // Bulk import relations
   importJobsCreated    BulkImportJob[]       @relation("ImportJobsCreated")
+  // Chat game relations
+  chatGamesCreated         ChatGame[]              @relation("ChatGameCreator")
+  chatGameParticipations   ChatGameParticipant[]
 }
 
 model Account {
@@ -868,4 +872,81 @@ model AuditLog {
   @@index([actorId])
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+// =====================
+// Chat Games (Encrypted Office + Skill Shot)
+// =====================
+
+enum ChatGameType {
+  encrypted_office
+  skill_shot
+}
+
+enum ChatGameStatus {
+  waiting    // Waiting for players / in setup
+  active     // Game in progress
+  completed  // Finished, payouts done
+  cancelled  // GM cancelled
+  expired    // Auto-expired by timeout
+}
+
+model ChatGame {
+  id        String         @id @default(uuid())
+  type      ChatGameType
+  status    ChatGameStatus @default(waiting)
+
+  // Google Chat context
+  spaceName  String?
+  threadName String?
+
+  // Creator (Game Master)
+  createdById String
+
+  // Game config
+  config Json // difficulty, rounds, range, cooperative mode, etc.
+
+  // Game state (current progress, ciphers, target number, etc.)
+  state Json @default("{}")
+
+  // Results
+  result Json? // Final results, winners, scores
+
+  // Timing
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  expiresAt   DateTime?
+
+  // Relations
+  createdBy    Employee              @relation("ChatGameCreator", fields: [createdById], references: [id])
+  participants ChatGameParticipant[]
+
+  @@index([status])
+  @@index([spaceName])
+  @@index([createdById])
+  @@index([expiresAt])
+}
+
+model ChatGameParticipant {
+  id         String @id @default(uuid())
+  chatGameId String
+  employeeId String
+
+  // Score and progress
+  score    Int     @default(0)
+  progress Json    @default("{}") // layers solved, guesses made, etc.
+  isWinner Boolean @default(false)
+
+  // Timing
+  joinedAt    DateTime  @default(now())
+  lastActionAt DateTime?
+
+  // Relations
+  chatGame ChatGame @relation(fields: [chatGameId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([chatGameId, employeeId])
+  @@index([employeeId])
+  @@index([chatGameId])
 }

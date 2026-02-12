@@ -146,6 +146,7 @@ export default function AdminPortal() {
     name: '',
     isManager: false,
     isAdmin: false,
+    isGameMaster: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
@@ -512,9 +513,10 @@ export default function AdminPortal() {
         name: newUserForm.name.trim(),
         isManager: newUserForm.isManager,
         isAdmin: newUserForm.isAdmin,
+        isGameMaster: newUserForm.isGameMaster,
       });
       setEmployees((prev) => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewUserForm({ email: '', name: '', isManager: false, isAdmin: false });
+      setNewUserForm({ email: '', name: '', isManager: false, isAdmin: false, isGameMaster: false });
       setShowAddUserForm(false);
       addToast('User created successfully! An email notification has been sent.', 'success');
     } catch (err: unknown) {

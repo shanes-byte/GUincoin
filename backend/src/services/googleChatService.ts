@@ -3,7 +3,7 @@
  * Handles request verification, command parsing, authorization, and command execution
  */
 
-import { ChatCommandStatus, ChatProvider, PeriodType } from '@prisma/client';
+import { ChatCommandStatus, ChatProvider, Prisma, PeriodType } from '@prisma/client';
 import prisma from '../config/database';
 import allotmentService from './allotmentService';
 import transactionService from './transactionService';
@@ -23,7 +23,16 @@ import {
   buildTextResponse,
   buildAwardAmountPickerCard,
   buildAwardMessagePromptCard,
+  buildCipherStartCard,
+  buildCipherHintCard,
+  buildCipherLayerSolvedCard,
+  buildCipherCompleteCard,
+  buildSkillShotStartCard,
+  buildSkillShotRoundResultCard,
+  buildSkillShotFinalCard,
+  buildActiveGamesCard,
 } from '../utils/googleChatCards';
+import chatGameService from './chatGameService';
 import { env } from '../config/env';
 import { google } from 'googleapis';
 
@@ -33,6 +42,7 @@ const COMMAND_IDS = {
   balance: 2,
   transfer: 3,
   award: 4,
+  games: 5,
 };
 
 export class GoogleChatService {
@@ -46,6 +56,7 @@ export class GoogleChatService {
     spaceName: string | null;
     messageId: string | null;
     mentionedUserEmail: string | null;
+    threadName: string | null;
   } {
     // Handle nested chat structure (new format from 2024+)
     const chatData = rawEvent.chat || rawEvent;
@@ -64,6 +75,7 @@ export class GoogleChatService {
     let spaceName: string | null = null;
     let messageId: string | null = null;
     let mentionedUserEmail: string | null = null;
+    let threadName: string | null = null;
 
     // Resolve the message object from whichever format Google Chat uses:
     // 1. appCommandPayload.message (slash commands without args)
@@ -125,9 +137,16 @@ export class GoogleChatService {
       spaceName = chatData.space?.name || rawEvent.space?.name || null;
     }
 
+    // Get thread name from message
+    if (message?.thread?.name) {
+      threadName = message.thread.name;
+    } else if (chatData.messagePayload?.message?.thread?.name) {
+      threadName = chatData.messagePayload.message.thread.name;
+    }
+
     console.log('[GoogleChat] Normalized: user=%s cmd=%s mention=%s', userEmail, commandId, mentionedUserEmail);
 
-    return { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail };
+    return { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail, threadName };
   }
 
   /**
@@ -294,10 +313,10 @@ export class GoogleChatService {
     try {
       const canAward = await allotmentService.canAward(manager.id, amount);
       if (!canAward) {
-        const allotment = await allotmentService.getCurrentAllotment(manager.id);
+        // [ORIGINAL - 2026-02-12] Leaked remaining budget: "You have X Guincoins remaining this period."
         return {
           success: false,
-          message: `Insufficient budget. You have ${allotment.remaining.toLocaleString()} Guincoins remaining this period.`,
+          message: 'Insufficient budget for this amount.',
         };
       }
 
@@ -357,78 +376,88 @@ export class GoogleChatService {
     }
 
     try {
-      const balance = await transactionService.getAccountBalance(sender.account.id, true);
-      if (balance.total < amount) {
-        return {
-          success: false,
-          message: `Insufficient balance. You have ${balance.total.toLocaleString()} Guincoins available.`,
-        };
-      }
-
-      const now = new Date();
-      const limit = await prisma.peerTransferLimit.findFirst({
-        where: {
-          employeeId: sender.id,
-          periodType: PeriodType.monthly,
-          periodStart: { lte: now },
-          periodEnd: { gte: now },
-        },
-      });
-
-      if (limit) {
-        const usedAmount = await prisma.ledgerTransaction.aggregate({
-          where: {
-            sourceEmployeeId: sender.id,
-            transactionType: 'peer_transfer_sent',
-            status: { in: ['posted', 'pending'] },
-            createdAt: { gte: limit.periodStart, lte: limit.periodEnd },
-          },
-          _sum: { amount: true },
-        });
-
-        const used = Number(usedAmount._sum.amount || 0);
-        if (used + amount > Number(limit.maxAmount)) {
-          const remaining = Number(limit.maxAmount) - used;
-          return {
-            success: false,
-            message: `Transfer limit exceeded. You have ${remaining.toLocaleString()} Guincoins remaining this month.`,
-          };
-        }
-      }
+      // [ORIGINAL - 2026-02-12] Balance check was outside the transaction — race condition allowed overdrafts.
+      // Now the entire transfer flow (balance check → debit → credit) is wrapped in a Serializable transaction.
 
       const recipient = await this.findEmployeeByEmail(targetEmail);
 
       if (!recipient) {
+        // Pending transfer path — also needs atomicity
         const workspaceDomain = env.GOOGLE_WORKSPACE_DOMAIN;
         if (workspaceDomain && !targetEmail.toLowerCase().endsWith(`@${workspaceDomain.toLowerCase()}`)) {
           return { success: false, message: 'Recipient email must be from your organization.' };
         }
 
-        const senderTransaction = await transactionService.createPendingTransaction(
-          sender.account.id,
-          'peer_transfer_sent',
-          amount,
-          message || `Pending transfer to ${targetEmail}`,
-          sender.id
-        );
+        const pendingResult = await prisma.$transaction(async (tx) => {
+          // Balance check inside transaction
+          const balance = await transactionService.getAccountBalance(sender.account!.id, true);
+          if (balance.total < amount) {
+            // [ORIGINAL - 2026-02-12] Leaked exact balance: "You have X Guincoins available."
+            throw new Error('__INSUFFICIENT_BALANCE__');
+          }
 
-        await prisma.pendingTransfer.create({
-          data: {
-            senderEmployeeId: sender.id,
-            recipientEmail: targetEmail.toLowerCase(),
-            amount,
-            message,
-            senderTransactionId: senderTransaction.id,
-          },
+          // Transfer limit check inside transaction
+          const now = new Date();
+          const limit = await tx.peerTransferLimit.findFirst({
+            where: {
+              employeeId: sender.id,
+              periodType: PeriodType.monthly,
+              periodStart: { lte: now },
+              periodEnd: { gte: now },
+            },
+          });
+
+          if (limit) {
+            const usedAmount = await tx.ledgerTransaction.aggregate({
+              where: {
+                sourceEmployeeId: sender.id,
+                transactionType: 'peer_transfer_sent',
+                status: { in: ['posted', 'pending'] },
+                createdAt: { gte: limit.periodStart, lte: limit.periodEnd },
+              },
+              _sum: { amount: true },
+            });
+
+            const used = Number(usedAmount._sum.amount || 0);
+            if (used + amount > Number(limit.maxAmount)) {
+              // [ORIGINAL - 2026-02-12] Leaked remaining limit: "You have X remaining this month."
+              throw new Error('__TRANSFER_LIMIT__');
+            }
+          }
+
+          const senderTransaction = await tx.ledgerTransaction.create({
+            data: {
+              accountId: sender.account!.id,
+              transactionType: 'peer_transfer_sent',
+              amount,
+              description: message || `Pending transfer to ${targetEmail}`,
+              status: 'pending',
+              sourceEmployeeId: sender.id,
+            },
+          });
+
+          await tx.pendingTransfer.create({
+            data: {
+              senderEmployeeId: sender.id,
+              recipientEmail: targetEmail.toLowerCase(),
+              amount,
+              message,
+              senderTransactionId: senderTransaction.id,
+            },
+          });
+
+          return senderTransaction;
+        }, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
 
-        // Get updated balance after pending transfer
+        // Get updated balance after pending transfer (outside transaction — read-only)
         const pendingBalance = await transactionService.getAccountBalance(sender.account.id, true);
 
         return {
           success: true,
           message: 'Transfer pending',
-          transactionId: senderTransaction.id,
+          transactionId: pendingResult.id,
           data: { recipientName: targetEmail, amount, message, isPending: true, remainingBalance: pendingBalance.total },
         };
       }
@@ -438,6 +467,40 @@ export class GoogleChatService {
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        // Balance check inside transaction
+        const balance = await transactionService.getAccountBalance(sender.account!.id, true);
+        if (balance.total < amount) {
+          throw new Error('__INSUFFICIENT_BALANCE__');
+        }
+
+        // Transfer limit check inside transaction
+        const now = new Date();
+        const limit = await tx.peerTransferLimit.findFirst({
+          where: {
+            employeeId: sender.id,
+            periodType: PeriodType.monthly,
+            periodStart: { lte: now },
+            periodEnd: { gte: now },
+          },
+        });
+
+        if (limit) {
+          const usedAmount = await tx.ledgerTransaction.aggregate({
+            where: {
+              sourceEmployeeId: sender.id,
+              transactionType: 'peer_transfer_sent',
+              status: { in: ['posted', 'pending'] },
+              createdAt: { gte: limit.periodStart, lte: limit.periodEnd },
+            },
+            _sum: { amount: true },
+          });
+
+          const used = Number(usedAmount._sum.amount || 0);
+          if (used + amount > Number(limit.maxAmount)) {
+            throw new Error('__TRANSFER_LIMIT__');
+          }
+        }
+
         const sentTransaction = await tx.ledgerTransaction.create({
           data: {
             accountId: sender.account!.id,
@@ -465,9 +528,11 @@ export class GoogleChatService {
         await transactionService.postTransaction(receivedTransaction.id, tx);
 
         return sentTransaction;
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
 
-      // Get updated balance after transfer
+      // Get updated balance after transfer (outside transaction — read-only)
       const updatedBalance = await transactionService.getAccountBalance(sender.account.id, true);
 
       return {
@@ -477,6 +542,14 @@ export class GoogleChatService {
         data: { recipientName: recipient.name, amount, message, isPending: false, remainingBalance: updatedBalance.total },
       };
     } catch (error) {
+      // Map sentinel errors to sanitized messages
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg === '__INSUFFICIENT_BALANCE__') {
+        return { success: false, message: 'Insufficient balance. Check the web app for details.' };
+      }
+      if (errMsg === '__TRANSFER_LIMIT__') {
+        return { success: false, message: 'Monthly transfer limit exceeded.' };
+      }
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -786,7 +859,7 @@ export class GoogleChatService {
     }
 
     // Normalize the event data
-    const { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail } = this.normalizeEvent(rawEvent);
+    const { userEmail, messageText, commandId, spaceName, messageId, mentionedUserEmail, threadName } = this.normalizeEvent(rawEvent);
 
     // Check for user email
     if (!userEmail) {
@@ -805,6 +878,8 @@ export class GoogleChatService {
       commandName = 'transfer';
     } else if (commandId === COMMAND_IDS.award) {
       commandName = 'award';
+    } else if (commandId === COMMAND_IDS.games) {
+      commandName = 'games';
     } else {
       // Try to parse from text
       const lower = messageText.toLowerCase().trim();
@@ -816,6 +891,8 @@ export class GoogleChatService {
         commandName = 'transfer';
       } else if (lower.startsWith('/award') || lower.startsWith('award')) {
         commandName = 'award';
+      } else if (lower.startsWith('/games') || lower.startsWith('games')) {
+        commandName = 'games';
       }
     }
 
@@ -846,10 +923,21 @@ export class GoogleChatService {
 
         if (result.success) {
           await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
-          return buildBalanceCard(
+
+          // [ORIGINAL - 2026-02-12] Balance card was returned publicly — anyone in the space could see it.
+          // Now: DM the balance card privately, return a generic message publicly.
+          const balanceCard = buildBalanceCard(
             result.data?.userName as string,
             result.data?.balance as { posted: number; pending: number; total: number }
           );
+
+          if (this.isDmAvailable()) {
+            this.sendDirectMessage(userEmail, balanceCard);
+            return buildTextResponse('Your balance was sent to your DMs.');
+          }
+
+          // Fallback: DM not configured — never show balance publicly
+          return buildTextResponse('Please check the Guincoin web app for your balance.');
         } else {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
           return buildErrorCard('Balance Error', result.message);
@@ -962,24 +1050,248 @@ export class GoogleChatService {
           const remainingBudget = result.data?.remainingBudget as number;
 
           // [ORIGINAL - 2026-02-06] Returned buildAwardCard (with budget visible to all)
-          // Now: public card (no budget) + DM budget to manager, with fallback
+          // [ORIGINAL - 2026-02-12] Fallback showed budget publicly — now always uses public card (no budget)
           if (this.isDmAvailable()) {
             // Fire-and-forget DM with budget info to the manager
             this.sendDirectMessage(
               userEmail,
               buildPrivateBudgetCard(remainingBudget, recipientName, awardAmount)
             );
-
-            // Return public card (no budget) visible to everyone
-            return buildPublicAwardCard(recipientName, awardAmount, description);
           }
 
-          // Fallback: DM not configured — include budget in public card (original behavior)
-          return buildAwardCard(recipientName, awardAmount, description, remainingBudget);
+          // Always return public card (no budget) — never leak budget info to the space
+          return buildPublicAwardCard(recipientName, awardAmount, description);
         } else {
           await this.updateAuditLog(auditId, ChatCommandStatus.failed, result.message);
           return buildErrorCard('Award Error', result.message);
         }
+      }
+
+      if (commandName === 'games') {
+        await this.updateAuditLog(auditId, ChatCommandStatus.authorized);
+
+        const employee = await this.findEmployeeByEmail(userEmail);
+        if (!employee) {
+          await this.updateAuditLog(auditId, ChatCommandStatus.failed, 'User not found');
+          return buildErrorCard('Games Error', 'You need a Guincoin account to play games.');
+        }
+
+        const args = messageText.trim().split(/\s+/).slice(1); // remove the command itself
+        const subCommand = (args[0] || '').toLowerCase();
+
+        // /games — list active games
+        if (!subCommand || subCommand === 'list') {
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          return buildActiveGamesCard(activeGames.map(g => ({
+            id: g.id,
+            type: g.type,
+            status: g.status,
+            playerCount: g.participants.length,
+            createdAt: g.createdAt.toISOString(),
+            expiresAt: g.expiresAt?.toISOString() || null,
+          })));
+        }
+
+        // /games start cipher [difficulty] — GM only
+        // /games start skillshot [rounds] — GM only
+        if (subCommand === 'start') {
+          if (!employee.isGameMaster && !employee.isAdmin) {
+            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
+            return buildErrorCard('Unauthorized', 'Only Game Masters can start chat games.');
+          }
+
+          const gameType = (args[1] || '').toLowerCase();
+          if (gameType === 'cipher') {
+            const difficulty = (args[2] || 'medium').toLowerCase();
+            if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+              return buildErrorCard('Invalid Difficulty', 'Use: /games start cipher [easy|medium|hard]');
+            }
+            const game = await chatGameService.startGame({
+              type: 'encrypted_office' as any,
+              createdById: employee.id,
+              spaceName: spaceName || '',
+              threadName: threadName || undefined,
+              difficulty,
+            });
+            const config = game.config as any;
+            const outerLayer = config.layers[0];
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildCipherStartCard('Cipher Hunt', difficulty, outerLayer.encryptedText, config.layers.length, game.id);
+          }
+
+          if (gameType === 'skillshot') {
+            const rounds = parseInt(args[2] || '3');
+            if (isNaN(rounds) || rounds < 1 || rounds > 10) {
+              return buildErrorCard('Invalid Rounds', 'Use: /games start skillshot [1-10]');
+            }
+            const game = await chatGameService.startGame({
+              type: 'skill_shot' as any,
+              createdById: employee.id,
+              spaceName: spaceName || '',
+              threadName: threadName || undefined,
+              rounds,
+            });
+            const config = game.config as any;
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildSkillShotStartCard(config.rounds, config.range, config.currentRound, game.id);
+          }
+
+          return buildErrorCard('Unknown Game Type', 'Available games: cipher, skillshot\nUsage: /games start cipher [easy|medium|hard] — or — /games start skillshot [rounds]');
+        }
+
+        // /games guess <text> or /games solve <text> — cipher guess
+        if (subCommand === 'guess' || subCommand === 'solve') {
+          const guessText = args.slice(1).join(' ');
+          if (!guessText) {
+            return buildErrorCard('Missing Guess', 'Usage: /games guess <your answer>');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const cipherGame = activeGames.find(g => g.type === 'encrypted_office');
+          if (!cipherGame) {
+            return buildErrorCard('No Game', 'No active Encrypted Office game in this space.');
+          }
+          const result = await chatGameService.submitGuess(cipherGame.id, employee.id, guessText);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          if (!result.correct) {
+            return buildTextResponse('Incorrect guess — try again!');
+          }
+          if (result.gameComplete) {
+            const config = cipherGame.config as any;
+            const prizeCoins = Math.round(result.points * ({ easy: 0.5, medium: 1, hard: 1.5 } as any)[config.difficulty] * 100) / 100;
+            return buildCipherCompleteCard(employee.name, result.points, prizeCoins, config.difficulty);
+          }
+          const config = cipherGame.config as any;
+          const nextLayer = config.layers[result.points > 0 ? (cipherGame.state as any).currentLayer : 0];
+          return buildCipherLayerSolvedCard(employee.name, (cipherGame.state as any).currentLayer + 1, config.layers.length, result.points, nextLayer?.encryptedText);
+        }
+
+        // /games bid <number> [double] — skill shot bid
+        if (subCommand === 'bid') {
+          const bidValue = parseInt(args[1] || '');
+          if (isNaN(bidValue)) {
+            return buildErrorCard('Invalid Bid', 'Usage: /games bid <number> [double]');
+          }
+          const doubleRisk = (args[2] || '').toLowerCase() === 'double';
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const ssGame = activeGames.find(g => g.type === 'skill_shot');
+          if (!ssGame) {
+            return buildErrorCard('No Game', 'No active Skill Shot game in this space.');
+          }
+          await chatGameService.submitBid(ssGame.id, employee.id, bidValue, doubleRisk);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          const riskLabel = doubleRisk ? ' (DOUBLE RISK)' : '';
+          return buildTextResponse(`Bid accepted: ${bidValue}${riskLabel}`);
+        }
+
+        // /games hint — use hint token in cipher game
+        if (subCommand === 'hint') {
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const cipherGame = activeGames.find(g => g.type === 'encrypted_office');
+          if (!cipherGame) {
+            return buildErrorCard('No Game', 'No active Encrypted Office game in this space.');
+          }
+          const result = await chatGameService.useHint(cipherGame.id, employee.id);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          return buildCipherHintCard(result.hint, result.hintsRemaining);
+        }
+
+        // /games status — show current game state
+        if (subCommand === 'status') {
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          return buildActiveGamesCard(activeGames.map(g => ({
+            id: g.id,
+            type: g.type,
+            status: g.status,
+            playerCount: g.participants.length,
+            createdAt: g.createdAt.toISOString(),
+            expiresAt: g.expiresAt?.toISOString() || null,
+          })));
+        }
+
+        // /games resolve — GM resolve current skill shot round
+        if (subCommand === 'resolve') {
+          if (!employee.isGameMaster && !employee.isAdmin) {
+            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
+            return buildErrorCard('Unauthorized', 'Only Game Masters can resolve rounds.');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const ssGame = activeGames.find(g => g.type === 'skill_shot');
+          if (!ssGame) {
+            return buildErrorCard('No Game', 'No active Skill Shot game in this space.');
+          }
+          const result = await chatGameService.resolveRound(ssGame.id);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+
+          if (result.gameComplete) {
+            // Build final results card
+            const finalGame = await chatGameService.getGameById(ssGame.id);
+            const rankings = finalGame.participants
+              .sort((a: any, b: any) => b.score - a.score)
+              .map((p: any) => ({
+                name: p.employee.name,
+                totalScore: p.score,
+                coinsAwarded: p.isWinner ? Math.round((p.score / 10) * 100) / 100 : 0,
+              }));
+            return buildSkillShotFinalCard(rankings, (ssGame.config as any).rounds);
+          }
+
+          // Build round result card
+          const allParticipants = ssGame.participants;
+          const state = ssGame.state as any;
+          const roundBids: { name: string; bid: number; points: number; doubleRisk: boolean }[] = [];
+          for (const [eid, bids] of Object.entries(state.bids)) {
+            const b = (bids as any[]).find((b: any) => b.round === result.roundNumber);
+            if (b) {
+              const participant = allParticipants.find((p: any) => p.employeeId === eid);
+              roundBids.push({
+                name: participant?.employee?.name || 'Unknown',
+                bid: b.value,
+                points: result.scores[eid] || 0,
+                doubleRisk: b.doubleRisk,
+              });
+            }
+          }
+          const winnerParticipant = result.winner ? allParticipants.find((p: any) => p.employeeId === result.winner) : null;
+          return buildSkillShotRoundResultCard(
+            result.roundNumber,
+            result.target,
+            winnerParticipant?.employee?.name || null,
+            roundBids,
+            true
+          );
+        }
+
+        // /games end — GM only, cancel a game
+        if (subCommand === 'end' || subCommand === 'cancel') {
+          if (!employee.isGameMaster && !employee.isAdmin) {
+            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
+            return buildErrorCard('Unauthorized', 'Only Game Masters can end games.');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          if (activeGames.length === 0) {
+            return buildErrorCard('No Game', 'No active games to end.');
+          }
+          // End the most recent active game
+          await chatGameService.endGame(activeGames[0].id, employee.id);
+          await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+          return buildTextResponse('Game cancelled.');
+        }
+
+        // Unknown subcommand — show games help
+        return buildTextResponse(
+          'Games commands:\n' +
+          '/games — list active games\n' +
+          '/games start cipher [easy|medium|hard] — start cipher hunt (GM only)\n' +
+          '/games start skillshot [rounds] — start skill shot (GM only)\n' +
+          '/games guess <text> — submit cipher guess\n' +
+          '/games bid <number> [double] — bid in skill shot\n' +
+          '/games hint — use cipher hint token\n' +
+          '/games resolve — resolve skill shot round (GM only)\n' +
+          '/games end — cancel active game (GM only)\n' +
+          '/games status — show active games'
+        );
       }
 
       // Unknown command - return help (no DB needed)

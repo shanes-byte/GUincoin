@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
     name: string;
     isManager: boolean;
     isAdmin: boolean;
+    isGameMaster: boolean;
   };
 }
 
@@ -33,6 +34,16 @@ export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction
   }
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+export const requireGameMaster = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  if (!req.user.isGameMaster && !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Game Master or Admin access required' });
   }
   next();
 };

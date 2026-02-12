@@ -11,7 +11,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { GameType, JackpotType } from '@prisma/client';
-import { requireAuth, requireAdmin, AuthRequest } from '../../middleware/auth';
+import { requireAuth, requireGameMaster, AuthRequest } from '../../middleware/auth';
 import { validate } from '../../middleware/validation';
 import { gameEngine, jackpotService } from '../../services/games';
 import prisma from '../../config/database';
@@ -19,9 +19,9 @@ import { AppError } from '../../utils/errors';
 
 const router = express.Router();
 
-// All admin routes require authentication and admin role
+// [ORIGINAL - 2026-02-12] Required requireAdmin. Now requireGameMaster (allows GM OR admin).
 router.use(requireAuth);
-router.use(requireAdmin);
+router.use(requireGameMaster);
 
 // Valid game types
 const gameTypes = [

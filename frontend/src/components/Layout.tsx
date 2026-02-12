@@ -10,6 +10,7 @@ interface LayoutProps {
     name: string;
     isManager: boolean;
     isAdmin: boolean;
+    isGameMaster?: boolean;
   };
 }
 
@@ -69,6 +70,7 @@ export default function Layout({ children, user }: LayoutProps) {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/transfers', label: 'Transfers' },
     { path: '/store', label: 'Store' },
+    { path: '/games', label: 'Games' },
     { path: '/wellness', label: 'Wellness' },
   ];
 

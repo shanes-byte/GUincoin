@@ -39,6 +39,7 @@ export interface User {
   name: string;
   isManager: boolean;
   isAdmin: boolean;
+  isGameMaster: boolean;
 }
 
 export interface Balance {
@@ -311,13 +312,14 @@ export interface Employee {
   name: string;
   isManager: boolean;
   isAdmin: boolean;
+  isGameMaster: boolean;
   createdAt: string;
 }
 
 export const getAllEmployees = () => api.get<Employee[]>('/admin/users');
-export const createEmployee = (data: { email: string; name: string; isManager?: boolean; isAdmin?: boolean }) =>
+export const createEmployee = (data: { email: string; name: string; isManager?: boolean; isAdmin?: boolean; isGameMaster?: boolean }) =>
   api.post<Employee>('/admin/users', data);
-export const updateEmployeeRoles = (id: string, data: { isManager?: boolean; isAdmin?: boolean }) =>
+export const updateEmployeeRoles = (id: string, data: { isManager?: boolean; isAdmin?: boolean; isGameMaster?: boolean }) =>
   api.put<Employee>(`/admin/users/${id}/roles`, data);
 
 // Admin - Allotment Management
@@ -920,6 +922,45 @@ export const verifyGame = (data: {
   maxValue: number;
 }) =>
   api.post<{ isValid: boolean; providedData: typeof data }>('/games/verify', data);
+
+// Admin - Game Management
+export interface AdminGameConfig {
+  id: string | null;
+  gameType: GameType;
+  enabled: boolean;
+  minBet: number;
+  maxBet: number;
+  payoutMultiplier: number | null;
+  jackpotContributionRate: number;
+  availableInChat: boolean;
+  availableOnWeb: boolean;
+  displayOrder: number;
+  customConfig: Record<string, unknown> | null;
+}
+
+export const getAdminGameConfigs = () =>
+  api.get<AdminGameConfig[]>('/admin/games/config');
+
+export const updateAdminGameConfig = (gameType: GameType, data: Partial<AdminGameConfig>) =>
+  api.put<AdminGameConfig>(`/admin/games/config/${gameType}`, data);
+
+export const toggleGameEnabled = (gameType: GameType) =>
+  api.post<{ gameType: GameType; enabled: boolean }>(`/admin/games/config/${gameType}/toggle`);
+
+export const getAdminGameStats = () =>
+  api.get('/admin/games/stats');
+
+export const getAdminPlayerStats = (params?: { limit?: number; offset?: number; sortBy?: string }) =>
+  api.get('/admin/games/stats/players', { params });
+
+export const getAdminJackpots = () =>
+  api.get<Jackpot[]>('/admin/games/jackpots');
+
+export const createAdminJackpot = (data: { name: string; type: string; initialBalance?: number }) =>
+  api.post('/admin/games/jackpots', data);
+
+export const updateAdminJackpot = (jackpotId: string, data: { name?: string; isActive?: boolean }) =>
+  api.put(`/admin/games/jackpots/${jackpotId}`, data);
 
 // ============ GCART Types ============
 

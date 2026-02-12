@@ -9,6 +9,7 @@ import Transfers from './pages/Transfers';
 import Wellness from './pages/Wellness';
 import AdminPortal from './pages/AdminPortal';
 import Store from './pages/Store';
+import Games from './pages/Games';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             <Route path="/manager" element={<ManagerPortal />} />
             <Route path="/transfers" element={<Transfers />} />
             <Route path="/store" element={<Store />} />
+            <Route path="/games" element={<Games />} />
             <Route path="/wellness" element={<Wellness />} />
             <Route path="/admin" element={<AdminPortal />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -14,24 +14,34 @@ export class PendingTransferService {
   }) {
     const normalizedEmail = params.recipientEmail.toLowerCase();
 
-    const senderTransaction = await transactionService.createPendingTransaction(
-      params.senderAccountId,
-      'peer_transfer_sent',
-      params.amount,
-      params.message || `Transfer to ${params.recipientNameFallback}`,
-      params.senderEmployeeId
-    );
+    // [ORIGINAL - 2026-02-12] createPendingTransaction + pendingTransfer.create were separate operations.
+    // Wrapping in a single transaction for atomicity — if either fails, both roll back.
+    const { pendingTransfer, senderTransaction } = await prisma.$transaction(async (tx) => {
+      const senderTx = await tx.ledgerTransaction.create({
+        data: {
+          accountId: params.senderAccountId,
+          transactionType: 'peer_transfer_sent',
+          amount: params.amount,
+          description: params.message || `Transfer to ${params.recipientNameFallback}`,
+          status: 'pending',
+          sourceEmployeeId: params.senderEmployeeId,
+        },
+      });
 
-    const pendingTransfer = await prisma.pendingTransfer.create({
-      data: {
-        senderEmployeeId: params.senderEmployeeId,
-        recipientEmail: normalizedEmail,
-        amount: params.amount,
-        message: params.message,
-        senderTransactionId: senderTransaction.id,
-      },
+      const pending = await tx.pendingTransfer.create({
+        data: {
+          senderEmployeeId: params.senderEmployeeId,
+          recipientEmail: normalizedEmail,
+          amount: params.amount,
+          message: params.message,
+          senderTransactionId: senderTx.id,
+        },
+      });
+
+      return { pendingTransfer: pending, senderTransaction: senderTx };
     });
 
+    // Email send outside transaction — non-critical, should not block financial ops
     await emailService.sendPeerTransferRecipientNotFoundNotification(
       normalizedEmail,
       params.recipientNameFallback,

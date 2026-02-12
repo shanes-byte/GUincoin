@@ -33,6 +33,7 @@ router.get('/users', requireAuth, async (req: AuthRequest, res, next) => {
         name: true,
         isManager: true,
         isAdmin: true,
+        isGameMaster: true,
         createdAt: true,
       },
       orderBy: { name: 'asc' },
@@ -51,6 +52,7 @@ const createEmployeeSchema = z.object({
     name: z.string().min(1),
     isManager: z.boolean().optional().default(false),
     isAdmin: z.boolean().optional().default(false),
+    isGameMaster: z.boolean().optional().default(false),
   }),
 });
 
@@ -69,7 +71,7 @@ router.post(
         throw new AppError('Admin access required', 403);
       }
 
-      const { email, name, isManager, isAdmin } = req.body;
+      const { email, name, isManager, isAdmin, isGameMaster } = req.body;
 
       // Check if employee already exists
       const existingEmployee = await prisma.employee.findUnique({
@@ -87,6 +89,7 @@ router.post(
           name,
           isManager: isManager || false,
           isAdmin: isAdmin || false,
+          isGameMaster: isGameMaster || false,
         },
         select: {
           id: true,
@@ -94,6 +97,7 @@ router.post(
           name: true,
           isManager: true,
           isAdmin: true,
+          isGameMaster: true,
           createdAt: true,
         },
       });
@@ -102,14 +106,11 @@ router.post(
       await accountService.getOrCreateAccount(employee.id);
 
       // Determine role name for email
-      const roleName =
-        employee.isAdmin && employee.isManager
-          ? 'Admin & Manager'
-          : employee.isAdmin
-          ? 'Admin'
-          : employee.isManager
-          ? 'Manager'
-          : 'Employee';
+      const roles: string[] = [];
+      if (employee.isAdmin) roles.push('Admin');
+      if (employee.isManager) roles.push('Manager');
+      if (employee.isGameMaster) roles.push('Game Master');
+      const roleName = roles.length > 0 ? roles.join(' & ') : 'Employee';
 
       // Send email notification
       await emailService.sendRoleAssignedNotification(
@@ -133,6 +134,7 @@ const updateRolesSchema = z.object({
   body: z.object({
     isManager: z.boolean().optional(),
     isAdmin: z.boolean().optional(),
+    isGameMaster: z.boolean().optional(),
   }),
 });
 
@@ -166,14 +168,17 @@ router.put(
 
       const wasManager = employee.isManager;
       const wasAdmin = employee.isAdmin;
+      const wasGameMaster = employee.isGameMaster;
       const newIsManager = req.body.isManager !== undefined ? req.body.isManager : employee.isManager;
       const newIsAdmin = req.body.isAdmin !== undefined ? req.body.isAdmin : employee.isAdmin;
+      const newIsGameMaster = req.body.isGameMaster !== undefined ? req.body.isGameMaster : employee.isGameMaster;
 
       const updated = await prisma.employee.update({
         where: { id: req.params.id },
         data: {
           isManager: newIsManager,
           isAdmin: newIsAdmin,
+          isGameMaster: newIsGameMaster,
         },
         select: {
           id: true,
@@ -181,20 +186,18 @@ router.put(
           name: true,
           isManager: true,
           isAdmin: true,
+          isGameMaster: true,
           createdAt: true,
         },
       });
 
       // Send email notification if role changed
-      if ((wasManager !== newIsManager || wasAdmin !== newIsAdmin) && (newIsManager || newIsAdmin)) {
-        const roleName =
-          updated.isAdmin && updated.isManager
-            ? 'Admin & Manager'
-            : updated.isAdmin
-            ? 'Admin'
-            : updated.isManager
-            ? 'Manager'
-            : 'Employee';
+      if ((wasManager !== newIsManager || wasAdmin !== newIsAdmin || wasGameMaster !== newIsGameMaster) && (newIsManager || newIsAdmin || newIsGameMaster)) {
+        const roles: string[] = [];
+        if (updated.isAdmin) roles.push('Admin');
+        if (updated.isManager) roles.push('Manager');
+        if (updated.isGameMaster) roles.push('Game Master');
+        const roleName = roles.length > 0 ? roles.join(' & ') : 'Employee';
 
         await emailService.sendRoleAssignedNotification(
           updated.email,
