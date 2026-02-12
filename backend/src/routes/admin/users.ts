@@ -9,6 +9,8 @@ import emailService from '../../services/emailService';
 import allotmentService from '../../services/allotmentService';
 import auditService, { extractRequestMetadata } from '../../services/auditService';
 import { Prisma, PeriodType, TransactionType, TransactionStatus } from '@prisma/client';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
 
 const router = express.Router();
 
@@ -569,5 +571,100 @@ router.post(
     }
   }
 );
+
+// Bulk create users from CSV/Excel upload
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+router.post('/users/bulk', requireAuth, upload.single('file'), async (req: AuthRequest, res, next) => {
+  try {
+    // Check admin
+    const currentUser = await prisma.employee.findUnique({
+      where: { id: req.user!.id },
+    });
+    if (!currentUser || !currentUser.isAdmin) {
+      throw new AppError('Admin access required', 403);
+    }
+
+    if (!req.file) {
+      throw new AppError('No file uploaded', 400);
+    }
+
+    // Parse file with XLSX
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      throw new AppError('Spreadsheet has no sheets', 400);
+    }
+    const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (rows.length === 0) {
+      throw new AppError('Spreadsheet has no data rows', 400);
+    }
+
+    // Auto-detect email + name columns from headers
+    const headers = Object.keys(rows[0]);
+    const emailCol = headers.find(h => /email|mail/i.test(h));
+    const nameCol = headers.find(h => /name|employee/i.test(h));
+
+    if (!emailCol) {
+      throw new AppError('Could not detect email column. Include a header containing "email" or "mail".', 400);
+    }
+    if (!nameCol) {
+      throw new AppError('Could not detect name column. Include a header containing "name" or "employee".', 400);
+    }
+
+    // Get existing employees for dedup
+    const existingEmails = new Set(
+      (await prisma.employee.findMany({ select: { email: true } }))
+        .map(e => e.email.toLowerCase())
+    );
+
+    let created = 0;
+    let skipped = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rawEmail = String(row[emailCol] ?? '').trim().toLowerCase();
+      const rawName = String(row[nameCol] ?? '').trim();
+
+      if (!rawEmail || !rawName) {
+        errors.push({ row: i + 2, message: 'Missing email or name' });
+        continue;
+      }
+
+      // Basic email validation
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+        errors.push({ row: i + 2, message: `Invalid email: ${rawEmail}` });
+        continue;
+      }
+
+      if (existingEmails.has(rawEmail)) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const employee = await prisma.employee.create({
+          data: {
+            email: rawEmail,
+            name: rawName,
+            isManager: false,
+            isAdmin: false,
+          },
+        });
+        await accountService.getOrCreateAccount(employee.id);
+        existingEmails.add(rawEmail);
+        created++;
+      } catch (err: unknown) {
+        errors.push({ row: i + 2, message: `Failed to create: ${rawEmail}` });
+      }
+    }
+
+    res.json({ created, skipped, errors });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

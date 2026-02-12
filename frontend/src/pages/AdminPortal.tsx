@@ -28,6 +28,7 @@ import {
   setRecurringBudget,
   getBalanceReport,
   adjustUserBalance,
+  bulkCreateEmployees,
   getAdminStoreProducts,
   toggleProductStatus,
   deleteProduct,
@@ -48,7 +49,6 @@ import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
 import { CampaignStudio } from '../components/Admin/CampaignStudio';
-import BulkImportPanel from '../components/Admin/BulkImportPanel';
 import { StoreTab, GoogleChatTab, SettingsTab } from '../components/Admin/tabs';
 
 interface Submission {
@@ -68,7 +68,7 @@ interface Submission {
   status: string;
 }
 
-type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'bulk-import' | 'settings';
+type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings';
 type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
 
 export default function AdminPortal() {
@@ -148,6 +148,7 @@ export default function AdminPortal() {
     isAdmin: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
   // Balance management state
   const [balanceMap, setBalanceMap] = useState<Record<string, number>>({});
   const [chatAuditLogs, setChatAuditLogs] = useState<ChatCommandAudit[]>([]);
@@ -535,6 +536,28 @@ export default function AdminPortal() {
     }
   };
 
+  const handleBulkUpload = async (file: File) => {
+    setBulkUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await bulkCreateEmployees(formData);
+      const parts: string[] = [];
+      if (res.data.created > 0) parts.push(`${res.data.created} created`);
+      if (res.data.skipped > 0) parts.push(`${res.data.skipped} skipped (already exist)`);
+      if (res.data.errors.length > 0) parts.push(`${res.data.errors.length} errors`);
+      addToast(parts.join(', ') || 'No rows processed', res.data.created > 0 ? 'success' : 'error');
+      if (res.data.created > 0) {
+        await loadEmployees();
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Bulk upload failed', 'error');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   const handleApprove = async (id: string) => {
     try {
       await approveSubmission(id);
@@ -840,7 +863,6 @@ export default function AdminPortal() {
     { id: 'store' as TabType, name: 'Store', count: pendingPurchases.length },
     { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null },
     { id: 'google-chat' as TabType, name: 'Google Chat', count: chatStats?.recentActivity || null },
-    { id: 'bulk-import' as TabType, name: 'Bulk Import', count: null },
     { id: 'settings' as TabType, name: 'Settings', count: null },
   ];
 
@@ -1249,16 +1271,6 @@ export default function AdminPortal() {
           />
         )}
 
-        {/* Bulk Import Tab */}
-        {activeTab === 'bulk-import' && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-6">Bulk Import Guincoins</h2>
-            <BulkImportPanel
-              onToast={(message, type) => addToast(message, type)}
-            />
-          </div>
-        )}
-
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <SettingsTab
@@ -1281,6 +1293,8 @@ export default function AdminPortal() {
             onShowAddUserFormChange={setShowAddUserForm}
             onNewUserFormChange={setNewUserForm}
             onCreateUser={handleCreateUser}
+            onBulkUpload={handleBulkUpload}
+            bulkUploading={bulkUploading}
             managers={managers}
             managersLoading={managersLoading}
             selectedManagerId={selectedManagerId}

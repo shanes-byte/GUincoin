@@ -40,7 +40,7 @@ For **every** code change:
 
 | Model Changed | Services Affected | Routes Affected | Frontend Affected |
 |---------------|-------------------|-----------------|-------------------|
-| **Employee** | accountService, allotmentService, transactionService, emailService, pendingTransferService, bulkImportService, googleChatService, auditService | auth, admin/users, admin/wellness, admin/purchases, admin/bulkImport, manager, transfers | All pages (user object), AdminPortal (employee management) |
+| **Employee** | accountService, allotmentService, transactionService, emailService, pendingTransferService, bulkImportService, googleChatService, auditService | auth, admin/users, admin/wellness, admin/purchases, manager, transfers | All pages (user object), AdminPortal (employee management) |
 | **Account** | accountService, transactionService, allotmentService | accounts, manager, transfers, store, wellness | Dashboard (balance), Store (purchase), Transfers (balance check) |
 | **LedgerTransaction** | transactionService, allotmentService, pendingTransferService, bulkImportService, googleChatService | accounts, manager, transfers, wellness, store, admin/wellness | Dashboard (transactions), Transfers (history), ManagerPortal (history) |
 | **ManagerAllotment** | allotmentService | manager, admin/users | ManagerPortal (allotment display) |
@@ -62,8 +62,8 @@ For **every** code change:
 | **GameConfig** | games.ts (gameEngine) | admin/games | (Gaming config) |
 | **Jackpot** | games.ts (jackpotService) | admin/games | (Jackpot display) |
 | **ChatCommandAudit** | googleChatService | admin/googleChat | AdminPortal (GoogleChatTab) |
-| **BulkImportJob** | bulkImportService | admin/bulkImport | AdminPortal (BulkImportPanel) |
-| **PendingImportBalance** | bulkImportService | admin/bulkImport | AdminPortal (pending balances) |
+| **BulkImportJob** | bulkImportService | (route removed) | (panel removed — legacy data only) |
+| **PendingImportBalance** | bulkImportService | (route removed) | (panel removed — legacy data only) |
 | **AuditLog** | auditService | (no direct route) | (no direct display) |
 | **AwardPreset** | googleChatService (wizard flow) | admin/awardPresets, manager (award-presets) | AdminPortal (AwardPresetsPanel), AwardForm (preset chips) |
 
@@ -659,7 +659,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `/api/admin/games` | prisma.gameConfig/game/gameStats (direct), gameEngine.*, jackpotService.* |
 | `/api/admin/studio` | studioService.* |
 | `/api/admin/settings/smtp` | prisma.smtpSettings (direct) |
-| `/api/admin/bulk-import` | bulkImportService.* |
+| `/api/admin/users/bulk` | POST — bulk create employees from CSV/Excel (multer + xlsx) |
 
 ### Integration Routes
 
@@ -852,11 +852,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `getSmtpSettings()` | GET | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `updateSmtpSettings(data)` | PUT | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `testSmtpConnection(email)` | POST | /admin/settings/smtp/test | AdminPortal (SettingsTab) |
-| `uploadBulkImportFiles(formData)` | POST | /admin/bulk-import/upload | AdminPortal (BulkImportPanel) |
-| `previewBulkImport(formData)` | POST | /admin/bulk-import/preview | AdminPortal (BulkImportPanel) |
-| `validateBulkImport(rows)` | POST | /admin/bulk-import/validate | AdminPortal (BulkImportPanel) |
-| `createBulkImportJob(data)` | POST | /admin/bulk-import/create | AdminPortal (BulkImportPanel) |
-| `getBulkImportJobs(params)` | GET | /admin/bulk-import/jobs | AdminPortal (BulkImportPanel) |
+| `bulkCreateEmployees(formData)` | POST | /admin/users/bulk | AdminPortal (SettingsTab → Role Management) |
 
 ---
 
@@ -897,7 +893,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 
 ### AdminPortal (`pages/AdminPortal.tsx`)
 - **API**: 40+ API calls covering all admin operations
-- **Components**: Layout, PendingSubmissionsList, CampaignStudio, StoreTab, GoogleChatTab, SettingsTab, BulkImportPanel
+- **Components**: Layout, PendingSubmissionsList, CampaignStudio, StoreTab, GoogleChatTab, SettingsTab
 - **Features**: Multi-tab interface, nested settings tabs
 - **Size**: ~1273 lines (largest component)
 
@@ -943,7 +939,7 @@ App (Router + ErrorBoundary + ToastProvider + ThemeProvider)
 ├── Wellness → Layout → WellnessTaskList (→ WellnessTaskModal), WellnessSubmissions
 ├── Store → Layout → (inline product cards, modals)
 └── AdminPortal → Layout → PendingSubmissionsList, CampaignStudio, StoreTab,
-                            GoogleChatTab, SettingsTab, BulkImportPanel
+                            GoogleChatTab, SettingsTab
 ```
 
 ---

@@ -30,6 +30,10 @@ interface SettingsTabProps {
   onNewUserFormChange: (form: { email: string; name: string; isManager: boolean; isAdmin: boolean }) => void;
   onCreateUser: (e: React.FormEvent) => void;
 
+  // Bulk Upload
+  onBulkUpload: (file: File) => Promise<void>;
+  bulkUploading: boolean;
+
   // Balance Management
   balanceMap: Record<string, number>;
   onAdjustBalance: (employeeId: string, amount: number, reason: string) => Promise<void>;
@@ -72,6 +76,8 @@ export default function SettingsTab({
   onShowAddUserFormChange,
   onNewUserFormChange,
   onCreateUser,
+  onBulkUpload,
+  bulkUploading,
   balanceMap,
   onAdjustBalance,
   managers,
@@ -261,17 +267,39 @@ export default function SettingsTab({
                   Add a new user to the Guincoin Rewards Program. They will receive an email notification with a link to access their dashboard.
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  onShowAddUserFormChange(!showAddUserForm);
-                  if (showAddUserForm) {
-                    onNewUserFormChange({ email: '', name: '', isManager: false, isAdmin: false });
-                  }
-                }}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                {showAddUserForm ? 'Cancel' : 'Add User'}
-              </button>
+              <div className="flex gap-2">
+                <label className={`px-3 py-1.5 text-sm font-medium rounded-md cursor-pointer ${
+                  bulkUploading
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'text-green-700 bg-green-50 hover:bg-green-100'
+                }`}>
+                  {bulkUploading ? 'Uploading...' : 'Bulk Upload CSV'}
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    disabled={bulkUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        onBulkUpload(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  onClick={() => {
+                    onShowAddUserFormChange(!showAddUserForm);
+                    if (showAddUserForm) {
+                      onNewUserFormChange({ email: '', name: '', isManager: false, isAdmin: false });
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  {showAddUserForm ? 'Cancel' : 'Add User'}
+                </button>
+              </div>
             </div>
 
             {showAddUserForm && (
