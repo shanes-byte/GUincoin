@@ -1076,7 +1076,9 @@ export class GoogleChatService {
           return buildErrorCard('Games Error', 'You need a Guincoin account to play games.');
         }
 
-        const args = messageText.trim().split(/\s+/).slice(1); // remove the command itself
+        // [ORIGINAL - 2026-02-12] const args = messageText.trim().split(/\s+/).slice(1); // remove the command itself
+        const cleaned = messageText.trim().replace(/^\/?(games)\s*/i, '');
+        const args = cleaned ? cleaned.split(/\s+/) : [];
         const subCommand = (args[0] || '').toLowerCase();
 
         // /games — list active games
