@@ -132,7 +132,17 @@ export default function Layout({ children, user }: LayoutProps) {
                             Admin Portal
                           </Link>
                         )}
-                        {(user?.isManager || user?.isAdmin) && (
+                        {user?.isGameMaster && !user?.isAdmin && (
+                          <Link
+                            to="/admin"
+                            className={`block px-4 py-2 text-sm ${
+                              isActive('/admin') ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            Game Master
+                          </Link>
+                        )}
+                        {(user?.isManager || user?.isAdmin || user?.isGameMaster) && (
                           <div className="border-t border-gray-100" />
                         )}
                         <button
@@ -185,6 +195,11 @@ export default function Layout({ children, user }: LayoutProps) {
               {user?.isAdmin && (
                 <Link to="/admin" className={getMobileLinkClasses('/admin')}>
                   Admin Portal
+                </Link>
+              )}
+              {user?.isGameMaster && !user?.isAdmin && (
+                <Link to="/admin" className={getMobileLinkClasses('/admin')}>
+                  Game Master
                 </Link>
               )}
             </div>

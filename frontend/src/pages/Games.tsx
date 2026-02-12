@@ -117,9 +117,12 @@ export default function Games() {
 
         if (results[0].status === 'fulfilled') setUser(results[0].value.data);
         if (results[1].status === 'fulfilled') setBalance(results[1].value.data);
-        if (results[2].status === 'fulfilled') setGameConfigs(results[2].value.data);
+        if (results[2].status === 'fulfilled') setGameConfigs(results[2].value.data || []);
         if (results[3].status === 'fulfilled') setDailyBonus(results[3].value.data);
-        if (results[4].status === 'fulfilled') setJackpots(results[4].value.data.jackpots);
+        if (results[4].status === 'fulfilled') {
+          const jpData = results[4].value.data;
+          setJackpots(jpData?.jackpots ?? (Array.isArray(jpData) ? jpData : []));
+        }
       } catch {
         navigate('/login');
       } finally {
@@ -201,9 +204,12 @@ export default function Games() {
         getDailyBonusStatus(),
         getJackpots(),
       ]);
-      if (configRes.status === 'fulfilled') setGameConfigs(configRes.value.data);
+      if (configRes.status === 'fulfilled') setGameConfigs(configRes.value.data || []);
       if (bonusRes.status === 'fulfilled') setDailyBonus(bonusRes.value.data);
-      if (jackpotRes.status === 'fulfilled') setJackpots(jackpotRes.value.data.jackpots);
+      if (jackpotRes.status === 'fulfilled') {
+        const jpData = jackpotRes.value.data;
+        setJackpots(jpData?.jackpots ?? (Array.isArray(jpData) ? jpData : []));
+      }
     } catch { /* ignore */ }
   }, []);
 

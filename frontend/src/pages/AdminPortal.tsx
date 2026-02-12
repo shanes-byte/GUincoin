@@ -33,6 +33,15 @@ import {
   toggleProductStatus,
   deleteProduct,
   getCampaigns,
+  getAdminGameConfigs,
+  toggleGameEnabled,
+  updateAdminGameConfig,
+  getAdminJackpots,
+  createAdminJackpot,
+  updateAdminJackpot,
+  AdminGameConfig,
+  GameType,
+  Jackpot,
   User,
   EmailTemplate,
   PurchaseOrder,
@@ -49,7 +58,7 @@ import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
 import { CampaignStudio } from '../components/Admin/CampaignStudio';
-import { StoreTab, GoogleChatTab, SettingsTab } from '../components/Admin/tabs';
+import { StoreTab, GoogleChatTab, SettingsTab, GamesTab } from '../components/Admin/tabs';
 
 interface Submission {
   id: string;
@@ -68,7 +77,7 @@ interface Submission {
   status: string;
 }
 
-type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings';
+type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings' | 'games';
 type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
 
 export default function AdminPortal() {
@@ -178,6 +187,10 @@ export default function AdminPortal() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   // Campaign management state (used for tab badge count)
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // Game management state
+  const [adminGameConfigs, setAdminGameConfigs] = useState<AdminGameConfig[]>([]);
+  const [gameConfigsLoading, setGameConfigsLoading] = useState(false);
+  const [adminJackpots, setAdminJackpots] = useState<Jackpot[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -186,26 +199,39 @@ export default function AdminPortal() {
         const currentUser = userRes.data;
         setUser(currentUser);
 
-        // Check if user is admin - if not, redirect to dashboard
-        if (!currentUser.isAdmin) {
+        // [ORIGINAL - 2026-02-12] Check if user is admin - if not, redirect to dashboard
+        // if (!currentUser.isAdmin) {
+        //   navigate('/dashboard');
+        //   return;
+        // }
+        // Check if user is admin or game master - if neither, redirect to dashboard
+        if (!currentUser.isAdmin && !currentUser.isGameMaster) {
           navigate('/dashboard');
           return;
         }
 
-        const [submissionsRes, templatesRes] = await Promise.all([
-          getPendingSubmissions(),
-          getEmailTemplates(),
-        ]);
-        setSubmissions(submissionsRes.data);
-        setEmailTemplates(templatesRes.data);
+        // GMs only see the games tab — skip loading admin-only data
+        if (currentUser.isAdmin) {
+          const [submissionsRes, templatesRes] = await Promise.all([
+            getPendingSubmissions(),
+            getEmailTemplates(),
+          ]);
+          setSubmissions(submissionsRes.data);
+          setEmailTemplates(templatesRes.data);
 
-        // Load purchases
-        const [pendingRes, allRes] = await Promise.all([
-          getPendingPurchases(),
-          getAllPurchases(),
-        ]);
-        setPendingPurchases(pendingRes.data);
-        setAllPurchases(allRes.data);
+          // Load purchases
+          const [pendingRes, allRes] = await Promise.all([
+            getPendingPurchases(),
+            getAllPurchases(),
+          ]);
+          setPendingPurchases(pendingRes.data);
+          setAllPurchases(allRes.data);
+        }
+
+        // GMs default to games tab
+        if (!currentUser.isAdmin && currentUser.isGameMaster) {
+          setActiveTab('games');
+        }
       } catch (err: unknown) {
         const axiosErr = err as { response?: { status?: number; data?: { error?: string } } };
         if (axiosErr.response?.status === 401) {
@@ -281,6 +307,83 @@ export default function AdminPortal() {
       loadCampaigns();
     }
   }, [activeTab, loading]);
+
+  // Auto-load game configs when games tab becomes active
+  useEffect(() => {
+    if (activeTab === 'games' && !loading) {
+      loadGameData();
+    }
+  }, [activeTab, loading]);
+
+  const loadGameData = async () => {
+    setGameConfigsLoading(true);
+    try {
+      const [configRes, jackpotRes] = await Promise.allSettled([
+        getAdminGameConfigs(),
+        getAdminJackpots(),
+      ]);
+      if (configRes.status === 'fulfilled') setAdminGameConfigs(configRes.value.data);
+      if (jackpotRes.status === 'fulfilled') {
+        const jpData = jackpotRes.value.data;
+        setAdminJackpots(Array.isArray(jpData) ? jpData : []);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to load game data:', err);
+    } finally {
+      setGameConfigsLoading(false);
+    }
+  };
+
+  const handleToggleGame = async (gameType: GameType) => {
+    try {
+      const res = await toggleGameEnabled(gameType);
+      setAdminGameConfigs((prev) =>
+        prev.map((c) => (c.gameType === gameType ? { ...c, enabled: res.data.enabled } : c))
+      );
+      addToast(`${gameType} ${res.data.enabled ? 'enabled' : 'disabled'}`, 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to toggle game', 'error');
+    }
+  };
+
+  const handleUpdateGameConfig = async (gameType: GameType, data: Partial<AdminGameConfig>) => {
+    try {
+      const res = await updateAdminGameConfig(gameType, data);
+      setAdminGameConfigs((prev) =>
+        prev.map((c) => (c.gameType === gameType ? res.data : c))
+      );
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to update game config', 'error');
+    }
+  };
+
+  const handleToggleJackpot = async (jackpotId: string) => {
+    try {
+      const jp = adminJackpots.find((j) => j.id === jackpotId);
+      if (!jp) return;
+      await updateAdminJackpot(jackpotId, { isActive: true });
+      addToast('Jackpot toggled', 'success');
+      await loadGameData();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to toggle jackpot', 'error');
+    }
+  };
+
+  const handleInitializeJackpots = async () => {
+    try {
+      await createAdminJackpot({ name: 'Rolling Jackpot', type: 'rolling', initialBalance: 0 });
+      await createAdminJackpot({ name: 'Daily Jackpot', type: 'daily', initialBalance: 0 });
+      await createAdminJackpot({ name: 'Weekly Jackpot', type: 'weekly', initialBalance: 0 });
+      addToast('Default jackpots created!', 'success');
+      await loadGameData();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to initialize jackpots', 'error');
+    }
+  };
 
   const loadCampaigns = async () => {
     try {
@@ -860,13 +963,17 @@ export default function AdminPortal() {
     return null;
   }
 
-  const tabs = [
-    { id: 'wellness' as TabType, name: 'Wellness', count: submissions.length },
-    { id: 'store' as TabType, name: 'Store', count: pendingPurchases.length },
-    { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null },
-    { id: 'google-chat' as TabType, name: 'Google Chat', count: chatStats?.recentActivity || null },
-    { id: 'settings' as TabType, name: 'Settings', count: null },
+  // [ORIGINAL - 2026-02-12] Tabs were admin-only, no games tab
+  const allTabs = [
+    { id: 'wellness' as TabType, name: 'Wellness', count: submissions.length, adminOnly: true },
+    { id: 'store' as TabType, name: 'Store', count: pendingPurchases.length, adminOnly: true },
+    { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null, adminOnly: true },
+    { id: 'google-chat' as TabType, name: 'Google Chat', count: chatStats?.recentActivity || null, adminOnly: true },
+    { id: 'games' as TabType, name: 'Games', count: null, adminOnly: false },
+    { id: 'settings' as TabType, name: 'Settings', count: null, adminOnly: true },
   ];
+  // Non-admin GMs only see non-adminOnly tabs (Games)
+  const tabs = user.isAdmin ? allTabs : allTabs.filter((t) => !t.adminOnly);
 
   return (
     <Layout user={user}>
@@ -874,10 +981,14 @@ export default function AdminPortal() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Portal</h1>
-              <p className="mt-1 text-sm text-gray-500">Manage wellness programs, store, and system settings</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {user.isAdmin ? 'Admin Portal' : 'Game Master Portal'}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                {user.isAdmin ? 'Manage wellness programs, store, and system settings' : 'Manage game configurations and jackpots'}
+              </p>
             </div>
-            <button
+            {user.isAdmin && <button
               onClick={() => navigate('/admin/balances')}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium"
             >
@@ -895,7 +1006,7 @@ export default function AdminPortal() {
                 />
               </svg>
               Balance Report
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -1270,6 +1381,20 @@ export default function AdminPortal() {
             chatFilters={chatFilters}
             onFiltersChange={setChatFilters}
             onPageChange={setChatPage}
+          />
+        )}
+
+        {/* Games Tab */}
+        {activeTab === 'games' && (
+          <GamesTab
+            gameConfigs={adminGameConfigs}
+            gameConfigsLoading={gameConfigsLoading}
+            jackpots={adminJackpots}
+            onToggleGame={handleToggleGame}
+            onUpdateConfig={handleUpdateGameConfig}
+            onToggleJackpot={handleToggleJackpot}
+            onInitializeJackpots={handleInitializeJackpots}
+            onRefresh={loadGameData}
           />
         )}
 
