@@ -60,7 +60,8 @@ export interface ValidationResult {
 
 export interface ColumnMapping {
   nameColumn: string;
-  amountColumn: string;
+  // [ORIGINAL - 2026-02-12] amountColumn was required — made optional for user-only imports
+  amountColumn?: string;
   emailColumn?: string;
   marketColumn?: string;
 }
@@ -220,13 +221,16 @@ export function getColumnHeaders(data: Record<string, unknown>[]): string[] {
 /**
  * Extract balance data from parsed spreadsheet
  */
+// [ORIGINAL - 2026-02-12] amountColumn was required and rows with amount <= 0 were filtered out.
+// Now amountColumn is optional — when absent, amount defaults to 0 (user-only import).
+// Filter changed from `row.amount > 0` to `row.name` so user-only rows are kept.
 export function extractBalanceData(
   data: Record<string, unknown>[],
-  mapping: { nameColumn: string; amountColumn: string; marketColumn?: string }
+  mapping: { nameColumn: string; amountColumn?: string; marketColumn?: string }
 ): BalanceRow[] {
   return data.map((row, index) => {
     const nameValue = row[mapping.nameColumn];
-    const amountValue = row[mapping.amountColumn];
+    const amountValue = mapping.amountColumn ? row[mapping.amountColumn] : undefined;
     const marketValue = mapping.marketColumn ? row[mapping.marketColumn] : undefined;
 
     // Parse amount - handle various formats
@@ -244,7 +248,7 @@ export function extractBalanceData(
       amount,
       market: marketValue ? String(marketValue).trim() : undefined,
     };
-  }).filter(row => row.name && row.amount > 0);
+  }).filter(row => row.name);
 }
 
 /**
@@ -387,15 +391,24 @@ export async function validateImportData(rows: MergedRow[]): Promise<ValidationR
       seenEmails.set(row.email, rowNum);
     }
 
-    // Check for negative/zero amounts
-    if (row.amount <= 0) {
+    // [ORIGINAL - 2026-02-12] amount <= 0 was an error — changed to info warning for user-only imports
+    // Check for negative amounts (still an error) or zero amounts (info — user-only import)
+    if (row.amount < 0) {
       errors.push({
         row: rowNum,
         field: 'amount',
-        message: 'Amount must be greater than 0',
+        message: 'Amount cannot be negative',
         severity: 'error',
       });
       continue;
+    }
+    if (row.amount === 0) {
+      warnings.push({
+        row: rowNum,
+        field: 'amount',
+        message: 'No balance amount — user will be imported without balance',
+        severity: 'warning',
+      });
     }
 
     // Check for very large amounts (warning)
@@ -449,8 +462,8 @@ export async function createImportJob(params: {
 }): Promise<ImportJobResult> {
   const { name, createdById, rows, columnMapping } = params;
 
-  // Filter to only rows with valid emails
-  const validRows = rows.filter(r => r.email && r.amount > 0);
+  // [ORIGINAL - 2026-02-12] Filter was `r.email && r.amount > 0` — changed to allow user-only imports (amount === 0)
+  const validRows = rows.filter(r => r.email);
 
   // Create the job
   const job = await prisma.bulkImportJob.create({
@@ -480,8 +493,20 @@ export async function createImportJob(params: {
     try {
       const employee = employeeMap.get(row.email.toLowerCase());
 
-      if (employee && employee.account) {
-        // User exists - create and post transaction immediately
+      if (row.amount === 0) {
+        // User-only import — no balance to transfer, just ensure the employee + account exist
+        if (!employee) {
+          const newEmployee = await prisma.employee.create({
+            data: {
+              email: row.email.toLowerCase(),
+              name: row.name,
+            },
+          });
+          await accountService.getOrCreateAccount(newEmployee.id);
+        }
+        successCount++;
+      } else if (employee && employee.account) {
+        // User exists with balance — create and post transaction immediately
         const transaction = await transactionService.createPendingTransaction(
           employee.account.id,
           TransactionType.bulk_import,
@@ -494,7 +519,7 @@ export async function createImportJob(params: {
         await transactionService.postTransaction(transaction.id);
         successCount++;
       } else {
-        // User doesn't exist - create pending balance
+        // User doesn't exist with balance — create pending balance
         await prisma.pendingImportBalance.create({
           data: {
             importJobId: job.id,

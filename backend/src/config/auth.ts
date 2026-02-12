@@ -33,19 +33,23 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
             return done(new Error('No email found in Google profile'), undefined);
           }
 
-          // Verify Google Workspace domain
-          const workspaceDomain = env.GOOGLE_WORKSPACE_DOMAIN;
-          if (workspaceDomain && !email.endsWith(workspaceDomain)) {
-            return done(new Error(`Email must be from ${workspaceDomain} domain`), undefined);
-          }
-
           // Check if this email should be auto-admin
           const shouldBeAdmin = AUTO_ADMIN_EMAILS.includes(email);
 
           // Find or create employee
+          // [ORIGINAL - 2026-02-12] Domain check was before employee lookup — moved after so
+          // bulk-imported non-domain employees can log in (their DB record acts as whitelist)
           let employee = await prisma.employee.findUnique({
             where: { email },
           });
+
+          // Verify Google Workspace domain — skip if employee already exists (whitelisted via bulk import or manual add)
+          if (!employee) {
+            const workspaceDomain = env.GOOGLE_WORKSPACE_DOMAIN;
+            if (workspaceDomain && !email.endsWith(workspaceDomain)) {
+              return done(new Error(`Email must be from ${workspaceDomain} domain`), undefined);
+            }
+          }
 
           if (!employee) {
             const displayName = profile.displayName || email.split('@')[0];

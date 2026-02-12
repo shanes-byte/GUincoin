@@ -410,7 +410,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Column *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Column</label>
             <select
               value={balanceMapping.amountColumn}
               onChange={(e) => setBalanceMapping({ ...balanceMapping, amountColumn: e.target.value })}
@@ -522,7 +522,7 @@ export default function BulkImportPanel({ onToast }: BulkImportPanelProps) {
         </button>
         <button
           onClick={handlePreview}
-          disabled={!balanceMapping.nameColumn || !balanceMapping.amountColumn || previewing}
+          disabled={!balanceMapping.nameColumn || (!balanceMapping.amountColumn && !balanceMapping.emailColumn) || previewing}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {previewing ? 'Processing...' : 'Preview Matches'}

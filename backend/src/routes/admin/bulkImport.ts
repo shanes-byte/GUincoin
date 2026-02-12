@@ -108,7 +108,12 @@ router.post(
 
       const balanceFile = files.balanceFile[0];
       const balanceRawData = bulkImportService.parseSpreadsheet(balanceFile.buffer, balanceFile.originalname);
-      const balanceData = bulkImportService.extractBalanceData(balanceRawData, parsedBalanceMapping);
+      // Pass mapping with optional amountColumn — extractBalanceData handles missing amount
+      const balanceData = bulkImportService.extractBalanceData(balanceRawData, {
+        nameColumn: parsedBalanceMapping.nameColumn,
+        amountColumn: parsedBalanceMapping.amountColumn || undefined,
+        marketColumn: parsedBalanceMapping.marketColumn || undefined,
+      });
 
       let mergedRows;
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { EmailTemplate, Employee, ManagerAllotmentDetails, User } from '../../../services/api';
 import SmtpSettings from '../SmtpSettings';
 import AwardPresetsPanel from '../AwardPresetsPanel';
@@ -28,6 +29,10 @@ interface SettingsTabProps {
   onShowAddUserFormChange: (show: boolean) => void;
   onNewUserFormChange: (form: { email: string; name: string; isManager: boolean; isAdmin: boolean }) => void;
   onCreateUser: (e: React.FormEvent) => void;
+
+  // Balance Management
+  balanceMap: Record<string, number>;
+  onAdjustBalance: (employeeId: string, amount: number, reason: string) => Promise<void>;
 
   // Manager Allotments
   managers: Employee[];
@@ -67,6 +72,8 @@ export default function SettingsTab({
   onShowAddUserFormChange,
   onNewUserFormChange,
   onCreateUser,
+  balanceMap,
+  onAdjustBalance,
   managers,
   managersLoading,
   selectedManagerId,
@@ -83,6 +90,26 @@ export default function SettingsTab({
   onDeposit,
   onSetRecurring,
 }: SettingsTabProps) {
+  const [adjustingEmployeeId, setAdjustingEmployeeId] = useState<string | null>(null);
+  const [adjustForm, setAdjustForm] = useState({ amount: '', reason: '' });
+  const [adjustLoading, setAdjustLoading] = useState(false);
+
+  const handleAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingEmployeeId) return;
+    const amount = parseFloat(adjustForm.amount);
+    if (isNaN(amount) || amount === 0) return;
+
+    setAdjustLoading(true);
+    try {
+      await onAdjustBalance(adjustingEmployeeId, amount, adjustForm.reason);
+      setAdjustingEmployeeId(null);
+      setAdjustForm({ amount: '', reason: '' });
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Settings Sub-tabs */}
@@ -357,6 +384,9 @@ export default function SettingsTab({
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
                       </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Balance
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -424,6 +454,61 @@ export default function SettingsTab({
                             >
                               {roleName}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-sm font-mono text-gray-900">
+                                {(balanceMap[employee.id] ?? 0).toFixed(2)}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setAdjustingEmployeeId(
+                                    adjustingEmployeeId === employee.id ? null : employee.id
+                                  );
+                                  setAdjustForm({ amount: '', reason: '' });
+                                }}
+                                className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                              >
+                                Adjust
+                              </button>
+                            </div>
+                            {adjustingEmployeeId === employee.id && (
+                              <form onSubmit={handleAdjustSubmit} className="mt-2 space-y-2 text-left">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={adjustForm.amount}
+                                  onChange={(e) => setAdjustForm({ ...adjustForm, amount: e.target.value })}
+                                  placeholder="Amount (+/-)"
+                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                  required
+                                />
+                                <input
+                                  type="text"
+                                  value={adjustForm.reason}
+                                  onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                                  placeholder="Reason"
+                                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                  required
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setAdjustingEmployeeId(null)}
+                                    className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={adjustLoading || !adjustForm.amount || !adjustForm.reason}
+                                    className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                  >
+                                    {adjustLoading ? 'Saving...' : 'Apply'}
+                                  </button>
+                                </div>
+                              </form>
+                            )}
                           </td>
                         </tr>
                       );

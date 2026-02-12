@@ -7,7 +7,8 @@ import { AppError } from '../../utils/errors';
 import accountService from '../../services/accountService';
 import emailService from '../../services/emailService';
 import allotmentService from '../../services/allotmentService';
-import { PeriodType } from '@prisma/client';
+import auditService, { extractRequestMetadata } from '../../services/auditService';
+import { Prisma, PeriodType, TransactionType, TransactionStatus } from '@prisma/client';
 
 const router = express.Router();
 
@@ -457,6 +458,111 @@ router.put(
         message: 'Recurring budget updated successfully',
         amount,
         periodType: periodType || 'monthly',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Adjust user's personal balance (admin only)
+const adjustBalanceSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+  body: z.object({
+    amount: z.number().refine(val => val !== 0, { message: 'Amount must be non-zero' }),
+    reason: z.string().min(1, 'Reason is required'),
+  }),
+});
+
+router.post(
+  '/users/:id/balance/adjust',
+  requireAuth,
+  validate(adjustBalanceSchema),
+  async (req: AuthRequest, res, next) => {
+    try {
+      // Check if user is admin
+      const currentUser = await prisma.employee.findUnique({
+        where: { id: req.user!.id },
+      });
+
+      if (!currentUser || !currentUser.isAdmin) {
+        throw new AppError('Admin access required', 403);
+      }
+
+      const { amount, reason } = req.body;
+
+      // Use Serializable isolation to prevent race conditions
+      const result = await prisma.$transaction(async (tx) => {
+        const employee = await tx.employee.findUnique({
+          where: { id: req.params.id },
+          include: { account: true },
+        });
+
+        if (!employee) {
+          throw new AppError('Employee not found', 404);
+        }
+
+        if (!employee.account) {
+          throw new AppError('Employee has no account', 404);
+        }
+
+        // If deducting, check sufficient balance
+        if (amount < 0) {
+          const currentBalance = Number(employee.account.balance);
+          if (currentBalance < Math.abs(amount)) {
+            throw new AppError(
+              `Insufficient balance. Current: ${currentBalance.toFixed(2)}, requested deduction: ${Math.abs(amount).toFixed(2)}`,
+              400
+            );
+          }
+        }
+
+        // Create ledger transaction
+        await tx.ledgerTransaction.create({
+          data: {
+            accountId: employee.account.id,
+            transactionType: TransactionType.adjustment,
+            amount: new Prisma.Decimal(amount),
+            status: TransactionStatus.posted,
+            postedAt: new Date(),
+            description: `Admin adjustment: ${reason}`,
+            sourceEmployeeId: req.user!.id,
+            targetEmployeeId: employee.id,
+          },
+        });
+
+        // Update account balance
+        const updatedAccount = await tx.account.update({
+          where: { id: employee.account.id },
+          data: {
+            balance: { increment: amount },
+          },
+        });
+
+        return { employee, updatedBalance: Number(updatedAccount.balance) };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+
+      // Log audit event (outside transaction — non-critical)
+      const requestMeta = extractRequestMetadata(req as any);
+      auditService.logBalanceAdjustment(
+        result.employee.account!.id,
+        amount,
+        reason,
+        {
+          actorId: req.user!.id,
+          actorEmail: currentUser.email,
+          metadata: { employeeId: req.params.id, employeeName: result.employee.name },
+          ...requestMeta,
+        }
+      );
+
+      res.json({
+        message: `Balance ${amount > 0 ? 'credited' : 'debited'} successfully`,
+        updatedBalance: result.updatedBalance,
       });
     } catch (error) {
       next(error);

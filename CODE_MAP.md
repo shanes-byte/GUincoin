@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-10
+> **Last Updated**: 2026-02-12
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -464,7 +464,7 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 |----------|----------------|
 | `parseSpreadsheet(buffer, filename)` | admin/bulkImport.ts route (upload, preview) |
 | `getColumnHeaders(data)` | admin/bulkImport.ts route (upload) |
-| `extractBalanceData(data, mapping)` | admin/bulkImport.ts route (preview) |
+| `extractBalanceData(data, mapping)` | admin/bulkImport.ts route (preview). **amountColumn is optional since 2026-02-12** — defaults to 0 for user-only imports. |
 | `mergeDataFiles(balanceData, emailData)` | admin/bulkImport.ts route (preview) |
 | `validateImportData(rows)` | admin/bulkImport.ts route (validate) |
 | `createImportJob(params)` | admin/bulkImport.ts route (create) |
@@ -621,6 +621,7 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | POST | `/api/admin/users/:id/allotment/deposit` | requireAuth, validate | allotmentService.depositAllotment(), allotmentService.getCurrentAllotment(), emailService.sendAllotmentDepositNotification() |
 | GET | `/api/admin/users/:id/allotment` | requireAuth | allotmentService.getCurrentAllotment(), .getDepositHistory(), .getAwardHistory() |
 | PUT | `/api/admin/users/:id/allotment/recurring` | requireAuth, validate | allotmentService.setRecurringBudget() |
+| POST | `/api/admin/users/:id/balance/adjust` | requireAuth, validate | prisma.$transaction (Serializable): ledgerTransaction.create, account.update (increment), auditService.logBalanceAdjustment() |
 
 ### Admin Store (`/api/admin/store`)
 
@@ -721,7 +722,8 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 ### config/auth.ts
 - Google OAuth strategy (passport-google-oauth20)
 - Auto-admin emails: `shanes@guinco.com`, `landonm@guinco.com`
-- On login: creates Employee + Account, claims pending transfers + import balances
+- On login: finds Employee first → if exists, skips domain check (whitelisted via import/manual add) → if not, checks domain → creates Employee + Account, claims pending transfers + import balances
+- **Domain exception (2026-02-12)**: Existing employees bypass `GOOGLE_WORKSPACE_DOMAIN` check. Unknown non-domain emails are still blocked.
 - **If modified**: Affects all authentication, new user creation, pending claim logic
 
 ### config/database.ts
@@ -820,6 +822,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `createEmployee(data)` | POST | /admin/users | AdminPortal |
 | `updateEmployeeRoles(id, data)` | PUT | /admin/users/{id}/roles | AdminPortal |
 | `getBalanceReport()` | GET | /admin/users/balances-report | AdminPortal |
+| `adjustUserBalance(id, data)` | POST | /admin/users/{id}/balance/adjust | AdminPortal (via SettingsTab) |
 | `getManagerAllotmentDetails(id)` | GET | /admin/users/{id}/allotment | AdminPortal |
 | `depositAllotment(id, data)` | POST | /admin/users/{id}/allotment/deposit | AdminPortal |
 | `setRecurringBudget(id, data)` | PUT | /admin/users/{id}/allotment/recurring | AdminPortal |

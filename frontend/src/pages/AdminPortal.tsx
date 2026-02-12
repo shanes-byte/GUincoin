@@ -26,6 +26,8 @@ import {
   getManagerAllotmentDetails,
   depositAllotment,
   setRecurringBudget,
+  getBalanceReport,
+  adjustUserBalance,
   getAdminStoreProducts,
   toggleProductStatus,
   deleteProduct,
@@ -146,6 +148,8 @@ export default function AdminPortal() {
     isAdmin: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
+  // Balance management state
+  const [balanceMap, setBalanceMap] = useState<Record<string, number>>({});
   const [chatAuditLogs, setChatAuditLogs] = useState<ChatCommandAudit[]>([]);
   const [chatStats, setChatStats] = useState<ChatAuditStats | null>(null);
   const [chatLogsLoading, setChatLogsLoading] = useState(false);
@@ -450,11 +454,27 @@ export default function AdminPortal() {
     }
   };
 
+  const loadBalanceMap = async () => {
+    try {
+      const res = await getBalanceReport();
+      const map: Record<string, number> = {};
+      for (const row of res.data.reportData) {
+        map[row.employeeId] = row.userBalance;
+      }
+      setBalanceMap(map);
+    } catch (err: unknown) {
+      console.error('Failed to load balance map:', err);
+    }
+  };
+
   const loadEmployees = async () => {
     setEmployeesLoading(true);
     try {
-      const res = await getAllEmployees();
-      setEmployees(res.data);
+      const [empRes] = await Promise.all([
+        getAllEmployees(),
+        loadBalanceMap(),
+      ]);
+      setEmployees(empRes.data);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       addToast(axiosErr.response?.data?.error || 'Failed to load employees', 'error');
@@ -501,6 +521,17 @@ export default function AdminPortal() {
       addToast(axiosErr.response?.data?.error || 'Failed to create user', 'error');
     } finally {
       setCreatingUser(false);
+    }
+  };
+
+  const handleAdjustBalance = async (employeeId: string, amount: number, reason: string) => {
+    try {
+      await adjustUserBalance(employeeId, { amount, reason });
+      addToast(`Balance ${amount > 0 ? 'credited' : 'debited'} successfully`, 'success');
+      await loadBalanceMap();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to adjust balance', 'error');
     }
   };
 
@@ -1265,6 +1296,8 @@ export default function AdminPortal() {
             onRecurringFormChange={setRecurringForm}
             onDeposit={handleDeposit}
             onSetRecurring={handleSetRecurring}
+            balanceMap={balanceMap}
+            onAdjustBalance={handleAdjustBalance}
           />
         )}
       </div>

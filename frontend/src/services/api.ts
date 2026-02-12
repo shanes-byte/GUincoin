@@ -448,6 +448,9 @@ export interface BalanceReport {
 
 export const getBalanceReport = () => api.get<BalanceReport>('/admin/users/balances-report');
 
+export const adjustUserBalance = (employeeId: string, data: { amount: number; reason: string }) =>
+  api.post<{ message: string; updatedBalance: number }>(`/admin/users/${employeeId}/balance/adjust`, data);
+
 // =====================
 // Campaigns
 // =====================
