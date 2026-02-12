@@ -573,8 +573,8 @@ router.get('/jackpots', async (req: AuthRequest, res, next) => {
       orderBy: { balance: 'desc' },
     });
 
-    res.json(
-      jackpots.map((j) => ({
+    res.json({
+      jackpots: jackpots.map((j) => ({
         id: j.id,
         name: j.name,
         type: j.type,
@@ -584,8 +584,8 @@ router.get('/jackpots', async (req: AuthRequest, res, next) => {
         lastWonAt: j.lastWonAt,
         lastWonAmount: j.lastWonAmount ? Number(j.lastWonAmount) : null,
         createdAt: j.createdAt,
-      }))
-    );
+      })),
+    });
   } catch (error) {
     next(error);
   }
