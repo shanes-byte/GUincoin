@@ -648,22 +648,24 @@ export default function SettingsTab({
 
                       {/* Deposit Form */}
                       <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Deposit Funds</h4>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Adjust Balance</h4>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Use a positive number to deposit, or a negative number to deduct.
+                        </p>
                         <form onSubmit={onDeposit} className="space-y-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Amount
+                              Amount (+/-)
                             </label>
                             <input
                               type="number"
-                              min="0.01"
                               step="0.01"
                               value={depositForm.amount}
                               onChange={(e) =>
                                 onDepositFormChange({ ...depositForm, amount: e.target.value })
                               }
                               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"
-                              placeholder="100.00"
+                              placeholder="100.00 or -50.00"
                               required
                             />
                           </div>
@@ -687,7 +689,7 @@ export default function SettingsTab({
                               disabled={depositLoading}
                               className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
                             >
-                              {depositLoading ? 'Depositing...' : 'Deposit'}
+                              {depositLoading ? 'Saving...' : 'Apply'}
                             </button>
                           </div>
                         </form>

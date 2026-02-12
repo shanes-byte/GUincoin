@@ -288,13 +288,13 @@ router.get('/balances-report', requireAuth, async (req: AuthRequest, res, next) 
   }
 });
 
-// Deposit into manager's allotment balance
+// Deposit into (or deduct from) manager's allotment balance
 const depositAllotmentSchema = z.object({
   params: z.object({
     id: z.string().uuid(),
   }),
   body: z.object({
-    amount: z.number().positive(),
+    amount: z.number().refine(val => val !== 0, { message: 'Amount must be non-zero' }),
     description: z.string().optional(),
   }),
 });
@@ -316,31 +316,45 @@ router.post(
 
       const { amount, description } = req.body;
 
-      // Deposit into manager's allotment
+      // If deducting, check sufficient balance
+      if (amount < 0) {
+        const currentAllotment = await allotmentService.getCurrentAllotment(req.params.id);
+        const currentBalance = Number(currentAllotment.balance);
+        if (currentBalance < Math.abs(amount)) {
+          throw new AppError(
+            `Insufficient allotment balance. Current: ${currentBalance.toFixed(2)}, requested deduction: ${Math.abs(amount).toFixed(2)}`,
+            400
+          );
+        }
+      }
+
+      // Deposit into (or deduct from) manager's allotment
       const transaction = await allotmentService.depositAllotment(
         req.params.id,
         amount,
-        description || 'Allotment deposit'
+        description || (amount > 0 ? 'Allotment deposit' : 'Allotment deduction')
       );
 
       // Get updated allotment info
       const allotment = await allotmentService.getCurrentAllotment(req.params.id);
 
-      // Get manager info for email notification
-      const manager = await prisma.employee.findUnique({
-        where: { id: req.params.id },
-      });
+      // Get manager info for email notification (only for deposits)
+      if (amount > 0) {
+        const manager = await prisma.employee.findUnique({
+          where: { id: req.params.id },
+        });
 
-      if (manager) {
-        await emailService.sendAllotmentDepositNotification(
-          manager.email,
-          manager.name,
-          amount
-        );
+        if (manager) {
+          await emailService.sendAllotmentDepositNotification(
+            manager.email,
+            manager.name,
+            amount
+          );
+        }
       }
 
       res.json({
-        message: 'Allotment deposited successfully',
+        message: amount > 0 ? 'Allotment deposited successfully' : 'Allotment deducted successfully',
         transaction: {
           id: transaction.id,
           amount: Number(transaction.amount),

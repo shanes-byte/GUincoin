@@ -352,8 +352,8 @@ export default function AdminPortal() {
     if (!selectedManagerId) return;
 
     const amount = parseFloat(depositForm.amount);
-    if (isNaN(amount) || amount <= 0) {
-      addToast('Please enter a valid amount greater than 0', 'error');
+    if (isNaN(amount) || amount === 0) {
+      addToast('Please enter a non-zero amount', 'error');
       return;
     }
 
@@ -363,7 +363,7 @@ export default function AdminPortal() {
         amount,
         description: depositForm.description || undefined,
       });
-      addToast('Allotment deposited successfully!', 'success');
+      addToast(amount > 0 ? 'Allotment deposited successfully!' : 'Allotment deducted successfully!', 'success');
       setDepositForm({ amount: '', description: '' });
       // Reload the allotment details
       await loadManagerAllotment(selectedManagerId);
