@@ -13,6 +13,7 @@ import studioRoutes from './studio';
 import settingsRoutes from './settings';
 
 import awardPresetsRoutes from './awardPresets';
+import reportsRoutes from './reports';
 
 const router = express.Router();
 
@@ -31,5 +32,6 @@ router.use(studioRoutes);
 router.use('/settings', settingsRoutes);
 
 router.use(awardPresetsRoutes);
+router.use('/reports', reportsRoutes);
 
 export default router;

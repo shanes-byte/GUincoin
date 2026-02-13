@@ -1089,6 +1089,18 @@ export const testSmtpConnection = (testEmail?: string) =>
     { testEmail }
   );
 
+// =====================
+// Reports Dashboard
+// =====================
+
+export interface ReportStats {
+  transactionsByType: Array<{ type: string; count: number; totalAmount: number }>;
+  dailyActivity: Array<{ date: string; count: number; amount: number }>;
+  gamingOverview: { gamesPlayed: number; totalWagered: number; totalWon: number; jackpotPool: number };
+}
+
+export const getReportStats = () => api.get<ReportStats>('/admin/reports/stats');
+
 // Bulk create employees from CSV/Excel
 export const bulkCreateEmployees = (formData: FormData) =>
   api.post<{ created: number; skipped: number; errors: Array<{ row: number; message: string }> }>(

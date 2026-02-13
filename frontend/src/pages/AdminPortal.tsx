@@ -161,6 +161,7 @@ export default function AdminPortal() {
   const [bulkUploading, setBulkUploading] = useState(false);
   // Balance management state
   const [balanceMap, setBalanceMap] = useState<Record<string, number>>({});
+  const [balanceError, setBalanceError] = useState<string | null>(null);
   const [chatAuditLogs, setChatAuditLogs] = useState<ChatCommandAudit[]>([]);
   const [chatStats, setChatStats] = useState<ChatAuditStats | null>(null);
   const [chatLogsLoading, setChatLogsLoading] = useState(false);
@@ -559,7 +560,21 @@ export default function AdminPortal() {
     }
   };
 
+  // [ORIGINAL - 2026-02-13] loadBalanceMap silently caught errors, leaving balanceMap as {} with no user feedback
+  // const loadBalanceMap = async () => {
+  //   try {
+  //     const res = await getBalanceReport();
+  //     const map: Record<string, number> = {};
+  //     for (const row of res.data.reportData) {
+  //       map[row.employeeId] = row.userBalance;
+  //     }
+  //     setBalanceMap(map);
+  //   } catch (err: unknown) {
+  //     console.error('Failed to load balance map:', err);
+  //   }
+  // };
   const loadBalanceMap = async () => {
+    setBalanceError(null);
     try {
       const res = await getBalanceReport();
       const map: Record<string, number> = {};
@@ -569,6 +584,7 @@ export default function AdminPortal() {
       setBalanceMap(map);
     } catch (err: unknown) {
       console.error('Failed to load balance map:', err);
+      setBalanceError('Failed to load balance data. Click Refresh to retry.');
     }
   };
 
@@ -1438,6 +1454,8 @@ export default function AdminPortal() {
             onDeposit={handleDeposit}
             onSetRecurring={handleSetRecurring}
             balanceMap={balanceMap}
+            balanceError={balanceError}
+            onRetryBalance={loadBalanceMap}
             onAdjustBalance={handleAdjustBalance}
           />
         )}

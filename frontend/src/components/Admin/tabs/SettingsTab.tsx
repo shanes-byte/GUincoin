@@ -36,6 +36,8 @@ interface SettingsTabProps {
 
   // Balance Management
   balanceMap: Record<string, number>;
+  balanceError: string | null;
+  onRetryBalance: () => void;
   onAdjustBalance: (employeeId: string, amount: number, reason: string) => Promise<void>;
 
   // Manager Allotments
@@ -79,6 +81,8 @@ export default function SettingsTab({
   onBulkUpload,
   bulkUploading,
   balanceMap,
+  balanceError,
+  onRetryBalance,
   onAdjustBalance,
   managers,
   managersLoading,
@@ -396,6 +400,23 @@ export default function SettingsTab({
                 {employeesLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
+
+            {balanceError && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-yellow-800">
+                  <svg className="w-5 h-5 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span>{balanceError}</span>
+                </div>
+                <button
+                  onClick={onRetryBalance}
+                  className="px-3 py-1 text-xs font-medium text-yellow-800 bg-yellow-100 rounded hover:bg-yellow-200"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
 
             {employeesLoading && employees.length === 0 ? (
               <div className="text-center py-6 text-gray-500">Loading employees...</div>

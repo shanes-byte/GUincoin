@@ -8,6 +8,7 @@ import ManagerPortal from './pages/ManagerPortal';
 import Transfers from './pages/Transfers';
 import Wellness from './pages/Wellness';
 import AdminPortal from './pages/AdminPortal';
+import BalanceReport from './pages/BalanceReport';
 import Store from './pages/Store';
 import Games from './pages/Games';
 
@@ -26,6 +27,7 @@ function App() {
             <Route path="/games" element={<Games />} />
             <Route path="/wellness" element={<Wellness />} />
             <Route path="/admin" element={<AdminPortal />} />
+            <Route path="/admin/balances" element={<BalanceReport />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>

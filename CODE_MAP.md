@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-12
+> **Last Updated**: 2026-02-13
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -659,6 +659,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `/api/admin/games` | prisma.gameConfig/game/gameStats (direct), gameEngine.*, jackpotService.* |
 | `/api/admin/studio` | studioService.* |
 | `/api/admin/settings/smtp` | prisma.smtpSettings (direct) |
+| `/api/admin/reports/stats` | GET — aggregated transaction/gaming analytics (prisma.ledgerTransaction.groupBy, prisma.gameStats.aggregate, prisma.jackpot.aggregate) |
 | `/api/admin/users/bulk` | POST — bulk create employees from CSV/Excel (multer + xlsx) |
 
 ### Integration Routes
@@ -821,7 +822,8 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `getAllEmployees()` | GET | /admin/users | AdminPortal |
 | `createEmployee(data)` | POST | /admin/users | AdminPortal |
 | `updateEmployeeRoles(id, data)` | PUT | /admin/users/{id}/roles | AdminPortal |
-| `getBalanceReport()` | GET | /admin/users/balances-report | AdminPortal |
+| `getBalanceReport()` | GET | /admin/users/balances-report | AdminPortal, BalanceReport |
+| `getReportStats()` | GET | /admin/reports/stats | BalanceReport |
 | `adjustUserBalance(id, data)` | POST | /admin/users/{id}/balance/adjust | AdminPortal (via SettingsTab) |
 | `getManagerAllotmentDetails(id)` | GET | /admin/users/{id}/allotment | AdminPortal |
 | `depositAllotment(id, data)` | POST | /admin/users/{id}/allotment/deposit | AdminPortal |
@@ -894,8 +896,15 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 ### AdminPortal (`pages/AdminPortal.tsx`)
 - **API**: 40+ API calls covering all admin operations
 - **Components**: Layout, PendingSubmissionsList, CampaignStudio, StoreTab, GoogleChatTab, SettingsTab
-- **Features**: Multi-tab interface, nested settings tabs
-- **Size**: ~1273 lines (largest component)
+- **Features**: Multi-tab interface, nested settings tabs, balanceError state surfaces load failures
+- **Size**: ~1460 lines (largest component)
+
+### BalanceReport (`pages/BalanceReport.tsx`)
+- **Route**: `/admin/balances`
+- **API**: getCurrentUser(), getBalanceReport(), getReportStats()
+- **Components**: Layout, recharts (PieChart, AreaChart, BarChart)
+- **Features**: Summary cards (totals), transaction pie chart, 30-day activity area chart, Guincoin leaderboard (searchable), top 10 earners bar chart, manager allotment usage table, gaming overview
+- **Auth**: Admin-only (redirects non-admins)
 
 ---
 
