@@ -390,8 +390,8 @@ export default function Games() {
         {/* ==================== GAMES TAB ==================== */}
         {activeTab === 'games' && (
           <div className="space-y-8">
-            {/* Daily Bonus Card */}
-            {dailyBonus && (
+            {/* Daily Bonus Card — only show if the daily_bonus game is enabled */}
+            {dailyBonus && gameConfigs.some(c => c.gameType === 'daily_bonus' && c.enabled) && (
               <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 shadow rounded-lg p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
