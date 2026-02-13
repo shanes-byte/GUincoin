@@ -448,7 +448,9 @@ export interface BalanceReport {
   generatedAt: string;
 }
 
-export const getBalanceReport = () => api.get<BalanceReport>('/admin/users/balances-report');
+// [ORIGINAL - 2026-02-13] Wrong path - route is mounted at /admin root, not /admin/users
+// export const getBalanceReport = () => api.get<BalanceReport>('/admin/users/balances-report');
+export const getBalanceReport = () => api.get<BalanceReport>('/admin/balances-report');
 
 export const adjustUserBalance = (employeeId: string, data: { amount: number; reason: string }) =>
   api.post<{ message: string; updatedBalance: number }>(`/admin/users/${employeeId}/balance/adjust`, data);
