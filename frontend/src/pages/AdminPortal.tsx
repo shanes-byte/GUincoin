@@ -32,7 +32,6 @@ import {
   getAdminStoreProducts,
   toggleProductStatus,
   deleteProduct,
-  getCampaigns,
   getAdminGameConfigs,
   toggleGameEnabled,
   updateAdminGameConfig,
@@ -52,13 +51,13 @@ import {
   ChatCommandAudit,
   ChatAuditStats,
   ManagerAllotmentDetails,
-  Campaign,
 } from '../services/api';
 import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
 import PendingSubmissionsList from '../components/Admin/PendingSubmissionsList';
-import { CampaignStudio } from '../components/Admin/CampaignStudio';
-import { StoreTab, GoogleChatTab, SettingsTab, GamesTab } from '../components/Admin/tabs';
+// [ORIGINAL - 2026-02-18] CampaignStudio import removed, moved to archive/campaign-studio/frontend/
+// import { CampaignStudio } from '../components/Admin/CampaignStudio';
+import { StoreTab, GoogleChatTab, SettingsTab, GamesTab, BackgroundsTab } from '../components/Admin/tabs';
 
 interface Submission {
   id: string;
@@ -77,7 +76,9 @@ interface Submission {
   status: string;
 }
 
-type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings' | 'games';
+// [ORIGINAL - 2026-02-18] Had 'studio' tab for CampaignStudio
+// type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings' | 'games';
+type TabType = 'wellness' | 'store' | 'backgrounds' | 'google-chat' | 'settings' | 'games';
 type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
 
 export default function AdminPortal() {
@@ -186,8 +187,8 @@ export default function AdminPortal() {
   const [storeProductsLoading, setStoreProductsLoading] = useState(false);
   const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
-  // Campaign management state (used for tab badge count)
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // [ORIGINAL - 2026-02-18] Campaign state removed — CampaignStudio archived
+  // const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // Game management state
   const [adminGameConfigs, setAdminGameConfigs] = useState<AdminGameConfig[]>([]);
   const [gameConfigsLoading, setGameConfigsLoading] = useState(false);
@@ -302,12 +303,8 @@ export default function AdminPortal() {
     }
   }, [activeTab, loading]);
 
-  // Load campaigns on initial load for tab badge count
-  useEffect(() => {
-    if (activeTab === 'studio' && !loading) {
-      loadCampaigns();
-    }
-  }, [activeTab, loading]);
+  // [ORIGINAL - 2026-02-18] Campaign loading effect removed — CampaignStudio archived
+  // useEffect(() => { if (activeTab === 'studio' && !loading) { loadCampaigns(); } }, [activeTab, loading]);
 
   // Auto-load game configs when games tab becomes active
   useEffect(() => {
@@ -386,14 +383,8 @@ export default function AdminPortal() {
     }
   };
 
-  const loadCampaigns = async () => {
-    try {
-      const res = await getCampaigns();
-      setCampaigns(res.data);
-    } catch (err: unknown) {
-      console.error('Failed to load campaigns:', err);
-    }
-  };
+  // [ORIGINAL - 2026-02-18] loadCampaigns removed — CampaignStudio archived
+  // const loadCampaigns = async () => { ... };
 
   const loadGoogleChatData = async () => {
     setChatLogsLoading(true);
@@ -983,7 +974,9 @@ export default function AdminPortal() {
   const allTabs = [
     { id: 'wellness' as TabType, name: 'Wellness', count: submissions.length, adminOnly: true },
     { id: 'store' as TabType, name: 'Store', count: pendingPurchases.length, adminOnly: true },
-    { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null, adminOnly: true },
+    // [ORIGINAL - 2026-02-18] Campaign Studio tab replaced with Backgrounds
+    // { id: 'studio' as TabType, name: 'Campaign Studio', count: campaigns.filter(c => c.status === 'active').length || null, adminOnly: true },
+    { id: 'backgrounds' as TabType, name: 'Backgrounds', count: null, adminOnly: true },
     { id: 'google-chat' as TabType, name: 'Google Chat', count: chatStats?.recentActivity || null, adminOnly: true },
     { id: 'games' as TabType, name: 'Games', count: null, adminOnly: false },
     { id: 'settings' as TabType, name: 'Settings', count: null, adminOnly: true },
@@ -1370,21 +1363,8 @@ export default function AdminPortal() {
           />
         )}
 
-        {/* Campaign Studio Tab */}
-        {activeTab === 'studio' && (
-          <div className="fixed inset-0 z-50">
-            <CampaignStudio />
-            <button
-              onClick={() => setActiveTab('wellness')}
-              className="absolute top-4 right-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-              title="Exit Studio"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
+        {/* Backgrounds Tab */}
+        {activeTab === 'backgrounds' && <BackgroundsTab />}
 
         {/* Google Chat Tab */}
         {activeTab === 'google-chat' && (

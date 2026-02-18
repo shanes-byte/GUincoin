@@ -266,6 +266,36 @@ class StudioService {
   }
 
   /**
+   * Set or clear the background image URL in SystemSettings.manualTheme.
+   * Sets themeMode to 'manual' if setting an image, preserves existing theme colors.
+   */
+  async setBackgroundImage(imageUrl: string | null): Promise<SystemSettings> {
+    try {
+      if (!(await this.isSystemSettingsAvailable())) {
+        return { ...DEFAULT_SETTINGS, themeMode: 'manual', manualTheme: imageUrl ? { ...DEFAULT_THEME, backgroundImageUrl: imageUrl } : null };
+      }
+
+      const current = await this.getSettings();
+      const currentTheme = current.manualTheme || await this.getCurrentTheme();
+
+      const updatedTheme: CampaignTheme = {
+        ...currentTheme,
+        backgroundImageUrl: imageUrl || undefined,
+      };
+
+      // If clearing the image, remove the key entirely
+      if (!imageUrl) {
+        delete updatedTheme.backgroundImageUrl;
+      }
+
+      return this.setManualTheme(updatedTheme, true);
+    } catch (error) {
+      console.error('Error setting background image:', error);
+      return DEFAULT_SETTINGS;
+    }
+  }
+
+  /**
    * Full campaign activation with optional distribution
    */
   async activateCampaignFull(

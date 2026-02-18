@@ -74,8 +74,19 @@ export default function Layout({ children, user }: LayoutProps) {
     { path: '/wellness', label: 'Wellness' },
   ];
 
+  // [ORIGINAL - 2026-02-18] Static bg-gray-50, no dynamic background support
+  // <div className="min-h-screen bg-gray-50">
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{
+        backgroundImage: 'var(--campaign-bg-image)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">

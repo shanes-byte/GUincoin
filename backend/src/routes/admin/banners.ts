@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin, AuthRequest } from '../../middleware/auth';
 import { validate } from '../../middleware/validation';
 import bannerService, { BANNER_DIMENSIONS, PageName } from '../../services/bannerService';
 import aiImageService from '../../services/aiImageService';
+import { studioService } from '../../services/studioService';
 import { AppError } from '../../utils/errors';
 import { BannerPosition } from '@prisma/client';
 import multer from 'multer';
@@ -304,5 +305,116 @@ router.post(
     }
   }
 );
+
+/**
+ * POST /banners/generate-background
+ * Create a new background banner and generate AI image in one step
+ */
+router.post(
+  '/banners/generate-background',
+  requireAuth,
+  requireAdmin,
+  async (req: AuthRequest, res, next) => {
+    try {
+      if (!aiImageService.isAvailable()) {
+        throw new AppError('AI image generation is not configured. Please set OPENAI_API_KEY.', 503);
+      }
+
+      const { prompt } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        throw new AppError('A text prompt is required', 400);
+      }
+
+      // 1. Create a new background banner record
+      const banner = await bannerService.createBanner({
+        name: `Background: ${prompt.substring(0, 50)}`,
+        position: 'background',
+        isActive: false,
+      });
+
+      // 2. Generate the AI image
+      const result = await aiImageService.generateBannerImage(
+        banner.id,
+        'background',
+        { customPrompt: prompt }
+      );
+
+      // 3. Update banner with generated image
+      const updatedBanner = await bannerService.updateBannerImage(
+        banner.id,
+        result.url,
+        true,
+        prompt
+      );
+
+      res.status(201).json({
+        message: 'Background generated successfully',
+        banner: updatedBanner,
+        image: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /banners/:id/activate-background
+ * Activate this background and deactivate all others.
+ * Also updates SystemSettings so ThemeContext picks it up.
+ */
+router.post('/banners/:id/activate-background', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const banner = await bannerService.getBannerById(req.params.id);
+
+    if (banner.position !== 'background') {
+      throw new AppError('This banner is not a background', 400);
+    }
+
+    if (!banner.imageUrl) {
+      throw new AppError('This background has no image', 400);
+    }
+
+    // Deactivate all other background banners
+    const allBgs = await bannerService.listBanners({ position: 'background', isActive: true });
+    for (const bg of allBgs) {
+      if (bg.id !== banner.id) {
+        await bannerService.updateBanner(bg.id, { isActive: false });
+      }
+    }
+
+    // Activate this one
+    await bannerService.updateBanner(banner.id, { isActive: true });
+
+    // Update SystemSettings.manualTheme.backgroundImageUrl
+    await studioService.setBackgroundImage(banner.imageUrl);
+
+    const finalBanner = await bannerService.getBannerById(banner.id);
+    res.json({ message: 'Background activated', banner: finalBanner });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /banners/deactivate-background
+ * Deactivate all background banners and clear backgroundImageUrl
+ */
+router.post('/banners/deactivate-background', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    // Deactivate all background banners
+    const backgrounds = await bannerService.listBanners({ position: 'background', isActive: true });
+    for (const bg of backgrounds) {
+      await bannerService.updateBanner(bg.id, { isActive: false });
+    }
+
+    // Clear background from theme
+    await studioService.setBackgroundImage(null);
+
+    res.json({ message: 'Background deactivated' });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

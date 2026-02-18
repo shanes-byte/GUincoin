@@ -678,6 +678,40 @@ export const getDownloadableAssets = (campaignId: string) =>
   }>(`/admin/campaigns/${campaignId}/downloadable-assets`);
 
 // =====================
+// AI Backgrounds
+// =====================
+
+export interface Banner {
+  id: string;
+  name: string;
+  position: string;
+  campaignId: string | null;
+  imageUrl: string | null;
+  isAiGenerated: boolean;
+  aiPromptUsed: string | null;
+  width: number;
+  height: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getBackgrounds = () =>
+  api.get<Banner[]>('/admin/banners', { params: { position: 'background' } });
+
+export const generateBackground = (prompt: string) =>
+  api.post<{ message: string; banner: Banner }>('/admin/banners/generate-background', { prompt });
+
+export const activateBackground = (bannerId: string) =>
+  api.post<{ message: string; banner: Banner }>(`/admin/banners/${bannerId}/activate-background`);
+
+export const deactivateBackground = () =>
+  api.post<{ message: string }>('/admin/banners/deactivate-background');
+
+export const deleteBackground = (bannerId: string) =>
+  api.delete(`/admin/banners/${bannerId}`);
+
+// =====================
 // Campaign Studio
 // =====================
 

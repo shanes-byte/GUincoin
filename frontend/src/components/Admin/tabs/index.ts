@@ -3,3 +3,4 @@ export { default as StoreTab } from './StoreTab';
 export { default as GoogleChatTab } from './GoogleChatTab';
 export { default as SettingsTab } from './SettingsTab';
 export { default as GamesTab } from './GamesTab';
+export { default as BackgroundsTab } from './BackgroundsTab';

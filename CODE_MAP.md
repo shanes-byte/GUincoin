@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-13
+> **Last Updated**: 2026-02-18
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -54,7 +54,7 @@ For **every** code change:
 | **Goal** | (store route directly) | store | Dashboard (goals), Store (goal creation) |
 | **Campaign** | campaignService, campaignDistributionService, aiImageService, studioService | admin/campaigns, admin/studio | AdminPortal (CampaignStudio) |
 | **CampaignTask** | campaignService | admin/campaigns | AdminPortal (campaign task management) |
-| **Banner** | bannerService | admin/banners, banners | Layout (banner display) |
+| **Banner** | bannerService | admin/banners, files (banner serving) | AdminPortal (BackgroundsTab), Layout (dynamic background) |
 | **EmailTemplate** | emailTemplateService | admin/emailTemplates | AdminPortal (email templates) |
 | **SystemSettings** | studioService | admin/studio, admin/settings | ThemeContext (campaign theming) |
 | **SmtpSettings** | email config (email.ts) | admin/settings | AdminPortal (SMTP settings) |
@@ -125,11 +125,14 @@ Every `TransactionType` is used in:
 | **emailTemplateService.renderTemplate()** | `emailService` (all send methods) |
 | **emailTemplateService.listEmailTemplates()** | `admin/emailTemplates.ts` route |
 | **emailTemplateService.upsertEmailTemplate()** | `admin/emailTemplates.ts` route |
-| **bannerService.listBanners()** | `admin/banners.ts` route |
-| **bannerService.createBanner()** | `admin/banners.ts` route |
-| **bannerService.updateBanner()** | `admin/banners.ts` route |
+| **bannerService.listBanners()** | `admin/banners.ts` route (list, deactivate-background) |
+| **bannerService.getBannerById()** | `admin/banners.ts` route (get, upload, generate-ai, activate-background) |
+| **bannerService.createBanner()** | `admin/banners.ts` route (create, generate-background) |
+| **bannerService.updateBanner()** | `admin/banners.ts` route (update, deactivate-background) |
+| **bannerService.updateBannerImage()** | `admin/banners.ts` route (upload, generate-ai, generate-background) |
 | **bannerService.deleteBanner()** | `admin/banners.ts` route |
-| **bannerService.toggleBanner()** | `admin/banners.ts` route |
+| **bannerService.toggleBanner()** | `admin/banners.ts` route (toggle, activate-background) |
+| **bannerService.getActiveBackground()** | (available — returns currently active background banner) |
 | **aiImageService.generateCampaignImages()** | `admin/campaigns.ts` route |
 | **aiImageService.regenerateImage()** | `admin/campaigns.ts` route |
 | **aiImageService.generateBannerImage()** | `admin/banners.ts` route |
@@ -484,8 +487,9 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | `getSettings()` | admin/studio.ts route, getStudioState() |
 | `getStudioState()` | admin/studio.ts route, getCurrentTheme() |
 | `setThemeMode(mode)` | admin/studio.ts route, activateCampaignFull() |
-| `setManualTheme(theme, switchToManualMode?)` | admin/studio.ts route |
-| `getCurrentTheme()` | admin/studio.ts route |
+| `setManualTheme(theme, switchToManualMode?)` | admin/studio.ts route, setBackgroundImage() |
+| `setBackgroundImage(imageUrl)` | admin/banners.ts route (activate-background, deactivate-background) |
+| `getCurrentTheme()` | admin/studio.ts route, setBackgroundImage() |
 | `activateCampaignFull(campaignId, options?)` | admin/studio.ts route |
 
 ### aiImageService.ts
@@ -514,9 +518,22 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | `logSecurityEvent(action, context)` | (available for routes) |
 | `getAuditLogs(options)` | (no route currently) |
 
-### bannerService.ts, games.ts (gameEngine, jackpotService)
-- Mostly stubs returning empty/default data
-- See service files for current stub signatures
+### bannerService.ts
+**Location**: `backend/src/services/bannerService.ts`
+
+| Function | Signature | Depended On By |
+|----------|-----------|----------------|
+| `listBanners(filters)` | `({position?, campaignId?, isActive?}) → Promise<Banner[]>` | admin/banners.ts route |
+| `getBannerById(id)` | `(string) → Promise<Banner>` | admin/banners.ts route |
+| `createBanner(data)` | `(Record<string, unknown>) → Promise<Banner>` | admin/banners.ts route |
+| `updateBanner(id, data)` | `(string, Record<string, unknown>) → Promise<Banner>` | admin/banners.ts route |
+| `updateBannerImage(id, imageUrl, isAiGenerated, aiPromptUsed?)` | `(string, string, boolean, string?) → Promise<Banner>` | admin/banners.ts route |
+| `deleteBanner(id)` | `(string) → Promise<void>` | admin/banners.ts route |
+| `toggleBanner(id)` | `(string) → Promise<Banner>` | admin/banners.ts route (deactivates other bg banners when activating) |
+| `getActiveBackground()` | `() → Promise<Banner \| null>` | (available) |
+
+### games.ts (gameEngine, jackpotService)
+- See service files for current signatures
 
 ### fileService.ts
 **Location**: `backend/src/services/fileService.ts`
@@ -655,7 +672,8 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `/api/admin/award-presets` | prisma.awardPreset (direct CRUD) |
 | `/api/admin/email-templates` | emailTemplateService.listEmailTemplates(), .upsertEmailTemplate() |
 | `/api/admin/google-chat` | prisma.chatCommandAudit (direct) |
-| `/api/admin/banners` | bannerService.* |
+| `/api/admin/banners` | bannerService.*, aiImageService.generateBannerImage(), studioService.setBackgroundImage() |
+| `/api/files/banners/:filename` | (serves static banner images from uploads/banners/) |
 | `/api/admin/games` | prisma.gameConfig/game/gameStats (direct), gameEngine.*, jackpotService.* |
 | `/api/admin/studio` | studioService.* |
 | `/api/admin/settings/smtp` | prisma.smtpSettings (direct) |
@@ -851,6 +869,11 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `setManualTheme(theme)` | PATCH | /admin/theme/manual | AdminPortal |
 | `getCurrentTheme()` | GET | /admin/theme/current | ThemeContext |
 | `activateCampaignFull(id, options)` | POST | /admin/campaigns/{id}/activate-full | AdminPortal |
+| `getBackgrounds()` | GET | /admin/banners?position=background | AdminPortal (BackgroundsTab) |
+| `generateBackground(prompt)` | POST | /admin/banners/generate-background | AdminPortal (BackgroundsTab) |
+| `activateBackground(bannerId)` | POST | /admin/banners/{id}/activate-background | AdminPortal (BackgroundsTab) |
+| `deactivateBackground()` | POST | /admin/banners/deactivate-background | AdminPortal (BackgroundsTab) |
+| `deleteBackground(bannerId)` | DELETE | /admin/banners/{id} | AdminPortal (BackgroundsTab) |
 | `getSmtpSettings()` | GET | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `updateSmtpSettings(data)` | PUT | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `testSmtpConnection(email)` | POST | /admin/settings/smtp/test | AdminPortal (SettingsTab) |
@@ -895,7 +918,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 
 ### AdminPortal (`pages/AdminPortal.tsx`)
 - **API**: 40+ API calls covering all admin operations
-- **Components**: Layout, PendingSubmissionsList, CampaignStudio, StoreTab, GoogleChatTab, SettingsTab
+- **Components**: Layout, PendingSubmissionsList, BackgroundsTab, StoreTab, GoogleChatTab, SettingsTab, GamesTab
 - **Features**: Multi-tab interface, nested settings tabs, balanceError state surfaces load failures
 - **Size**: ~1460 lines (largest component)
 
@@ -925,6 +948,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 - **Props**: children, user? ({name, isManager, isAdmin})
 - **API**: logout()
 - **Renders**: Nav bar, conditional links (Dashboard, Transfers, Store, Wellness, Manager Portal, Admin)
+- **Dynamic background**: Root div uses `var(--campaign-bg-image)` CSS variable (set by ThemeContext) for site-wide AI-generated backgrounds
 
 ### Toast (`components/Toast.tsx`)
 - **Context**: addToast(message, type), confirm(message) → Promise<boolean>
@@ -947,8 +971,8 @@ App (Router + ErrorBoundary + ToastProvider + ThemeProvider)
 ├── Transfers → Layout → TransferLimits, TransferForm, TransactionList
 ├── Wellness → Layout → WellnessTaskList (→ WellnessTaskModal), WellnessSubmissions
 ├── Store → Layout → (inline product cards, modals)
-└── AdminPortal → Layout → PendingSubmissionsList, CampaignStudio, StoreTab,
-                            GoogleChatTab, SettingsTab
+└── AdminPortal → Layout → PendingSubmissionsList, BackgroundsTab, StoreTab,
+                            GoogleChatTab, SettingsTab, GamesTab
 ```
 
 ---

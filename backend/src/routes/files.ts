@@ -31,6 +31,35 @@ router.get('/public/:filename', (req, res) => {
   });
 });
 
+// Serve banner images (no auth, public assets)
+router.get('/banners/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const bannerUploadDir = path.join(process.env.UPLOAD_DIR || './uploads', 'banners');
+  const filePath = path.join(bannerUploadDir, filename);
+
+  // Security: prevent directory traversal
+  const resolvedPath = path.resolve(filePath);
+  const resolvedDir = path.resolve(bannerUploadDir);
+
+  if (!resolvedPath.startsWith(resolvedDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ error: 'Banner image not found' });
+  }
+
+  // Set caching headers for images
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+
+  res.sendFile(resolvedPath, (err) => {
+    if (err) {
+      console.error('Error sending banner file:', err);
+      res.status(500).json({ error: 'Error serving file' });
+    }
+  });
+});
+
 // Serve campaign images (no auth required for public campaign assets)
 router.get('/campaigns/:campaignId/:filename', (req, res) => {
   const { campaignId, filename } = req.params;
