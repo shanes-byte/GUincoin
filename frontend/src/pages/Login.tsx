@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getCurrentUser } from '../services/api';
+import api, { getCurrentUser } from '../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+
+  // Fetch active background image (public endpoint, no auth needed)
+  useEffect(() => {
+    api.get<{ imageUrl: string | null }>('/banners/active-background')
+      .then((res) => setBackgroundUrl(res.data.imageUrl))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Check for error from OAuth callback
@@ -35,9 +43,20 @@ export default function Login() {
     window.location.href = '/api/auth/google';
   };
 
+  // [ORIGINAL - 2026-02-18] Static bg-gray-50 on both loading and main states, no dynamic background
+  const bgStyle = backgroundUrl
+    ? {
+        backgroundImage: `url(${backgroundUrl})`,
+        backgroundSize: 'cover' as const,
+        backgroundPosition: 'center' as const,
+        backgroundAttachment: 'fixed' as const,
+        backgroundRepeat: 'no-repeat' as const,
+      }
+    : {};
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4" style={bgStyle}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Checking authentication...</p>
@@ -47,8 +66,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4" style={bgStyle}>
+      <div className="max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Guincoin Rewards
