@@ -43,7 +43,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         </ul>
         <p>Log in to your account to get started: <a href="{{loginUrl}}" style="color: #2563eb;">{{loginUrl}}</a></p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -62,7 +63,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{messageBlock}}
         <p>Your balance has been updated. Log in to your account to view your transaction history.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -81,7 +83,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{messageBlock}}
         <p>Your manager allotment has been updated.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -100,7 +103,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{messageBlock}}
         <p>Your balance has been updated. Log in to your account to view your transaction history.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -119,7 +123,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{messageBlock}}
         <p>Your balance has been updated. Log in to your account to view your transaction history.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -138,7 +143,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{messageBlock}}
         <p>Sign in to accept the reward: <a href="{{signinUrl}}">{{signinUrl}}</a></p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -157,7 +163,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         <p>You have received <strong>{{amount}} Guincoins</strong> for completing this wellness task.</p>
         <p>Your balance has been updated. Log in to your account to view your transaction history.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -176,7 +183,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{reasonBlock}}
         <p>Please review your submission and resubmit if needed. Log in to your account for more details.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -195,7 +203,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         {{trackingBlock}}
         <p>You can view your purchase history in your account.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -213,7 +222,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         <p>You have been assigned the <strong>{{role}}</strong> role on the Guincoin Rewards Platform.</p>
         <p>Log in to your account to explore your new capabilities.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -231,7 +241,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
         <p><strong>{{amount}} Guincoins</strong> have been deposited into your manager allotment.</p>
         <p>Log in to your account to view your updated allotment balance.</p>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
@@ -262,7 +273,8 @@ const defaultTemplates: EmailTemplateDefinition[] = [
           <li>Redeem your Guincoins in the company store</li>
         </ul>
         <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-          This is an automated message from the Guincoin Rewards Platform.
+          This is an automated message from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
         </p>
       </div>
     `,
