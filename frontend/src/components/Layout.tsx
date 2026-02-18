@@ -227,7 +227,9 @@ export default function Layout({ children, user }: LayoutProps) {
         )}
       </nav>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {children}
+        <div className="bg-white/85 backdrop-blur-sm rounded-xl p-6 shadow-sm">
+          {children}
+        </div>
       </main>
     </div>
   );
