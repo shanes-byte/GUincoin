@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import OAuthCallback from './pages/OAuthCallback';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +17,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
+        <ThemeProvider>
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -31,6 +33,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
+        </ThemeProvider>
       </ToastProvider>
     </ErrorBoundary>
   );
