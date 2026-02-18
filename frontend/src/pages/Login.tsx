@@ -43,20 +43,24 @@ export default function Login() {
     window.location.href = '/api/auth/google';
   };
 
-  // [ORIGINAL - 2026-02-18] Static bg-gray-50 on both loading and main states, no dynamic background
-  const bgStyle = backgroundUrl
-    ? {
-        backgroundImage: `url(${backgroundUrl})`,
-        backgroundSize: 'cover' as const,
-        backgroundPosition: 'center' as const,
-        backgroundAttachment: 'fixed' as const,
-        backgroundRepeat: 'no-repeat' as const,
-      }
-    : {};
+  // [ORIGINAL - 2026-02-18] Used background-attachment: fixed inline style,
+  // which breaks on iOS Safari and some Android browsers. Replaced with fixed div.
+  const bgImage = backgroundUrl ? `url(${backgroundUrl})` : undefined;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4" style={bgStyle}>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
+        {bgImage && (
+          <div
+            className="fixed inset-0 -z-10"
+            style={{
+              backgroundImage: bgImage,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+        )}
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Checking authentication...</p>
@@ -66,7 +70,18 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4" style={bgStyle}>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
+      {bgImage && (
+        <div
+          className="fixed inset-0 -z-10"
+          style={{
+            backgroundImage: bgImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+      )}
       <div className="max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

@@ -74,19 +74,21 @@ export default function Layout({ children, user }: LayoutProps) {
     { path: '/wellness', label: 'Wellness' },
   ];
 
-  // [ORIGINAL - 2026-02-18] Static bg-gray-50, no dynamic background support
-  // <div className="min-h-screen bg-gray-50">
+  // [ORIGINAL - 2026-02-18] Used background-attachment: fixed on the wrapper div,
+  // which breaks on iOS Safari and some Android browsers (zoomed/clipped rendering).
+  // Replaced with a fixed-position div behind the content for cross-device support.
   return (
-    <div
-      className="min-h-screen bg-gray-50"
-      style={{
-        backgroundImage: 'var(--campaign-bg-image)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Fixed background layer — works on mobile unlike background-attachment: fixed */}
+      <div
+        className="fixed inset-0 -z-10"
+        style={{
+          backgroundImage: 'var(--campaign-bg-image)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
