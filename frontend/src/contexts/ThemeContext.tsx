@@ -175,22 +175,40 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, []);
 
+  // [ORIGINAL - 2026-02-18] Only fetched active campaign, never read SystemSettings manualTheme
+  // so backgrounds set via setBackgroundImage() were never applied
   const refreshTheme = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await api.get<Campaign | null>('/admin/campaigns/active');
-      const campaign = response.data;
+      const [campaignRes, themeRes] = await Promise.allSettled([
+        api.get<Campaign | null>('/admin/campaigns/active'),
+        api.get<CampaignTheme>('/admin/theme/current'),
+      ]);
+
+      const campaign = campaignRes.status === 'fulfilled' ? campaignRes.value.data : null;
+      const currentTheme = themeRes.status === 'fulfilled' ? themeRes.value.data : null;
 
       if (campaign) {
         setActiveCampaign(campaign);
-        setTheme(campaign.theme);
-        applyTheme(campaign.theme);
+        // Merge: use campaign theme but let currentTheme override (it includes backgroundImageUrl from SystemSettings)
+        const mergedTheme = currentTheme ? { ...campaign.theme, ...currentTheme } : campaign.theme;
+        setTheme(mergedTheme);
+        applyTheme(mergedTheme);
 
         // Cache the theme
         localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(campaign));
         localStorage.setItem(THEME_CACHE_EXPIRY_KEY, (Date.now() + CACHE_DURATION_MS).toString());
+      } else if (currentTheme) {
+        // No active campaign but we have a manual theme (e.g. with backgroundImageUrl)
+        setActiveCampaign(null);
+        setTheme(currentTheme);
+        applyTheme(currentTheme);
+
+        // Clear campaign cache
+        localStorage.removeItem(THEME_CACHE_KEY);
+        localStorage.removeItem(THEME_CACHE_EXPIRY_KEY);
       } else {
         setActiveCampaign(null);
         setTheme(DEFAULT_THEME);

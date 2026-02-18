@@ -700,7 +700,7 @@ export const getBackgrounds = () =>
   api.get<Banner[]>('/admin/banners', { params: { position: 'background' } });
 
 export const generateBackground = (prompt: string) =>
-  api.post<{ message: string; banner: Banner }>('/admin/banners/generate-background', { prompt });
+  api.post<{ message: string; banner: Banner }>('/admin/banners/generate-background', { prompt }, { timeout: 120000 });
 
 export const activateBackground = (bannerId: string) =>
   api.post<{ message: string; banner: Banner }>(`/admin/banners/${bannerId}/activate-background`);
