@@ -10,6 +10,12 @@ import prisma from '../config/database';
 // Constants & Configuration
 // ============================================================================
 
+const FAIR_MULTIPLIERS: Record<string, number> = {
+  coin_flip: 2.0,
+  dice_roll: 6.0,
+  higher_lower: 2.0,
+};
+
 const WHEEL_SEGMENTS = [
   { multiplier: 0, weight: 10, label: 'Lose', color: '#ef4444' },
   { multiplier: 0.5, weight: 20, label: '0.5x', color: '#f97316' },
@@ -56,6 +62,40 @@ const DEFAULT_GAME_CONFIGS: Record<string, {
 };
 
 // ============================================================================
+// Game Bank Account Helpers
+// ============================================================================
+
+/**
+ * Returns the singleton GameBankAccount, creating with balance=0 if absent.
+ * Works inside or outside a Prisma transaction.
+ */
+async function getOrCreateBankAccount(tx?: any) {
+  const client = tx || prisma;
+  let bank = await client.gameBankAccount.findFirst();
+  if (!bank) {
+    bank = await client.gameBankAccount.create({
+      data: { balance: new Prisma.Decimal(0) },
+    });
+  }
+  return bank;
+}
+
+/**
+ * If bankAccount.balance <= 0, sets ALL GameConfig.enabled = false.
+ * Returns whether games were disabled.
+ */
+async function checkAndAutoDisable(tx: any, bankBalance: Prisma.Decimal): Promise<boolean> {
+  if (bankBalance.lte(new Prisma.Decimal(0))) {
+    await tx.gameConfig.updateMany({
+      data: { enabled: false },
+    });
+    console.log('[Games] Bank depleted — all games auto-disabled');
+    return true;
+  }
+  return false;
+}
+
+// ============================================================================
 // Provably Fair Helpers
 // ============================================================================
 
@@ -92,6 +132,8 @@ interface GameOutcome {
   multiplier: number;
 }
 
+// [ORIGINAL - 2026-02-19] resolveCoinFlip returned hardcoded multiplier 1.95
+// House edge is now applied in playGame() payout calculation, so return fair multiplier
 function resolveCoinFlip(hmacResult: number, prediction: any): GameOutcome {
   const result = hmacResult % 2; // 0 = heads, 1 = tails
   const resultLabel = result === 0 ? 'heads' : 'tails';
@@ -100,10 +142,11 @@ function resolveCoinFlip(hmacResult: number, prediction: any): GameOutcome {
   return {
     outcome: { result: resultLabel, playerPick },
     won,
-    multiplier: won ? 1.95 : 0,
+    multiplier: won ? FAIR_MULTIPLIERS.coin_flip : 0,
   };
 }
 
+// [ORIGINAL - 2026-02-19] resolveDiceRoll returned hardcoded multiplier 5.7
 function resolveDiceRoll(hmacResult: number, prediction: any): GameOutcome {
   const result = (hmacResult % 6) + 1;
   const playerPick = Number(prediction);
@@ -111,7 +154,7 @@ function resolveDiceRoll(hmacResult: number, prediction: any): GameOutcome {
   return {
     outcome: { result, playerPick },
     won,
-    multiplier: won ? 5.7 : 0,
+    multiplier: won ? FAIR_MULTIPLIERS.dice_roll : 0,
   };
 }
 
@@ -142,6 +185,7 @@ function resolveSpinWheel(hmacResult: number): GameOutcome {
   };
 }
 
+// [ORIGINAL - 2026-02-19] resolveHigherLower returned hardcoded multiplier 1.95
 function resolveHigherLower(hmacResult: number, prediction: any): GameOutcome {
   const generatedNumber = (hmacResult % 100) + 1;
   const playerPick = String(prediction).toLowerCase(); // 'higher' or 'lower'
@@ -157,7 +201,7 @@ function resolveHigherLower(hmacResult: number, prediction: any): GameOutcome {
   return {
     outcome: { generatedNumber, playerPick, threshold: 50 },
     won,
-    multiplier: won ? 1.95 : 0,
+    multiplier: won ? FAIR_MULTIPLIERS.higher_lower : 0,
   };
 }
 
@@ -248,6 +292,7 @@ export const gameEngine = {
         minBet: Number(dbConfig.minBet),
         maxBet: Number(dbConfig.maxBet),
         jackpotContributionRate: Number(dbConfig.jackpotContributionRate),
+        houseEdgePercent: Number(dbConfig.houseEdgePercent),
         availableInChat: dbConfig.availableInChat,
         availableOnWeb: dbConfig.availableOnWeb,
         payoutMultiplier: dbConfig.payoutMultiplier ? Number(dbConfig.payoutMultiplier) : null,
@@ -261,6 +306,7 @@ export const gameEngine = {
       minBet: defaults.minBet,
       maxBet: defaults.maxBet,
       jackpotContributionRate: defaults.jackpotContributionRate,
+      houseEdgePercent: 5, // Default 5% house edge
       availableInChat: defaults.availableInChat,
       availableOnWeb: defaults.availableOnWeb,
       payoutMultiplier: null,
@@ -322,6 +368,12 @@ export const gameEngine = {
     const betDecimal = new Prisma.Decimal(bet);
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Pre-check: Fetch bank account, reject if depleted
+      const bankAccount = await getOrCreateBankAccount(tx);
+      if (new Prisma.Decimal(bankAccount.balance).lte(new Prisma.Decimal(0))) {
+        throw new Error('Games are currently unavailable — bank depleted');
+      }
+
       // 1. Look up player's account and check balance
       const employee = await tx.employee.findUnique({
         where: { id: employeeId },
@@ -387,9 +439,28 @@ export const gameEngine = {
           throw new Error(`Game type "${gameType}" is not implemented`);
       }
 
-      // 6. Calculate payout
+      // [ORIGINAL - 2026-02-19] Payout used raw multiplier from resolve functions (already had edge baked in)
+      // const payoutAmount = gameOutcome.won
+      //   ? new Prisma.Decimal(bet).mul(new Prisma.Decimal(gameOutcome.multiplier))
+      //   : new Prisma.Decimal(0);
+
+      // 6. Calculate payout with house edge
+      const houseEdgeFactor = 1 - (config.houseEdgePercent / 100);
+      let effectiveMultiplier = 0;
+
+      if (gameOutcome.won) {
+        if (gameType === 'spin_wheel' || gameType === 'scratch_card') {
+          // For variable-multiplier games, scale the outcome multiplier
+          effectiveMultiplier = gameOutcome.multiplier * houseEdgeFactor;
+        } else {
+          // For fixed-multiplier games, apply house edge to fair multiplier
+          const fairMultiplier = FAIR_MULTIPLIERS[gameType] || gameOutcome.multiplier;
+          effectiveMultiplier = fairMultiplier * houseEdgeFactor;
+        }
+      }
+
       const payoutAmount = gameOutcome.won
-        ? new Prisma.Decimal(bet).mul(new Prisma.Decimal(gameOutcome.multiplier))
+        ? new Prisma.Decimal(bet).mul(new Prisma.Decimal(effectiveMultiplier))
         : new Prisma.Decimal(0);
 
       // 7. Credit winnings if won
@@ -407,50 +478,71 @@ export const gameEngine = {
             amount: payoutAmount,
             status: 'posted',
             postedAt: new Date(),
-            description: `${gameType} win (${gameOutcome.multiplier}x)`,
+            description: `${gameType} win (${effectiveMultiplier.toFixed(2)}x)`,
             targetEmployeeId: employeeId,
           },
         });
       }
 
-      // 8. Handle jackpot contribution
+      // [ORIGINAL - 2026-02-19] Jackpot contribution was deducted from player as extra charge on top of bet
+      // if (config.jackpotContributionRate > 0) {
+      //   jackpotContribution = betDecimal.mul(new Prisma.Decimal(config.jackpotContributionRate));
+      //   ... deducted from player account ...
+      // }
+
+      // 8. Handle bank + jackpot flow (jackpot funded from bet, not extra player charge)
       let jackpotContribution = new Prisma.Decimal(0);
       let jackpotLedgerTx = null;
 
-      if (config.jackpotContributionRate > 0) {
-        jackpotContribution = betDecimal.mul(new Prisma.Decimal(config.jackpotContributionRate));
-
-        // Find active rolling jackpot
-        const activeJackpot = await tx.jackpot.findFirst({
-          where: { isActive: true, type: 'rolling' },
+      if (gameOutcome.won) {
+        // WIN: bank receives bet, bank pays payout → net: bank += bet - payout
+        const bankDelta = betDecimal.sub(payoutAmount); // negative when payout > bet
+        await tx.gameBankAccount.update({
+          where: { id: bankAccount.id },
+          data: { balance: { increment: bankDelta } },
         });
+      } else {
+        // LOSS: X% of bet goes to jackpot, rest goes to bank
+        if (config.jackpotContributionRate > 0) {
+          jackpotContribution = betDecimal.mul(new Prisma.Decimal(config.jackpotContributionRate));
 
-        if (activeJackpot && jackpotContribution.greaterThan(0)) {
-          // Add to jackpot balance
-          await tx.jackpot.update({
-            where: { id: activeJackpot.id },
-            data: { balance: { increment: jackpotContribution } },
+          const activeJackpot = await tx.jackpot.findFirst({
+            where: { isActive: true, type: 'rolling' },
           });
 
-          // Deduct from player for jackpot (separate from bet)
-          await tx.account.update({
-            where: { id: account.id },
-            data: { balance: { decrement: jackpotContribution } },
-          });
+          if (activeJackpot && jackpotContribution.greaterThan(0)) {
+            await tx.jackpot.update({
+              where: { id: activeJackpot.id },
+              data: { balance: { increment: jackpotContribution } },
+            });
 
-          // Create jackpot contribution ledger transaction
-          jackpotLedgerTx = await tx.ledgerTransaction.create({
-            data: {
-              accountId: account.id,
-              transactionType: TransactionType.jackpot_contribution,
-              amount: jackpotContribution,
-              status: 'posted',
-              postedAt: new Date(),
-              description: `Jackpot contribution from ${gameType}`,
-              sourceEmployeeId: employeeId,
-            },
-          });
+            // Create jackpot contribution ledger transaction (no player debit — comes from bet)
+            jackpotLedgerTx = await tx.ledgerTransaction.create({
+              data: {
+                accountId: account.id,
+                transactionType: TransactionType.jackpot_contribution,
+                amount: jackpotContribution,
+                status: 'posted',
+                postedAt: new Date(),
+                description: `Jackpot contribution from ${gameType} (from bet)`,
+                sourceEmployeeId: employeeId,
+              },
+            });
+          }
         }
+
+        // Bank receives bet minus jackpot contribution
+        const bankGain = betDecimal.sub(jackpotContribution);
+        await tx.gameBankAccount.update({
+          where: { id: bankAccount.id },
+          data: { balance: { increment: bankGain } },
+        });
+      }
+
+      // Check if bank is depleted after this game
+      const updatedBank = await tx.gameBankAccount.findFirst();
+      if (updatedBank) {
+        await checkAndAutoDisable(tx, new Prisma.Decimal(updatedBank.balance));
       }
 
       // 9. Create Game record
@@ -510,17 +602,20 @@ export const gameEngine = {
       }
 
       if (jackpotLedgerTx) {
-        // Create jackpot contribution record
-        await tx.jackpotContribution.create({
-          data: {
-            jackpotId: (await tx.jackpot.findFirst({
-              where: { isActive: true, type: 'rolling' },
-            }))!.id,
-            gameId: game.id,
-            employeeId,
-            amount: jackpotContribution,
-          },
+        const activeJackpotForRecord = await tx.jackpot.findFirst({
+          where: { isActive: true, type: 'rolling' },
         });
+
+        if (activeJackpotForRecord) {
+          await tx.jackpotContribution.create({
+            data: {
+              jackpotId: activeJackpotForRecord.id,
+              gameId: game.id,
+              employeeId,
+              amount: jackpotContribution,
+            },
+          });
+        }
 
         await tx.gameTransaction.create({
           data: {
@@ -604,7 +699,7 @@ export const gameEngine = {
           won: gameOutcome.won,
           payout: Number(payoutAmount),
           jackpotContribution: Number(jackpotContribution),
-          multiplier: gameOutcome.multiplier,
+          multiplier: effectiveMultiplier,
           serverSeedHash,
         },
         balance: Number(updatedAccount!.balance),
@@ -631,6 +726,12 @@ export const gameEngine = {
     const clientSeed = generateClientSeed();
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Pre-check: Fetch bank account, reject if depleted
+      const bankAccount = await getOrCreateBankAccount(tx);
+      if (new Prisma.Decimal(bankAccount.balance).lte(new Prisma.Decimal(0))) {
+        throw new Error('Games are currently unavailable — bank depleted');
+      }
+
       // 1. Check if the player already claimed today
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
@@ -674,6 +775,12 @@ export const gameEngine = {
       await tx.account.update({
         where: { id: account.id },
         data: { balance: { increment: prizeAmount } },
+      });
+
+      // 5b. Debit prize from bank account
+      await tx.gameBankAccount.update({
+        where: { id: bankAccount.id },
+        data: { balance: { decrement: prizeAmount } },
       });
 
       // 6. Create the daily_bonus ledger transaction
@@ -790,7 +897,13 @@ export const gameEngine = {
         },
       });
 
-      // 12. Get updated balance
+      // 12. Check if bank is depleted after daily bonus
+      const updatedBank = await tx.gameBankAccount.findFirst();
+      if (updatedBank) {
+        await checkAndAutoDisable(tx, new Prisma.Decimal(updatedBank.balance));
+      }
+
+      // 13. Get updated balance
       const updatedAccount = await tx.account.findUnique({
         where: { id: account.id },
       });
@@ -1096,5 +1209,104 @@ export const jackpotService = {
       createdAt: j.createdAt,
       updatedAt: j.updatedAt,
     }));
+  },
+};
+
+// ============================================================================
+// Game Bank Service
+// ============================================================================
+
+export const gameBankService = {
+  /**
+   * Returns the current bank balance.
+   */
+  async getBalance() {
+    const bank = await getOrCreateBankAccount();
+    return {
+      balance: Number(bank.balance),
+      updatedAt: bank.updatedAt,
+    };
+  },
+
+  /**
+   * Admin deposits funds into the game bank.
+   */
+  async deposit(amount: number, adminId: string) {
+    if (amount <= 0) {
+      throw new Error('Deposit amount must be positive');
+    }
+
+    const bank = await getOrCreateBankAccount();
+    const updated = await prisma.gameBankAccount.update({
+      where: { id: bank.id },
+      data: { balance: { increment: new Prisma.Decimal(amount) } },
+    });
+
+    console.log(`[GameBank] Admin ${adminId} deposited ${amount}. New balance: ${Number(updated.balance)}`);
+
+    return {
+      balance: Number(updated.balance),
+      updatedAt: updated.updatedAt,
+    };
+  },
+
+  /**
+   * Transfer funds from a jackpot to the game bank.
+   */
+  async transferFromJackpot(jackpotId: string, amount: number, adminId: string) {
+    if (amount <= 0) {
+      throw new Error('Transfer amount must be positive');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const jackpot = await tx.jackpot.findUnique({
+        where: { id: jackpotId },
+      });
+
+      if (!jackpot) {
+        throw new Error('Jackpot not found');
+      }
+
+      if (Number(jackpot.balance) < amount) {
+        throw new Error('Insufficient jackpot balance');
+      }
+
+      const updatedJackpot = await tx.jackpot.update({
+        where: { id: jackpotId },
+        data: { balance: { decrement: new Prisma.Decimal(amount) } },
+      });
+
+      const bank = await getOrCreateBankAccount(tx);
+      const updatedBank = await tx.gameBankAccount.update({
+        where: { id: bank.id },
+        data: { balance: { increment: new Prisma.Decimal(amount) } },
+      });
+
+      console.log(
+        `[GameBank] Admin ${adminId} transferred ${amount} from jackpot "${jackpot.name}" to bank. ` +
+        `Bank balance: ${Number(updatedBank.balance)}, Jackpot balance: ${Number(updatedJackpot.balance)}`
+      );
+
+      return {
+        bank: {
+          balance: Number(updatedBank.balance),
+          updatedAt: updatedBank.updatedAt,
+        },
+        jackpot: {
+          id: updatedJackpot.id,
+          name: updatedJackpot.name,
+          type: updatedJackpot.type,
+          balance: Number(updatedJackpot.balance),
+          isActive: updatedJackpot.isActive,
+          lastWonAt: updatedJackpot.lastWonAt,
+          lastWonBy: updatedJackpot.lastWonBy,
+          lastWonAmount: updatedJackpot.lastWonAmount ? Number(updatedJackpot.lastWonAmount) : null,
+        },
+      };
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+
+    return result;
   },
 };

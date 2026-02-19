@@ -968,10 +968,16 @@ export interface AdminGameConfig {
   maxBet: number;
   payoutMultiplier: number | null;
   jackpotContributionRate: number;
+  houseEdgePercent: number;
   availableInChat: boolean;
   availableOnWeb: boolean;
   displayOrder: number;
   customConfig: Record<string, unknown> | null;
+}
+
+export interface GameBankAccount {
+  balance: number;
+  updatedAt: string;
 }
 
 export const getAdminGameConfigs = () =>
@@ -997,6 +1003,16 @@ export const createAdminJackpot = (data: { name: string; type: string; initialBa
 
 export const updateAdminJackpot = (jackpotId: string, data: { name?: string; isActive?: boolean }) =>
   api.put(`/admin/games/jackpots/${jackpotId}`, data);
+
+// Game Bank Account
+export const getGameBankAccount = () =>
+  api.get<GameBankAccount>('/admin/games/bank');
+
+export const depositToGameBank = (amount: number) =>
+  api.post<GameBankAccount>('/admin/games/bank/deposit', { amount });
+
+export const transferJackpotToGameBank = (jackpotId: string, amount: number) =>
+  api.post<{ bank: GameBankAccount; jackpot: Jackpot }>('/admin/games/bank/transfer-from-jackpot', { jackpotId, amount });
 
 // ============ GCART Types ============
 

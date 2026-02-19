@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { GameType, JackpotType } from '@prisma/client';
 import { requireAuth, requireGameMaster, AuthRequest } from '../../middleware/auth';
 import { validate } from '../../middleware/validation';
-import { gameEngine, jackpotService } from '../../services/games';
+import { gameEngine, jackpotService, gameBankService } from '../../services/games';
 import prisma from '../../config/database';
 import { AppError } from '../../utils/errors';
 
@@ -59,6 +59,7 @@ router.get('/config', async (req: AuthRequest, res, next) => {
               ? Number(existing.payoutMultiplier)
               : null,
             jackpotContributionRate: Number(existing.jackpotContributionRate),
+            houseEdgePercent: Number(existing.houseEdgePercent),
             availableInChat: existing.availableInChat,
             availableOnWeb: existing.availableOnWeb,
             displayOrder: existing.displayOrder,
@@ -94,6 +95,7 @@ const updateConfigSchema = z.object({
     maxBet: z.number().positive().optional(),
     payoutMultiplier: z.number().positive().nullable().optional(),
     jackpotContributionRate: z.number().min(0).max(1).optional(),
+    houseEdgePercent: z.number().min(0).max(50).optional(),
     availableInChat: z.boolean().optional(),
     availableOnWeb: z.boolean().optional(),
     displayOrder: z.number().int().nonnegative().optional(),
@@ -140,6 +142,7 @@ router.put(
           ? Number(config.payoutMultiplier)
           : null,
         jackpotContributionRate: Number(config.jackpotContributionRate),
+        houseEdgePercent: Number(config.houseEdgePercent),
         availableInChat: config.availableInChat,
         availableOnWeb: config.availableOnWeb,
         displayOrder: config.displayOrder,
@@ -154,6 +157,7 @@ router.put(
 /**
  * Toggle game enabled status
  */
+// [ORIGINAL - 2026-02-19] Toggle did not check bank balance before enabling
 router.post('/config/:gameType/toggle', async (req: AuthRequest, res, next) => {
   try {
     const { gameType } = req.params;
@@ -168,6 +172,14 @@ router.post('/config/:gameType/toggle', async (req: AuthRequest, res, next) => {
     });
 
     const newEnabled = existing ? !existing.enabled : false;
+
+    // When enabling, check bank balance > 0
+    if (newEnabled) {
+      const bank = await gameBankService.getBalance();
+      if (bank.balance <= 0) {
+        throw new AppError('Cannot enable game — game bank is depleted. Deposit funds first.', 400);
+      }
+    }
 
     const config = await prisma.gameConfig.upsert({
       where: { gameType: gameType as GameType },
@@ -186,6 +198,67 @@ router.post('/config/:gameType/toggle', async (req: AuthRequest, res, next) => {
     next(error);
   }
 });
+
+// ============= GAME BANK ACCOUNT =============
+
+/**
+ * Get game bank balance
+ */
+router.get('/bank', async (req: AuthRequest, res, next) => {
+  try {
+    const bank = await gameBankService.getBalance();
+    res.json(bank);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Deposit funds to game bank
+ */
+const depositBankSchema = z.object({
+  body: z.object({
+    amount: z.number().positive('Amount must be positive'),
+  }),
+});
+
+router.post(
+  '/bank/deposit',
+  validate(depositBankSchema),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const { amount } = req.body;
+      const bank = await gameBankService.deposit(amount, req.user!.id);
+      res.json(bank);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * Transfer funds from a jackpot to the game bank
+ */
+const transferFromJackpotSchema = z.object({
+  body: z.object({
+    jackpotId: z.string().uuid(),
+    amount: z.number().positive('Amount must be positive'),
+  }),
+});
+
+router.post(
+  '/bank/transfer-from-jackpot',
+  validate(transferFromJackpotSchema),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const { jackpotId, amount } = req.body;
+      const result = await gameBankService.transferFromJackpot(jackpotId, amount, req.user!.id);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // ============= GAME STATISTICS =============
 

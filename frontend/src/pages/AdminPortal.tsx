@@ -38,6 +38,9 @@ import {
   getAdminJackpots,
   createAdminJackpot,
   updateAdminJackpot,
+  getGameBankAccount,
+  depositToGameBank,
+  transferJackpotToGameBank,
   AdminGameConfig,
   GameType,
   Jackpot,
@@ -193,6 +196,8 @@ export default function AdminPortal() {
   const [adminGameConfigs, setAdminGameConfigs] = useState<AdminGameConfig[]>([]);
   const [gameConfigsLoading, setGameConfigsLoading] = useState(false);
   const [adminJackpots, setAdminJackpots] = useState<Jackpot[]>([]);
+  const [gameBankBalance, setGameBankBalance] = useState<number>(0);
+  const [gameBankLoading, setGameBankLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -315,20 +320,26 @@ export default function AdminPortal() {
 
   const loadGameData = async () => {
     setGameConfigsLoading(true);
+    setGameBankLoading(true);
     try {
-      const [configRes, jackpotRes] = await Promise.allSettled([
+      const [configRes, jackpotRes, bankRes] = await Promise.allSettled([
         getAdminGameConfigs(),
         getAdminJackpots(),
+        getGameBankAccount(),
       ]);
       if (configRes.status === 'fulfilled') setAdminGameConfigs(configRes.value.data);
       if (jackpotRes.status === 'fulfilled') {
         const jpData = jackpotRes.value.data;
         setAdminJackpots(Array.isArray(jpData) ? jpData : []);
       }
+      if (bankRes.status === 'fulfilled') {
+        setGameBankBalance(bankRes.value.data.balance);
+      }
     } catch (err: unknown) {
       console.error('Failed to load game data:', err);
     } finally {
       setGameConfigsLoading(false);
+      setGameBankLoading(false);
     }
   };
 
@@ -380,6 +391,32 @@ export default function AdminPortal() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       addToast(axiosErr.response?.data?.error || 'Failed to initialize jackpots', 'error');
+    }
+  };
+
+  const handleDepositToBank = async (amount: number) => {
+    try {
+      const res = await depositToGameBank(amount);
+      setGameBankBalance(res.data.balance);
+      addToast(`Deposited ${amount} GC to game bank`, 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to deposit to bank', 'error');
+    }
+  };
+
+  const handleTransferFromJackpot = async (jackpotId: string, amount: number) => {
+    try {
+      const res = await transferJackpotToGameBank(jackpotId, amount);
+      setGameBankBalance(res.data.bank.balance);
+      // Update jackpot in local state
+      setAdminJackpots((prev) =>
+        prev.map((jp) => (jp.id === jackpotId ? { ...jp, balance: res.data.jackpot.balance } : jp))
+      );
+      addToast(`Transferred ${amount} GC from jackpot to bank`, 'success');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      addToast(axiosErr.response?.data?.error || 'Failed to transfer from jackpot', 'error');
     }
   };
 
@@ -1386,10 +1423,14 @@ export default function AdminPortal() {
             gameConfigs={adminGameConfigs}
             gameConfigsLoading={gameConfigsLoading}
             jackpots={adminJackpots}
+            bankBalance={gameBankBalance}
+            bankLoading={gameBankLoading}
             onToggleGame={handleToggleGame}
             onUpdateConfig={handleUpdateGameConfig}
             onToggleJackpot={handleToggleJackpot}
             onInitializeJackpots={handleInitializeJackpots}
+            onDeposit={handleDepositToBank}
+            onTransferFromJackpot={handleTransferFromJackpot}
             onRefresh={loadGameData}
           />
         )}
