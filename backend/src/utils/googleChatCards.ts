@@ -1428,19 +1428,35 @@ export function buildHangmanGuessCard(
   return { cardsV2: [{ cardId: `hangman-guess-${round}`, card: { header: { title: 'Hangman', subtitle: `Round ${round} of ${total}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
 }
 
+// [ORIGINAL - 2026-02-19] Added nextRound parameter to show next round automatically after word result
 export function buildHangmanWordResultCard(
-  word: string, won: boolean, solverName: string | null, scores: Record<string, number>, hangmanArt: string
+  word: string, won: boolean, solverName: string | null, scores: Record<string, number>, hangmanArt: string,
+  nextRound?: { round: number; total: number; blanks: string; hangmanArt: string }
 ): GoogleChatResponse {
-  const widgets: GoogleChatWidget[] = [
+  const resultWidgets: GoogleChatWidget[] = [
     { textParagraph: { text: hangmanArt } },
   ];
   if (won && solverName) {
-    widgets.push({ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${solverName}</b> saved the day!</font>` } });
+    resultWidgets.push({ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${solverName}</b> saved the day!</font>` } });
   } else {
-    widgets.push({ textParagraph: { text: '<font color="#dc3545"><b>The hangman got you!</b></font>' } });
+    resultWidgets.push({ textParagraph: { text: '<font color="#dc3545"><b>The hangman got you!</b></font>' } });
   }
-  widgets.push({ decoratedText: { topLabel: 'The word was', text: `<b>${word}</b>` } });
-  return { cardsV2: [{ cardId: 'hangman-word-result', card: { header: { title: won ? 'Word Solved!' : 'Word Failed!', subtitle: 'Hangman', imageUrl: won ? 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg' : 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/cancel/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+  resultWidgets.push({ decoratedText: { topLabel: 'The word was', text: `<b>${word}</b>` } });
+
+  const sections: GoogleChatSection[] = [{ widgets: resultWidgets }];
+
+  if (nextRound) {
+    const nextWidgets: GoogleChatWidget[] = [
+      { textParagraph: { text: nextRound.hangmanArt } },
+      { textParagraph: { text: `<b>${nextRound.blanks}</b>` } },
+      { divider: {} },
+      { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games letter &lt;X&gt;</b>', bottomLabel: 'Guess a letter' } },
+      { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games answer &lt;word&gt;</b>', bottomLabel: 'Guess the full word' } },
+    ];
+    sections.push({ header: `Round ${nextRound.round} of ${nextRound.total}`, widgets: nextWidgets });
+  }
+
+  return { cardsV2: [{ cardId: 'hangman-word-result', card: { header: { title: won ? 'Word Solved!' : 'Word Failed!', subtitle: 'Hangman', imageUrl: won ? 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg' : 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/cancel/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
 }
 
 export function buildHangmanWinnerCard(

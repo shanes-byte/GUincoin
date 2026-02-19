@@ -1360,7 +1360,8 @@ export class GoogleChatService {
                   result.correct,
                   result.playerName || null,
                   result.scores || {},
-                  result.hangmanArt || ''
+                  result.hangmanArt || '',
+                  result.nextRoundData
                 );
               }
               return buildTextResponse('Wrong guess — the hangman is still waiting...');
@@ -1400,7 +1401,8 @@ export class GoogleChatService {
                 result.won || false,
                 result.playerName || null,
                 result.scores || {},
-                result.hangmanArt || ''
+                result.hangmanArt || '',
+                result.nextRoundData
               );
             }
 
