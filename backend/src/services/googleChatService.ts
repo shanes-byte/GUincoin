@@ -31,6 +31,26 @@ import {
   buildSkillShotRoundResultCard,
   buildSkillShotFinalCard,
   buildActiveGamesCard,
+  // New casual game cards (added 2026-02-19)
+  buildScrambleStartCard,
+  buildScrambleRoundResultCard,
+  buildScrambleNextRoundCard,
+  buildScrambleWinnerCard,
+  buildEmojiStartCard,
+  buildEmojiSolvedCard,
+  buildEmojiNextPuzzleCard,
+  buildEmojiWinnerCard,
+  buildTriviaStartCard,
+  buildTriviaQuestionCard,
+  buildTriviaAnswerResultCard,
+  buildTriviaWinnerCard,
+  buildRPSStartCard,
+  buildRPSRoundResultCard,
+  buildRPSWinnerCard,
+  buildHangmanStartCard,
+  buildHangmanGuessCard,
+  buildHangmanWordResultCard,
+  buildHangmanWinnerCard,
 } from '../utils/googleChatCards';
 import chatGameService from './chatGameService';
 import { env } from '../config/env';
@@ -1139,7 +1159,70 @@ export class GoogleChatService {
             return buildSkillShotStartCard(config.rounds, config.range, config.currentRound, game.id);
           }
 
-          return buildErrorCard('Unknown Game Type', 'Available games: cipher, skillshot\nUsage: /games start cipher [easy|medium|hard] — or — /games start skillshot [rounds]');
+          // --- New casual games (added 2026-02-19) ---
+
+          if (gameType === 'scramble') {
+            const rounds = parseInt(args[2] || '5');
+            const difficulty = (args[3] || 'medium').toLowerCase();
+            if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+              return buildErrorCard('Invalid Difficulty', 'Use: /games start scramble [rounds] [easy|medium|hard]');
+            }
+            const game = await chatGameService.startScramble({ createdById: employee.id, spaceName: spaceName || '', threadName: threadName || undefined, rounds, difficulty });
+            const state = game.state as any;
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildScrambleStartCard(state.words.length, difficulty, state.scrambled[0], game.id);
+          }
+
+          if (gameType === 'emoji') {
+            const rounds = parseInt(args[2] || '5');
+            const category = (args[3] || 'mixed').toLowerCase();
+            if (!['movies', 'songs', 'phrases', 'mixed'].includes(category)) {
+              return buildErrorCard('Invalid Category', 'Use: /games start emoji [rounds] [movies|songs|phrases|mixed]');
+            }
+            const game = await chatGameService.startEmoji({ createdById: employee.id, spaceName: spaceName || '', threadName: threadName || undefined, rounds, category });
+            const state = game.state as any;
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildEmojiStartCard(state.puzzles.length, category, state.puzzles[0].emojis, game.id);
+          }
+
+          if (gameType === 'trivia') {
+            const count = parseInt(args[2] || '5');
+            const category = (args[3] || 'random').toLowerCase();
+            const game = await chatGameService.startTrivia({ createdById: employee.id, spaceName: spaceName || '', threadName: threadName || undefined, count, category });
+            const config = game.config as any;
+            const state = game.state as any;
+            const q = state.questions[0];
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            // Return start card + first question
+            return buildTriviaQuestionCard(1, config.count, q.question, q.options);
+          }
+
+          if (gameType === 'rps') {
+            const rounds = parseInt(args[2] || '3');
+            if (isNaN(rounds) || rounds < 1 || rounds > 10) {
+              return buildErrorCard('Invalid Rounds', 'Use: /games start rps [1-10]');
+            }
+            const game = await chatGameService.startRPS({ createdById: employee.id, spaceName: spaceName || '', threadName: threadName || undefined, rounds });
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildRPSStartCard(rounds, game.id);
+          }
+
+          if (gameType === 'hangman') {
+            const rounds = parseInt(args[2] || '3');
+            const difficulty = (args[3] || 'medium').toLowerCase();
+            if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+              return buildErrorCard('Invalid Difficulty', 'Use: /games start hangman [rounds] [easy|medium|hard]');
+            }
+            const game = await chatGameService.startHangman({ createdById: employee.id, spaceName: spaceName || '', threadName: threadName || undefined, rounds, difficulty });
+            const state = game.state as any;
+            const word = state.words[0];
+            const blanks = word.split('').map(() => '_').join(' ');
+            const hangmanArt = '  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========';
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildHangmanStartCard(state.words.length, difficulty, blanks, hangmanArt, game.id);
+          }
+
+          return buildErrorCard('Unknown Game Type', 'Available games: cipher, skillshot, scramble, emoji, trivia, rps, hangman\nUsage: /games start <type> [options]');
         }
 
         // /games guess <text> or /games solve <text> — cipher guess
@@ -1198,6 +1281,251 @@ export class GoogleChatService {
           return buildCipherHintCard(result.hint, result.hintsRemaining);
         }
 
+        // /games answer <text> — submit answer for scramble, emoji, trivia, hangman (added 2026-02-19)
+        if (subCommand === 'answer') {
+          const answerText = args.slice(1).join(' ');
+          if (!answerText) {
+            return buildErrorCard('Missing Answer', 'Usage: /games answer <your answer>');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          // Find an active answer-based game
+          const answerGame = activeGames.find(g =>
+            g.type === 'word_scramble' || g.type === 'emoji_decoder' ||
+            g.type === 'trivia_blitz' || g.type === 'hangman'
+          );
+          if (!answerGame) {
+            return buildErrorCard('No Game', 'No active game that accepts answers in this space.');
+          }
+          try {
+            const result = await chatGameService.submitAnswer(answerGame.id, employee.id, answerText);
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+
+            // Handle results based on game type
+            if (answerGame.type === 'word_scramble') {
+              if (!result.correct) return buildTextResponse('Incorrect — try again!');
+              if (result.gameComplete) {
+                return buildScrambleWinnerCard(
+                  (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                  (answerGame.config as any).rounds
+                );
+              }
+              const rd = result.nextRoundData;
+              return buildScrambleNextRoundCard(rd.round, rd.total, rd.scrambled);
+            }
+
+            if (answerGame.type === 'emoji_decoder') {
+              if (!result.correct) return buildTextResponse('Incorrect — try again!');
+              const state = answerGame.state as any;
+              const puzzle = state.puzzles[state.currentRound - 1];
+              if (result.gameComplete) {
+                return buildEmojiWinnerCard(
+                  (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                  (answerGame.config as any).rounds
+                );
+              }
+              const rd = result.nextRoundData;
+              return buildEmojiNextPuzzleCard(rd.round, rd.total, rd.emojis, rd.category);
+            }
+
+            if (answerGame.type === 'trivia_blitz') {
+              return buildTriviaAnswerResultCard(
+                result.playerName || null,
+                result.correct,
+                result.correctAnswer || '?',
+                result.scores || {}
+              );
+            }
+
+            if (answerGame.type === 'hangman') {
+              if (!result.correct && !result.roundComplete) {
+                // Wrong full-word guess
+                const state = answerGame.state as any;
+                const word = state.words[state.currentRound - 1];
+                const blanks = word.split('').map((ch: string) => state.guessedLetters.includes(ch) ? ch : '_').join(' ');
+                const wrongCount = state.wrongCount + 1;
+                const art = ['  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========='][Math.min(wrongCount, 6)];
+                return buildHangmanGuessCard(blanks, art, state.guessedLetters, state.wrongLetters, state.currentRound, (answerGame.config as any).rounds);
+              }
+              if (result.roundComplete) {
+                if (result.gameComplete) {
+                  return buildHangmanWinnerCard(
+                    (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                    (answerGame.config as any).rounds
+                  );
+                }
+                // Show word result + next round start
+                return buildHangmanWordResultCard(
+                  result.correctAnswer || '?',
+                  result.correct,
+                  result.playerName || null,
+                  result.scores || {},
+                  result.nextRoundData?.hangmanArt || ''
+                );
+              }
+              return buildTextResponse('Wrong guess — the hangman is still waiting...');
+            }
+
+            return buildTextResponse(result.correct ? 'Correct!' : 'Incorrect — try again!');
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return buildErrorCard('Answer Error', msg);
+          }
+        }
+
+        // /games letter <X> — hangman letter guess (added 2026-02-19)
+        if (subCommand === 'letter') {
+          const letterStr = (args[1] || '').toUpperCase().trim();
+          if (!letterStr || letterStr.length !== 1 || !/[A-Z]/.test(letterStr)) {
+            return buildErrorCard('Invalid Letter', 'Usage: /games letter <A-Z>');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const hangmanGame = activeGames.find(g => g.type === 'hangman');
+          if (!hangmanGame) {
+            return buildErrorCard('No Game', 'No active Hangman game in this space.');
+          }
+          try {
+            const result = await chatGameService.submitLetter(hangmanGame.id, employee.id, letterStr);
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+
+            if (result.roundComplete) {
+              if (result.gameComplete) {
+                return buildHangmanWinnerCard(
+                  (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                  (hangmanGame.config as any).rounds
+                );
+              }
+              return buildHangmanWordResultCard(
+                result.word || '?',
+                result.won || false,
+                result.playerName || null,
+                result.scores || {},
+                result.hangmanArt || ''
+              );
+            }
+
+            return buildHangmanGuessCard(
+              result.blanks || '',
+              result.hangmanArt || '',
+              result.guessedLetters || [],
+              result.wrongLetters || [],
+              (hangmanGame.state as any).currentRound,
+              (hangmanGame.config as any).rounds
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return buildErrorCard('Letter Error', msg);
+          }
+        }
+
+        // /games throw <choice> — RPS throw (added 2026-02-19)
+        if (subCommand === 'throw') {
+          const choice = (args[1] || '').toLowerCase();
+          if (!['rock', 'paper', 'scissors'].includes(choice)) {
+            return buildErrorCard('Invalid Throw', 'Usage: /games throw rock|paper|scissors');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const rpsGame = activeGames.find(g => g.type === 'rps_showdown');
+          if (!rpsGame) {
+            return buildErrorCard('No Game', 'No active RPS Showdown in this space.');
+          }
+          try {
+            await chatGameService.submitThrow(rpsGame.id, employee.id, choice);
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            return buildTextResponse(`Throw accepted: ${choice} — waiting for /games resolve`);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return buildErrorCard('Throw Error', msg);
+          }
+        }
+
+        // /games next — GM advance trivia question (added 2026-02-19)
+        if (subCommand === 'next') {
+          if (!employee.isGameMaster && !employee.isAdmin) {
+            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
+            return buildErrorCard('Unauthorized', 'Only Game Masters can advance questions.');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const triviaGame = activeGames.find(g => g.type === 'trivia_blitz');
+          if (!triviaGame) {
+            return buildErrorCard('No Game', 'No active Trivia Blitz game in this space.');
+          }
+          try {
+            const result = await chatGameService.advanceTrivia(triviaGame.id);
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+            if (result.gameComplete) {
+              return buildTriviaWinnerCard(
+                (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                (triviaGame.config as any).count
+              );
+            }
+            return buildTriviaQuestionCard(result.questionNum!, result.total!, result.question!, result.options!);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return buildErrorCard('Next Error', msg);
+          }
+        }
+
+        // /games skip — GM skip current round (added 2026-02-19)
+        if (subCommand === 'skip') {
+          if (!employee.isGameMaster && !employee.isAdmin) {
+            await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
+            return buildErrorCard('Unauthorized', 'Only Game Masters can skip rounds.');
+          }
+          const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+          const skippableGame = activeGames.find(g =>
+            g.type === 'word_scramble' || g.type === 'emoji_decoder' ||
+            g.type === 'trivia_blitz' || g.type === 'hangman'
+          );
+          if (!skippableGame) {
+            return buildErrorCard('No Game', 'No active skippable game in this space.');
+          }
+          try {
+            const result = await chatGameService.skipRound(skippableGame.id);
+            await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+
+            if (result.gameComplete) {
+              // Return winner card based on game type
+              const rankings = (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score }));
+              if (skippableGame.type === 'word_scramble') return buildScrambleWinnerCard(rankings, (skippableGame.config as any).rounds);
+              if (skippableGame.type === 'emoji_decoder') return buildEmojiWinnerCard(rankings, (skippableGame.config as any).rounds);
+              if (skippableGame.type === 'trivia_blitz') return buildTriviaWinnerCard(rankings, (skippableGame.config as any).count);
+              if (skippableGame.type === 'hangman') return buildHangmanWinnerCard(rankings, (skippableGame.config as any).rounds);
+            }
+
+            const skippedMsg = result.skippedAnswer ? `Skipped! The answer was: <b>${result.skippedAnswer}</b>` : 'Skipped!';
+
+            if (skippableGame.type === 'word_scramble' && result.nextRoundData) {
+              return buildScrambleNextRoundCard(result.nextRoundData.round, result.nextRoundData.total, result.nextRoundData.scrambled);
+            }
+            if (skippableGame.type === 'emoji_decoder' && result.nextRoundData) {
+              return buildEmojiNextPuzzleCard(result.nextRoundData.round, result.nextRoundData.total, result.nextRoundData.emojis, result.nextRoundData.category);
+            }
+            if (skippableGame.type === 'trivia_blitz' && result.nextRoundData) {
+              // advanceTrivia returns question data directly in the result
+              return buildTriviaQuestionCard(
+                (result as any).questionNum,
+                (result as any).total,
+                (result as any).question,
+                (result as any).options
+              );
+            }
+            if (skippableGame.type === 'hangman' && result.nextRoundData) {
+              return buildHangmanStartCard(
+                result.nextRoundData.total,
+                (skippableGame.config as any).difficulty,
+                result.nextRoundData.blanks,
+                result.nextRoundData.hangmanArt,
+                skippableGame.id
+              );
+            }
+
+            return buildTextResponse(skippedMsg);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return buildErrorCard('Skip Error', msg);
+          }
+        }
+
         // /games status — show current game state
         if (subCommand === 'status') {
           const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
@@ -1212,16 +1540,44 @@ export class GoogleChatService {
           })));
         }
 
-        // /games resolve — GM resolve current skill shot round
+        // [ORIGINAL - 2026-02-19] /games resolve only handled skill_shot
+        // /games resolve — GM resolve current skill shot round or RPS round
         if (subCommand === 'resolve') {
           if (!employee.isGameMaster && !employee.isAdmin) {
             await this.updateAuditLog(auditId, ChatCommandStatus.rejected, 'Not a game master');
             return buildErrorCard('Unauthorized', 'Only Game Masters can resolve rounds.');
           }
           const activeGames = await chatGameService.getActiveGames(spaceName || undefined);
+
+          // Check for RPS game first (added 2026-02-19)
+          const rpsGame = activeGames.find(g => g.type === 'rps_showdown');
+          if (rpsGame) {
+            try {
+              const result = await chatGameService.resolveRPSRound(rpsGame.id);
+              await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
+
+              // Build name map from participants
+              const nameMap: Record<string, string> = {};
+              for (const p of rpsGame.participants) {
+                nameMap[p.employeeId] = (p as any).employee?.name || 'Player';
+              }
+
+              if (result.gameComplete) {
+                return buildRPSWinnerCard(
+                  (result.rankings || []).map((r: any) => ({ name: r.name, score: r.score })),
+                  (rpsGame.config as any).rounds
+                );
+              }
+              return buildRPSRoundResultCard(result.roundNumber, result.throws, nameMap, result.roundWinners, result.scores);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'Unknown error';
+              return buildErrorCard('Resolve Error', msg);
+            }
+          }
+
           const ssGame = activeGames.find(g => g.type === 'skill_shot');
           if (!ssGame) {
-            return buildErrorCard('No Game', 'No active Skill Shot game in this space.');
+            return buildErrorCard('No Game', 'No active Skill Shot or RPS game in this space.');
           }
           const result = await chatGameService.resolveRound(ssGame.id);
           await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
@@ -1282,16 +1638,31 @@ export class GoogleChatService {
         }
 
         // Unknown subcommand — show games help
+        // [ORIGINAL - 2026-02-19] Only showed cipher/skillshot commands
         return buildTextResponse(
           'Games commands:\n' +
           '/games — list active games\n' +
-          '/games start cipher [easy|medium|hard] — start cipher hunt (GM only)\n' +
-          '/games start skillshot [rounds] — start skill shot (GM only)\n' +
+          '\n--- Coin Games (GM only) ---\n' +
+          '/games start cipher [easy|medium|hard] — Encrypted Office\n' +
+          '/games start skillshot [rounds] — Skill Shot\n' +
           '/games guess <text> — submit cipher guess\n' +
           '/games bid <number> [double] — bid in skill shot\n' +
           '/games hint — use cipher hint token\n' +
-          '/games resolve — resolve skill shot round (GM only)\n' +
-          '/games end — cancel active game (GM only)\n' +
+          '\n--- Casual Games (GM only to start) ---\n' +
+          '/games start scramble [rounds] [easy|medium|hard] — Word Scramble\n' +
+          '/games start emoji [rounds] [movies|songs|phrases|mixed] — Emoji Decoder\n' +
+          '/games start trivia [count] [office|general|tech|pop_culture|random] — Trivia Blitz\n' +
+          '/games start rps [rounds] — RPS Showdown\n' +
+          '/games start hangman [rounds] [easy|medium|hard] — Hangman\n' +
+          '\n--- Player Commands ---\n' +
+          '/games answer <text> — answer (Scramble, Emoji, Trivia, Hangman)\n' +
+          '/games letter <X> — guess a letter (Hangman)\n' +
+          '/games throw rock|paper|scissors — throw (RPS)\n' +
+          '\n--- GM Commands ---\n' +
+          '/games next — advance trivia question\n' +
+          '/games skip — skip current round\n' +
+          '/games resolve — reveal round (Skill Shot, RPS)\n' +
+          '/games end — cancel active game\n' +
           '/games status — show active games'
         );
       }

@@ -1171,6 +1171,290 @@ export function buildActiveGamesCard(
   return { cardsV2: [card] };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Casual Game Card Builders (added 2026-02-19)
+// ─────────────────────────────────────────────────────────────
+
+const GAME_COLOR = { red: 0.55, green: 0.22, blue: 0.86 }; // Purple accent for casual games
+
+// --- Word Scramble ---
+
+export function buildScrambleStartCard(
+  rounds: number, difficulty: string, scrambledWord: string, gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { topLabel: 'Difficulty', text: `<b>${difficulty.toUpperCase()}</b>`, startIcon: { knownIcon: 'STAR' } } },
+    { decoratedText: { topLabel: 'Rounds', text: `<b>${rounds}</b>` } },
+    { divider: {} },
+    { textParagraph: { text: '<b>Unscramble this word:</b>' } },
+    { textParagraph: { text: `<code>${scrambledWord}</code>` } },
+    { divider: {} },
+    { textParagraph: { text: '<i>Use <b>/games answer &lt;word&gt;</b> to guess!</i>' } },
+  ];
+  return { cardsV2: [{ cardId: `scramble-start-${gameId}`, card: { header: { title: 'Word Scramble', subtitle: `Round 1 of ${rounds} — ${difficulty.toUpperCase()}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildScrambleRoundResultCard(
+  playerName: string, originalWord: string, round: number, total: number, scores: Record<string, number>
+): GoogleChatResponse {
+  const scoreList = Object.entries(scores).sort(([, a], [, b]) => b - a).map(([, s], i) => `${i + 1}.`).join(', ');
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${playerName}</b> got it!</font>` } },
+    { decoratedText: { topLabel: 'Word', text: `<b>${originalWord}</b>` } },
+    { decoratedText: { topLabel: 'Round', text: `<b>${round}</b> of <b>${total}</b>` } },
+  ];
+  return { cardsV2: [{ cardId: `scramble-round-${round}`, card: { header: { title: 'Correct!', subtitle: `Word Scramble — Round ${round}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildScrambleNextRoundCard(
+  round: number, total: number, scrambledWord: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { textParagraph: { text: '<b>Unscramble this word:</b>' } },
+    { textParagraph: { text: `<code>${scrambledWord}</code>` } },
+    { divider: {} },
+    { textParagraph: { text: '<i>Use <b>/games answer &lt;word&gt;</b> to guess!</i>' } },
+  ];
+  return { cardsV2: [{ cardId: `scramble-next-${round}`, card: { header: { title: 'Word Scramble', subtitle: `Round ${round} of ${total}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildScrambleWinnerCard(
+  rankings: { name: string; score: number }[], totalRounds: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const rankWidgets: GoogleChatWidget[] = rankings.map((p, i) => ({
+    decoratedText: { topLabel: `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `#${i + 1}`} — ${p.name}`, text: `<b>${p.score}</b> words solved` },
+  }));
+  sections.push({ header: 'Final Rankings', widgets: rankWidgets });
+  sections.push({ widgets: [{ textParagraph: { text: `<i>Game complete — ${totalRounds} rounds played.</i>` } }] });
+  return { cardsV2: [{ cardId: 'scramble-winner', card: { header: { title: 'Word Scramble — Final Results', subtitle: 'Game Over', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
+// --- Emoji Decoder ---
+
+export function buildEmojiStartCard(
+  rounds: number, category: string, emojis: string, gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { topLabel: 'Category', text: `<b>${category.toUpperCase()}</b>`, startIcon: { knownIcon: 'STAR' } } },
+    { decoratedText: { topLabel: 'Rounds', text: `<b>${rounds}</b>` } },
+    { divider: {} },
+    { textParagraph: { text: '<b>What do these emojis represent?</b>' } },
+    { textParagraph: { text: `<font size="18">${emojis}</font>` } },
+    { divider: {} },
+    { textParagraph: { text: '<i>Use <b>/games answer &lt;your guess&gt;</b> to guess!</i>' } },
+  ];
+  return { cardsV2: [{ cardId: `emoji-start-${gameId}`, card: { header: { title: 'Emoji Decoder', subtitle: `Round 1 of ${rounds} — ${category.toUpperCase()}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildEmojiSolvedCard(
+  playerName: string, emojis: string, answer: string, round: number, scores: Record<string, number>
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${playerName}</b> decoded it!</font>` } },
+    { decoratedText: { topLabel: 'Emojis', text: emojis } },
+    { decoratedText: { topLabel: 'Answer', text: `<b>${answer}</b>` } },
+  ];
+  return { cardsV2: [{ cardId: `emoji-solved-${round}`, card: { header: { title: 'Decoded!', subtitle: `Emoji Decoder — Round ${round}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildEmojiNextPuzzleCard(
+  round: number, total: number, emojis: string, categoryHint: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { textParagraph: { text: '<b>What do these emojis represent?</b>' } },
+    { textParagraph: { text: `<font size="18">${emojis}</font>` } },
+    { divider: {} },
+    { decoratedText: { topLabel: 'Hint', text: `Category: <b>${categoryHint}</b>` } },
+    { textParagraph: { text: '<i>Use <b>/games answer &lt;your guess&gt;</b> to guess!</i>' } },
+  ];
+  return { cardsV2: [{ cardId: `emoji-next-${round}`, card: { header: { title: 'Emoji Decoder', subtitle: `Round ${round} of ${total}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildEmojiWinnerCard(
+  rankings: { name: string; score: number }[], totalRounds: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const rankWidgets: GoogleChatWidget[] = rankings.map((p, i) => ({
+    decoratedText: { topLabel: `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `#${i + 1}`} — ${p.name}`, text: `<b>${p.score}</b> puzzles solved` },
+  }));
+  sections.push({ header: 'Final Rankings', widgets: rankWidgets });
+  sections.push({ widgets: [{ textParagraph: { text: `<i>Game complete — ${totalRounds} rounds played.</i>` } }] });
+  return { cardsV2: [{ cardId: 'emoji-winner', card: { header: { title: 'Emoji Decoder — Final Results', subtitle: 'Game Over', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
+// --- Trivia Blitz ---
+
+export function buildTriviaStartCard(
+  questionCount: number, category: string, gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { topLabel: 'Category', text: `<b>${category.toUpperCase()}</b>`, startIcon: { knownIcon: 'STAR' } } },
+    { decoratedText: { topLabel: 'Questions', text: `<b>${questionCount}</b>` } },
+    { divider: {} },
+    { textParagraph: { text: '<b>How to play:</b>' } },
+    { textParagraph: { text: 'Answer trivia questions with A, B, C, or D. First correct answer scores!' } },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games answer &lt;A|B|C|D&gt;</b>', bottomLabel: 'Submit your answer' } },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games next</b>', bottomLabel: 'GM advances to next question' } },
+  ];
+  return { cardsV2: [{ cardId: `trivia-start-${gameId}`, card: { header: { title: 'Trivia Blitz', subtitle: `${questionCount} Questions — ${category.toUpperCase()}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/quiz/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildTriviaQuestionCard(
+  questionNum: number, total: number, question: string, options: string[]
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { textParagraph: { text: `<b>Q${questionNum}:</b> ${question}` } },
+    { divider: {} },
+    ...options.map(opt => ({ textParagraph: { text: opt } })),
+    { divider: {} },
+    { textParagraph: { text: '<i>Use <b>/games answer &lt;A|B|C|D&gt;</b></i>' } },
+  ];
+  return { cardsV2: [{ cardId: `trivia-q-${questionNum}`, card: { header: { title: 'Trivia Blitz', subtitle: `Question ${questionNum} of ${total}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/quiz/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildTriviaAnswerResultCard(
+  playerName: string | null, correct: boolean, correctAnswer: string, scores: Record<string, number>
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [];
+  if (correct && playerName) {
+    widgets.push({ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${playerName}</b> got it right! +15 pts</font>` } });
+  } else if (playerName) {
+    widgets.push({ textParagraph: { text: `<font color="#dc3545">Wrong!</font> The correct answer was <b>${correctAnswer}</b>` } });
+  }
+  widgets.push({ divider: {} });
+  widgets.push({ textParagraph: { text: '<i>GM: use <b>/games next</b> to continue or <b>/games skip</b> to skip.</i>' } });
+  return { cardsV2: [{ cardId: 'trivia-result', card: { header: { title: correct ? 'Correct!' : 'Incorrect', subtitle: 'Trivia Blitz', imageUrl: correct ? 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg' : 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/cancel/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildTriviaWinnerCard(
+  rankings: { name: string; score: number }[], totalQuestions: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const rankWidgets: GoogleChatWidget[] = rankings.map((p, i) => ({
+    decoratedText: { topLabel: `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `#${i + 1}`} — ${p.name}`, text: `<b>${p.score}</b> pts` },
+  }));
+  sections.push({ header: 'Final Rankings', widgets: rankWidgets });
+  sections.push({ widgets: [{ textParagraph: { text: `<i>Game complete — ${totalQuestions} questions answered.</i>` } }] });
+  return { cardsV2: [{ cardId: 'trivia-winner', card: { header: { title: 'Trivia Blitz — Final Results', subtitle: 'Game Over', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
+// --- RPS Showdown ---
+
+export function buildRPSStartCard(
+  rounds: number, gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { topLabel: 'Rounds', text: `<b>${rounds}</b>` } },
+    { divider: {} },
+    { textParagraph: { text: '<b>How to play:</b>' } },
+    { textParagraph: { text: 'Everyone throws secretly. GM reveals with /games resolve.' } },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games throw rock|paper|scissors</b>', bottomLabel: 'Submit your throw (secretly!)' } },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games resolve</b>', bottomLabel: 'GM reveals all throws and scores' } },
+  ];
+  return { cardsV2: [{ cardId: `rps-start-${gameId}`, card: { header: { title: 'RPS Showdown', subtitle: `${rounds} Rounds — Rock Paper Scissors`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildRPSRoundResultCard(
+  roundNum: number, throws: Record<string, string>, playerNames: Record<string, string>, roundWinners: string[], scores: Record<string, number>
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const throwEmoji: Record<string, string> = { rock: '🪨', paper: '📄', scissors: '✂️' };
+
+  const throwWidgets: GoogleChatWidget[] = Object.entries(throws).map(([id, choice]) => ({
+    decoratedText: { topLabel: playerNames[id] || 'Player', text: `${throwEmoji[choice] || '?'} <b>${choice.charAt(0).toUpperCase() + choice.slice(1)}</b>` },
+  }));
+  sections.push({ header: `Round ${roundNum} Throws`, widgets: throwWidgets });
+
+  if (roundWinners.length > 0) {
+    const winnerNames = roundWinners.map(id => playerNames[id] || 'Player').join(', ');
+    sections.push({ widgets: [{ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e">Round winner: <b>${winnerNames}</b></font>` } }] });
+  } else {
+    sections.push({ widgets: [{ textParagraph: { text: '<i>No clear winner this round.</i>' } }] });
+  }
+
+  const scoreWidgets: GoogleChatWidget[] = Object.entries(scores)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id, s]) => ({ decoratedText: { topLabel: playerNames[id] || 'Player', text: `<b>${s}</b> wins` } }));
+  if (scoreWidgets.length > 0) sections.push({ header: 'Running Scores', widgets: scoreWidgets });
+
+  return { cardsV2: [{ cardId: `rps-round-${roundNum}`, card: { header: { title: `Round ${roundNum} Results`, subtitle: 'RPS Showdown', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
+export function buildRPSWinnerCard(
+  rankings: { name: string; score: number }[], totalRounds: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const rankWidgets: GoogleChatWidget[] = rankings.map((p, i) => ({
+    decoratedText: { topLabel: `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `#${i + 1}`} — ${p.name}`, text: `<b>${p.score}</b> wins` },
+  }));
+  sections.push({ header: 'Final Rankings', widgets: rankWidgets });
+  sections.push({ widgets: [{ textParagraph: { text: `<i>Game complete — ${totalRounds} rounds played.</i>` } }] });
+  return { cardsV2: [{ cardId: 'rps-winner', card: { header: { title: 'RPS Showdown — Final Results', subtitle: 'Game Over', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
+// --- Hangman ---
+
+export function buildHangmanStartCard(
+  rounds: number, difficulty: string, blanks: string, hangmanArt: string, gameId: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { decoratedText: { topLabel: 'Difficulty', text: `<b>${difficulty.toUpperCase()}</b>`, startIcon: { knownIcon: 'STAR' } } },
+    { decoratedText: { topLabel: 'Rounds', text: `<b>${rounds}</b>` } },
+    { divider: {} },
+    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+    { textParagraph: { text: `<b>${blanks}</b>` } },
+    { divider: {} },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games letter &lt;X&gt;</b>', bottomLabel: 'Guess a letter' } },
+    { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games answer &lt;word&gt;</b>', bottomLabel: 'Guess the full word' } },
+  ];
+  return { cardsV2: [{ cardId: `hangman-start-${gameId}`, card: { header: { title: 'Hangman', subtitle: `Round 1 of ${rounds} — ${difficulty.toUpperCase()}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildHangmanGuessCard(
+  blanks: string, hangmanArt: string, guessedLetters: string[], wrongLetters: string[], round: number, total: number
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+    { textParagraph: { text: `<b>${blanks}</b>` } },
+    { divider: {} },
+  ];
+  if (guessedLetters.length > 0) {
+    widgets.push({ decoratedText: { topLabel: 'Correct Letters', text: `<font color="#22c55e">${guessedLetters.join(' ')}</font>` } });
+  }
+  if (wrongLetters.length > 0) {
+    widgets.push({ decoratedText: { topLabel: 'Wrong Letters', text: `<font color="#dc3545">${wrongLetters.join(' ')}</font>` } });
+  }
+  return { cardsV2: [{ cardId: `hangman-guess-${round}`, card: { header: { title: 'Hangman', subtitle: `Round ${round} of ${total}`, imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/sports_esports/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildHangmanWordResultCard(
+  word: string, won: boolean, solverName: string | null, scores: Record<string, number>, hangmanArt: string
+): GoogleChatResponse {
+  const widgets: GoogleChatWidget[] = [
+    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+  ];
+  if (won && solverName) {
+    widgets.push({ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${solverName}</b> saved the day!</font>` } });
+  } else {
+    widgets.push({ textParagraph: { text: '<font color="#dc3545"><b>The hangman got you!</b></font>' } });
+  }
+  widgets.push({ decoratedText: { topLabel: 'The word was', text: `<b>${word}</b>` } });
+  return { cardsV2: [{ cardId: 'hangman-word-result', card: { header: { title: won ? 'Word Solved!' : 'Word Failed!', subtitle: 'Hangman', imageUrl: won ? 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/check_circle/default/48px.svg' : 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/cancel/default/48px.svg', imageType: 'CIRCLE' }, sections: [{ widgets }] } }] };
+}
+
+export function buildHangmanWinnerCard(
+  rankings: { name: string; score: number }[], totalRounds: number
+): GoogleChatResponse {
+  const sections: GoogleChatSection[] = [];
+  const rankWidgets: GoogleChatWidget[] = rankings.map((p, i) => ({
+    decoratedText: { topLabel: `${i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `#${i + 1}`} — ${p.name}`, text: `<b>${p.score}</b> pts` },
+  }));
+  sections.push({ header: 'Final Rankings', widgets: rankWidgets });
+  sections.push({ widgets: [{ textParagraph: { text: `<i>Game complete — ${totalRounds} rounds played.</i>` } }] });
+  return { cardsV2: [{ cardId: 'hangman-winner', card: { header: { title: 'Hangman — Final Results', subtitle: 'Game Over', imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/trophy/default/48px.svg', imageType: 'CIRCLE' }, sections } }] };
+}
+
 /**
  * Build a status card for a specific game.
  */

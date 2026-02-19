@@ -60,7 +60,8 @@ For **every** code change:
 | **SmtpSettings** | email config (email.ts) | admin/settings | AdminPortal (SMTP settings) |
 | **Game** | gameService, games.ts | games, admin/games | (Gaming pages) |
 | **GameConfig** | games.ts (gameEngine) | admin/games | (Gaming config) |
-| **Jackpot** | games.ts (jackpotService) | admin/games | (Jackpot display) |
+| **GameBankAccount** | games.ts (gameBankService, gameEngine.playGame, gameEngine.playDailyBonus) | admin/games (bank endpoints, toggle guard) | AdminPortal (GamesTab — bank balance, deposit, transfer) |
+| **Jackpot** | games.ts (jackpotService, gameBankService.transferFromJackpot) | admin/games | (Jackpot display) |
 | **ChatCommandAudit** | googleChatService | admin/googleChat | AdminPortal (GoogleChatTab) |
 | **BulkImportJob** | bulkImportService | (route removed) | (panel removed — legacy data only) |
 | **PendingImportBalance** | bulkImportService | (route removed) | (panel removed — legacy data only) |
@@ -233,6 +234,11 @@ AuditAction: transaction_created | transaction_posted | transaction_rejected | b
   store_product_updated | store_product_deleted | wellness_task_created | wellness_task_updated |
   wellness_submission_approved | wellness_submission_rejected | bulk_import_started |
   bulk_import_completed | admin_login | permission_denied | suspicious_activity
+
+ChatGameType: encrypted_office | skill_shot | trivia_blitz | word_scramble | rps_showdown |
+  emoji_decoder | hangman
+
+ChatGameStatus: waiting | active | completed | cancelled | expired
 ```
 
 ### Models — Key Fields & Relations
@@ -440,7 +446,7 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 
 | Function | Calls | Depended On By |
 |----------|-------|----------------|
-| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildPrivateTransferBalanceCard(), buildAwardAmountPickerCard(), buildTextResponse() | googleChat.ts route (webhook). **Award wizard now sends picker card via DM (not public), returns "Check your DMs" text to space** (2026-02-10). |
+| `handleEvent(rawEvent)` | normalizeEvent(), getEventType(), handleCardClicked(), createAuditLog(), findEmployeeByEmail(), executeBalance/Award/Transfer(), updateAuditLog(), isDmAvailable(), sendDirectMessage(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildPrivateTransferBalanceCard(), buildAwardAmountPickerCard(), buildTextResponse(), chatGameService.startScramble/startEmoji/startTrivia/startRPS/startHangman/submitAnswer/submitLetter/submitThrow/advanceTrivia/skipRound/resolveRPSRound() | googleChat.ts route (webhook). **Added 5 new casual game commands: scramble, emoji, trivia, rps, hangman + answer/letter/throw/next/skip subcommands** (2026-02-19). |
 | `handleCardClicked(rawEvent)` | createAuditLog(), updateAuditLog(), executeAward(), postMessageToSpace(), buildPublicAwardCard(), buildPrivateBudgetCard(), buildErrorCard() | handleEvent() (CARD_CLICKED delegation). **`award_dm_execute` handler: single-click award from DM, posts public card to space, updates DM with budget. Legacy `award_select_amount`/`award_confirm` return "expired" message** (2026-02-10). |
 | `postMessageToSpace(spaceName, message)` | googleapis (Google Chat API) | handleCardClicked() (posts public award card to original space after DM wizard completes). **Added 2026-02-10**. |
 | `sendDirectMessage(userEmail, message)` | googleapis (Google Chat API) | handleEvent() (fire-and-forget for award picker DM + transfer balance DM) |
@@ -451,6 +457,31 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | `createAuditLog(...)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
 | `updateAuditLog(auditId, status, error?, txId?)` | — (Prisma direct) | handleEvent(), handleCardClicked() |
 | `findEmployeeByEmail(email)` | — (Prisma direct) | handleEvent(), handleCardClicked(), executeBalance(), executeAward(), executeTransfer() |
+
+### chatGameService.ts
+**Location**: `backend/src/services/chatGameService.ts`
+
+| Function | Calls | Depended On By |
+|----------|-------|----------------|
+| `startGame(params)` | generateCipher(), startSkillShot() | googleChatService (cipher/skillshot start) |
+| `startScramble(params)` | pickRandom(), shuffleWord() | googleChatService (scramble start). **Added 2026-02-19**. |
+| `startEmoji(params)` | pickRandom() | googleChatService (emoji start). **Added 2026-02-19**. |
+| `startTrivia(params)` | pickRandom() | googleChatService (trivia start). **Added 2026-02-19**. |
+| `startRPS(params)` | — | googleChatService (rps start). **Added 2026-02-19**. |
+| `startHangman(params)` | pickRandom() | googleChatService (hangman start). **Added 2026-02-19**. |
+| `submitAnswer(gameId, employeeId, answer)` | _handleScrambleAnswer(), _handleEmojiAnswer(), _handleTriviaAnswer(), _handleHangmanAnswer() | googleChatService (/games answer). **Added 2026-02-19**. |
+| `submitLetter(gameId, employeeId, letter)` | _resolveHangmanRound() | googleChatService (/games letter). **Added 2026-02-19**. |
+| `submitThrow(gameId, employeeId, choice)` | — | googleChatService (/games throw). **Added 2026-02-19**. |
+| `resolveRPSRound(gameId)` | _buildRankings(), _markWinners() | googleChatService (/games resolve). **Added 2026-02-19**. |
+| `advanceTrivia(gameId)` | _buildRankings(), _markWinners() | googleChatService (/games next), skipRound(). **Added 2026-02-19**. |
+| `skipRound(gameId)` | advanceTrivia() | googleChatService (/games skip). **Added 2026-02-19**. |
+| `submitGuess(gameId, employeeId, guess)` | — | googleChatService (/games guess — cipher) |
+| `submitBid(gameId, employeeId, bid, doubleRisk)` | — | googleChatService (/games bid — skillshot) |
+| `resolveRound(gameId)` | — | googleChatService (/games resolve — skillshot) |
+| `useHint(gameId, employeeId)` | — | googleChatService (/games hint — cipher) |
+| `endGame(gameId, gmId)` | — | googleChatService (/games end) |
+| `getActiveGames(spaceName?)` | — | googleChatService (list/status/find active games) |
+| `getGameById(gameId)` | — | googleChatService (final results) |
 
 ### emailTemplateService.ts
 **Location**: `backend/src/services/emailTemplateService.ts`
@@ -535,8 +566,28 @@ All send methods internally call: `emailTemplateService.renderTemplate()` → `s
 | `toggleBanner(id)` | `(string) → Promise<Banner>` | admin/banners.ts route (deactivates other bg banners when activating) |
 | `getActiveBackground()` | `() → Promise<Banner \| null>` | (available) |
 
-### games.ts (gameEngine, jackpotService)
-- See service files for current signatures
+### games.ts (gameEngine, jackpotService, gameBankService)
+**Location**: `backend/src/services/games.ts`
+
+| Function | Signature | Depended On By |
+|----------|-----------|----------------|
+| **gameEngine.getGameConfig(type)** | `(GameType) → Promise<config>` | playGame(), playDailyBonus(), admin/games config routes, games routes |
+| **gameEngine.playGame(params)** | `({employeeId, gameType, bet, prediction?, clientSeed?}) → Promise<result>` | games.ts route (POST /play) |
+| **gameEngine.playDailyBonus(employeeId)** | `(string) → Promise<result>` | games.ts route (daily bonus) |
+| **gameEngine.verifyOutcome(params)** | `(params) → {verified, computedResult, expectedOutcome}` | games.ts route (POST /verify) |
+| **jackpotService.toggleJackpot(id)** | `(string) → Promise<jackpot>` | admin/games.ts toggle route |
+| **jackpotService.adminAdjustBalance(id, amount, adminId, reason?)** | `(...) → Promise<jackpot>` | admin/games.ts adjust route |
+| **jackpotService.triggerScheduledDrawing(idOrType)** | `(string) → Promise<result>` | admin/games.ts trigger route |
+| **jackpotService.initializeJackpots()** | `() → Promise<void>` | admin/games.ts initialize route |
+| **jackpotService.getJackpotStatus()** | `() → Promise<jackpot[]>` | admin/games.ts jackpots route |
+| **gameBankService.getBalance()** | `() → Promise<{balance, updatedAt}>` | admin/games.ts GET /bank, toggle guard |
+| **gameBankService.deposit(amount, adminId)** | `(number, string) → Promise<{balance, updatedAt}>` | admin/games.ts POST /bank/deposit |
+| **gameBankService.transferFromJackpot(jackpotId, amount, adminId)** | `(string, number, string) → Promise<{bank, jackpot}>` | admin/games.ts POST /bank/transfer-from-jackpot |
+
+**Internal helpers** (not exported):
+- `getOrCreateBankAccount(tx?)` — singleton GameBankAccount lookup/create
+- `checkAndAutoDisable(tx, bankBalance)` — auto-disables all games if bank <= 0
+- `FAIR_MULTIPLIERS` — coin_flip=2.0, dice_roll=6.0, higher_lower=2.0
 
 ### fileService.ts
 **Location**: `backend/src/services/fileService.ts`
@@ -677,7 +728,7 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `/api/admin/google-chat` | prisma.chatCommandAudit (direct) |
 | `/api/admin/banners` | bannerService.*, aiImageService.generateBannerImage(), studioService.setBackgroundImage() |
 | `/api/files/banners/:filename` | (serves static banner images from uploads/banners/) |
-| `/api/admin/games` | prisma.gameConfig/game/gameStats (direct), gameEngine.*, jackpotService.* |
+| `/api/admin/games` | prisma.gameConfig/game/gameStats (direct), gameEngine.*, jackpotService.*, gameBankService.* |
 | `/api/admin/studio` | studioService.* |
 | `/api/admin/settings/smtp` | prisma.smtpSettings (direct) |
 | `/api/admin/reports/stats` | GET — aggregated transaction/gaming analytics (prisma.ledgerTransaction.groupBy, prisma.gameStats.aggregate, prisma.jackpot.aggregate) |
@@ -880,6 +931,9 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `activateBackground(bannerId)` | POST | /admin/banners/{id}/activate-background | AdminPortal (BackgroundsTab) |
 | `deactivateBackground()` | POST | /admin/banners/deactivate-background | AdminPortal (BackgroundsTab) |
 | `deleteBackground(bannerId)` | DELETE | /admin/banners/{id} | AdminPortal (BackgroundsTab) |
+| `getGameBankAccount()` | GET | /admin/games/bank | AdminPortal (GamesTab) |
+| `depositToGameBank(amount)` | POST | /admin/games/bank/deposit | AdminPortal (GamesTab) |
+| `transferJackpotToGameBank(jackpotId, amount)` | POST | /admin/games/bank/transfer-from-jackpot | AdminPortal (GamesTab) |
 | `getSmtpSettings()` | GET | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `updateSmtpSettings(data)` | PUT | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `testSmtpConnection(email)` | POST | /admin/settings/smtp/test | AdminPortal (SettingsTab) |

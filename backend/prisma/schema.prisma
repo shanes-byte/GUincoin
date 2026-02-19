@@ -653,6 +653,7 @@ model GameConfig {
   maxBet                  Decimal  @default(500) @db.Decimal(10, 2)
   payoutMultiplier        Decimal? @db.Decimal(5, 2) // Override default if set
   jackpotContributionRate Decimal  @default(0.05) @db.Decimal(5, 4) // 5% default
+  houseEdgePercent        Decimal  @default(5) @db.Decimal(5, 2) // House edge percentage (default 5%)
   availableInChat         Boolean  @default(true)
   availableOnWeb          Boolean  @default(true)
   displayOrder            Int      @default(0)
@@ -660,6 +661,12 @@ model GameConfig {
   updatedAt               DateTime @updatedAt
 
   @@index([enabled])
+}
+
+model GameBankAccount {
+  id        String   @id @default(uuid())
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt
 }
 
 model GameAsset {
@@ -882,6 +889,11 @@ model AuditLog {
 enum ChatGameType {
   encrypted_office
   skill_shot
+  trivia_blitz
+  word_scramble
+  rps_showdown
+  emoji_decoder
+  hangman
 }
 
 enum ChatGameStatus {
