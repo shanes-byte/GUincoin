@@ -43,23 +43,21 @@ export default function Login() {
     window.location.href = '/api/auth/google';
   };
 
-  // [ORIGINAL - 2026-02-18] Used background-attachment: fixed inline style,
-  // which breaks on iOS Safari and some Android browsers. Replaced with fixed div.
-  const bgImage = backgroundUrl ? `url(${backgroundUrl})` : undefined;
+  // [ORIGINAL - 2026-02-19] CSS background-image on fixed div — broken on iOS Safari.
+  // Replaced with <img> + object-fit:cover which iOS handles correctly.
 
   if (isLoading) {
     return (
       <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 relative">
-        {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
-        <div
-          className="fixed inset-0 z-0 bg-gray-50"
-          style={bgImage ? {
-            backgroundImage: bgImage,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          } : {}}
-        />
+        <div className="fixed inset-0 z-0 bg-gray-50" />
+        {backgroundUrl && (
+          <img
+            src={backgroundUrl}
+            alt=""
+            aria-hidden="true"
+            className="fixed inset-0 z-0 w-full h-full object-cover pointer-events-none"
+          />
+        )}
         <div className="relative z-10 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Checking authentication...</p>
@@ -70,16 +68,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 relative">
-      {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
-      <div
-        className="fixed inset-0 z-0 bg-gray-50"
-        style={bgImage ? {
-          backgroundImage: bgImage,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        } : {}}
-      />
+      <div className="fixed inset-0 z-0 bg-gray-50" />
+      {backgroundUrl && (
+        <img
+          src={backgroundUrl}
+          alt=""
+          aria-hidden="true"
+          className="fixed inset-0 z-0 w-full h-full object-cover pointer-events-none"
+        />
+      )}
       <div className="relative z-10 max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

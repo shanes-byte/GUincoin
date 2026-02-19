@@ -3,6 +3,7 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { logout } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -17,6 +18,7 @@ interface LayoutProps {
 export default function Layout({ children, user }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -80,16 +82,18 @@ export default function Layout({ children, user }: LayoutProps) {
   return (
     <div className="min-h-screen min-h-[100dvh] relative">
       {/* Fixed background layer — bg-gray-50 is the fallback when no image is set */}
-      {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
-      <div
-        className="fixed inset-0 z-0 bg-gray-50"
-        style={{
-          backgroundImage: 'var(--campaign-bg-image)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      {/* [ORIGINAL - 2026-02-19] CSS background-image on fixed div — broken on iOS Safari.
+          iOS doesn't render background-image + background-size:cover on fixed-position divs reliably.
+          Replaced with <img> + object-fit:cover which iOS handles correctly. */}
+      <div className="fixed inset-0 z-0 bg-gray-50" />
+      {theme?.backgroundImageUrl && (
+        <img
+          src={theme.backgroundImageUrl}
+          alt=""
+          aria-hidden="true"
+          className="fixed inset-0 z-0 w-full h-full object-cover pointer-events-none"
+        />
+      )}
       {/* [ORIGINAL - 2026-02-19] z-10 — dropdown hidden behind main content (also z-10) */}
       <nav className="relative z-20 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
