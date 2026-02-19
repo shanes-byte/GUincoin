@@ -1355,11 +1355,11 @@ export class GoogleChatService {
                 }
                 // Show word result + next round start
                 return buildHangmanWordResultCard(
-                  result.correctAnswer || '?',
+                  result.word || '?',
                   result.correct,
                   result.playerName || null,
                   result.scores || {},
-                  result.nextRoundData?.hangmanArt || ''
+                  result.hangmanArt || ''
                 );
               }
               return buildTextResponse('Wrong guess — the hangman is still waiting...');
