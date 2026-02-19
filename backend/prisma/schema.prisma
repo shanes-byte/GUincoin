@@ -725,10 +725,11 @@ model DailyBonusSpin {
 // =====================
 
 model SystemSettings {
-  id          String   @id @default("system")
-  themeMode   String   @default("campaign") // 'manual' or 'campaign'
-  manualTheme Json? // CampaignTheme object when in manual mode
-  updatedAt   DateTime @updatedAt
+  id                    String   @id @default("system")
+  themeMode             String   @default("campaign") // 'manual' or 'campaign'
+  manualTheme           Json? // CampaignTheme object when in manual mode
+  dailyReportRecipients Json? // Array of email strings for daily balance report
+  updatedAt             DateTime @updatedAt
 }
 
 // =====================

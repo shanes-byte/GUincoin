@@ -27,6 +27,7 @@ import googleChatRoutes from './routes/googleChat';
 import bannerRoutes from './routes/banners';
 import gamesRoutes from './routes/games';
 import superBowlRoutes from './routes/superBowl';
+import { initDailyReportJob } from './jobs/dailyReportJob';
 
 dotenv.config();
 
@@ -332,6 +333,9 @@ const startServer = async () => {
     console.error('[Startup] Database connection failed:', error);
     // Continue anyway - health check will report the issue
   }
+
+  // Initialize scheduled jobs
+  initDailyReportJob();
 
   // Start server after warming up
   const server = app.listen(PORT, () => {

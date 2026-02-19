@@ -45,7 +45,8 @@ router.get('/stats', requireAuth, async (req: AuthRequest, res, next) => {
     const dailyActivity = dailyActivityRaw.map((row) => ({
       date: row.date,
       count: Number(row.count),
-      amount: parseFloat(row.amount) || 0,
+      // [ORIGINAL - 2026-02-19] parseFloat(row.amount) — loses precision on large values
+      amount: Number(row.amount) || 0,
     }));
 
     // Gaming overview

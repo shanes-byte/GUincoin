@@ -44,9 +44,23 @@ export default function Wellness() {
     return () => controller.abort();
   }, [navigate]);
 
-  const handleSubmission = () => {
-    // Reload submissions after new submission
-    getWellnessSubmissions().then((res) => setSubmissions(res.data));
+  // [ORIGINAL - 2026-02-19] Only reloaded submissions, not tasks
+  // const handleSubmission = () => {
+  //   getWellnessSubmissions().then((res) => setSubmissions(res.data));
+  // };
+  const handleSubmission = async () => {
+    setLoading(true);
+    try {
+      const [tasksRes, submissionsRes] = await Promise.all([
+        getWellnessTasks(), getWellnessSubmissions(),
+      ]);
+      setTasks(tasksRes.data);
+      setSubmissions(submissionsRes.data);
+    } catch (err) {
+      console.error('Failed to refresh wellness data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {

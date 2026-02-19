@@ -41,6 +41,14 @@ export class EmailService {
   }
 
   /**
+   * Public wrapper for sendEmail — lets callers (e.g. daily report job)
+   * send arbitrary emails without duplicating transporter logic.
+   */
+  async sendRawEmail(to: string, subject: string, html: string) {
+    return this.sendEmail(to, subject, html);
+  }
+
+  /**
    * Send welcome email to new users
    */
   async sendWelcomeNotification(

@@ -14,6 +14,8 @@ import settingsRoutes from './settings';
 
 import awardPresetsRoutes from './awardPresets';
 import reportsRoutes from './reports';
+import ledgerRoutes from './ledger';
+import dailyReportRoutes from './dailyReport';
 
 const router = express.Router();
 
@@ -33,5 +35,7 @@ router.use('/settings', settingsRoutes);
 
 router.use(awardPresetsRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/ledger', ledgerRoutes);
+router.use('/daily-report', dailyReportRoutes);
 
 export default router;

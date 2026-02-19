@@ -68,7 +68,8 @@ function PersonalFront({ holderName, balance, allotmentBalance, isManager }: Omi
         <div>
           <p className="text-[10px] uppercase tracking-widest text-white/60">Balance</p>
           <p className="text-xl font-semibold text-white card-embossed">
-            {balance ? balance.total.toFixed(2) : '—'} <span className="text-sm font-normal">GC</span>
+            {/* [ORIGINAL - 2026-02-19] balance.total showed pending as spendable */}
+            {balance ? balance.posted.toFixed(2) : '—'} <span className="text-sm font-normal">GC</span>
           </p>
         </div>
         {balance && balance.pending > 0 && (
@@ -85,7 +86,8 @@ function PersonalFront({ holderName, balance, allotmentBalance, isManager }: Omi
       {isManager && allotmentBalance && (
         <div className="mt-2 flex items-center gap-2">
           <p className="text-[10px] uppercase tracking-widest text-white/60">
-            Mgr Allotment: {allotmentBalance.total.toFixed(2)}
+            {/* [ORIGINAL - 2026-02-19] allotmentBalance.total showed pending as spendable */}
+            Mgr Allotment: {allotmentBalance.posted.toFixed(2)}
           </p>
           <Link to="/manager" className="text-white/70 hover:text-white" title="Go to Manager Portal">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

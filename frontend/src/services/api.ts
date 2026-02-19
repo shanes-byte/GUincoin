@@ -1137,6 +1137,19 @@ export interface ReportStats {
 
 export const getReportStats = () => api.get<ReportStats>('/admin/reports/stats');
 
+// =====================
+// Daily Report
+// =====================
+
+export const getDailyReportRecipients = () =>
+  api.get<{ recipients: string[] }>('/admin/daily-report/recipients');
+
+export const updateDailyReportRecipients = (recipients: string[]) =>
+  api.put<{ recipients: string[] }>('/admin/daily-report/recipients', { recipients });
+
+export const triggerDailyReport = () =>
+  api.post<{ sent: number; skipped: boolean; error?: string }>('/admin/daily-report/trigger');
+
 // Bulk create employees from CSV/Excel
 export const bulkCreateEmployees = (formData: FormData) =>
   api.post<{ created: number; skipped: number; errors: Array<{ row: number; message: string }> }>(

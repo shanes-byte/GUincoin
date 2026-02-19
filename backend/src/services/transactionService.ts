@@ -147,9 +147,10 @@ export class TransactionService {
     }
 
     // Otherwise, create a new transaction
+    // [ORIGINAL - 2026-02-19] Used default isolation; callers passing their own tx already use Serializable
     return await prisma.$transaction(async (tx) => {
       return await executePost(tx);
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   /**

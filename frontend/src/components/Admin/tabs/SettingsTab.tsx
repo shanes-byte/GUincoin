@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { EmailTemplate, Employee, ManagerAllotmentDetails, User } from '../../../services/api';
+import { useState, useEffect } from 'react';
+import { EmailTemplate, Employee, ManagerAllotmentDetails, User, getDailyReportRecipients, updateDailyReportRecipients, triggerDailyReport } from '../../../services/api';
 import SmtpSettings from '../SmtpSettings';
 import AwardPresetsPanel from '../AwardPresetsPanel';
 
-type SettingsSubTab = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
+type SettingsSubTab = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets' | 'daily-report';
 
 interface SettingsTabProps {
   user: User | null;
@@ -56,6 +56,147 @@ interface SettingsTabProps {
   onRecurringFormChange: (form: { amount: string }) => void;
   onDeposit: (e: React.FormEvent) => void;
   onSetRecurring: (e: React.FormEvent) => void;
+}
+
+function DailyReportSection() {
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    getDailyReportRecipients()
+      .then(res => setRecipients(res.data.recipients))
+      .catch(() => setMessage({ type: 'error', text: 'Failed to load recipients' }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAdd = () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    if (recipients.includes(email)) return;
+    setRecipients(prev => [...prev, email]);
+    setNewEmail('');
+  };
+
+  const handleRemove = (email: string) => {
+    setRecipients(prev => prev.filter(e => e !== email));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await updateDailyReportRecipients(recipients);
+      setMessage({ type: 'success', text: 'Recipients saved.' });
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save recipients.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTrigger = async () => {
+    setTriggering(true);
+    setMessage(null);
+    try {
+      const res = await triggerDailyReport();
+      if (res.data.skipped) {
+        setMessage({ type: 'error', text: 'Report skipped — no recipients configured or template disabled.' });
+      } else if (res.data.error) {
+        setMessage({ type: 'error', text: `Report error: ${res.data.error}` });
+      } else {
+        setMessage({ type: 'success', text: `Report sent to ${res.data.sent} recipient(s).` });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to trigger report.' });
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-6 text-gray-500">Loading...</div>;
+  }
+
+  return (
+    <div className="bg-white shadow rounded-lg p-6">
+      <h2 className="text-lg font-medium text-gray-900 mb-2">Daily Balance Report</h2>
+      <p className="text-sm text-gray-500 mb-6">
+        Configure recipients for a daily email report sent at 6:00 AM with all balances, recent activity, and anomaly flags.
+      </p>
+
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${
+          message.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200'
+            : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Recipient list */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Recipients</label>
+        {recipients.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">No recipients configured.</p>
+        ) : (
+          <ul className="space-y-2">
+            {recipients.map(email => (
+              <li key={email} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md">
+                <span className="text-sm text-gray-800">{email}</span>
+                <button
+                  onClick={() => handleRemove(email)}
+                  className="text-red-500 hover:text-red-700 text-xs font-medium"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Add email */}
+      <div className="flex gap-2 mb-6">
+        <input
+          type="email"
+          value={newEmail}
+          onChange={e => setNewEmail(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+          placeholder="admin@company.com"
+          className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm"
+        />
+        <button
+          onClick={handleAdd}
+          className="px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-md hover:bg-teal-100"
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:bg-gray-400"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+        <button
+          onClick={handleTrigger}
+          disabled={triggering}
+          className="px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100 disabled:bg-gray-100 disabled:text-gray-400"
+        >
+          {triggering ? 'Sending...' : 'Send Test Report'}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SettingsTab({
@@ -174,6 +315,16 @@ export default function SettingsTab({
             }`}
           >
             Award Presets
+          </button>
+          <button
+            onClick={() => onSettingsTabChange('daily-report')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              settingsTab === 'daily-report'
+                ? 'border-teal-500 text-teal-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Daily Report
           </button>
         </nav>
       </div>
@@ -592,6 +743,9 @@ export default function SettingsTab({
 
       {/* Award Presets Sub-tab */}
       {settingsTab === 'award-presets' && <AwardPresetsPanel />}
+
+      {/* Daily Report Sub-tab */}
+      {settingsTab === 'daily-report' && <DailyReportSection />}
 
       {/* Manager Allotments Sub-tab */}
       {settingsTab === 'allotments' && (

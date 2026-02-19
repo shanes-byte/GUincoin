@@ -12,7 +12,8 @@ export type EmailTemplateKey =
   | 'purchase_fulfilled'
   | 'role_assigned'
   | 'allotment_deposit'
-  | 'bulk_import_invitation';
+  | 'bulk_import_invitation'
+  | 'daily_balance_report';
 
 export interface EmailTemplateDefinition {
   key: EmailTemplateKey;
@@ -279,6 +280,43 @@ const defaultTemplates: EmailTemplateDefinition[] = [
       </div>
     `,
     variables: ['recipientName', 'amount', 'signinUrl'],
+  },
+  {
+    key: 'daily_balance_report',
+    name: 'Daily Balance Report',
+    description: 'Daily summary of all balances, activity, and anomalies sent to admins.',
+    subject: 'Guincoin Daily Report — {{date}}',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Guincoin Daily Report — {{date}}</h2>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
+              <strong>Total in Circulation:</strong> {{totalInCirculation}} GC
+            </td>
+            <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
+              <strong>Transferred Today:</strong> {{totalTransferredToday}} GC
+            </td>
+            <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
+              <strong>Wellness Today:</strong> {{totalWellnessToday}} GC
+            </td>
+          </tr>
+        </table>
+        {{anomalySectionBlock}}
+        <h3 style="color: #374151; margin-top: 30px;">All Balances</h3>
+        {{balancesTableBlock}}
+        <h3 style="color: #374151; margin-top: 30px;">Transactions (Past 24h)</h3>
+        {{transactionsTableBlock}}
+        <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+          This is an automated daily report from the Guincoin Rewards Platform.<br />
+          Visit us at <a href="https://guincoin.com" style="color: #2563eb; text-decoration: underline;">Guincoin.com</a>
+        </p>
+      </div>
+    `,
+    variables: [
+      'date', 'totalInCirculation', 'totalTransferredToday', 'totalWellnessToday',
+      'anomalySectionBlock', 'balancesTableBlock', 'transactionsTableBlock',
+    ],
   },
 ];
 

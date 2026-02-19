@@ -1,6 +1,6 @@
 # Guincoin Code Map — Complete Dependency Reference
 
-> **Last Updated**: 2026-02-18
+> **Last Updated**: 2026-02-19
 > **Purpose**: Function-level dependency map so agents/developers can safely modify code without reading the entire codebase.
 > **How to Use**: Search for the function, model, or file you plan to change. Check its "Depended On By" list before modifying.
 
@@ -56,7 +56,7 @@ For **every** code change:
 | **CampaignTask** | campaignService | admin/campaigns | AdminPortal (campaign task management) |
 | **Banner** | bannerService | admin/banners, files (banner serving) | AdminPortal (BackgroundsTab), Layout (dynamic background) |
 | **EmailTemplate** | emailTemplateService | admin/emailTemplates | AdminPortal (email templates) |
-| **SystemSettings** | studioService | admin/studio, admin/settings | ThemeContext (campaign theming) |
+| **SystemSettings** | studioService, dailyReportJob | admin/studio, admin/settings, admin/daily-report | ThemeContext (campaign theming), AdminPortal (daily report recipients) |
 | **SmtpSettings** | email config (email.ts) | admin/settings | AdminPortal (SMTP settings) |
 | **Game** | gameService, games.ts | games, admin/games | (Gaming pages) |
 | **GameConfig** | games.ts (gameEngine) | admin/games | (Gaming config) |
@@ -108,6 +108,9 @@ Every `TransactionType` is used in:
 | **emailService.sendRoleAssignedNotification()** | `admin/users.ts` route |
 | **emailService.sendAllotmentDepositNotification()** | `admin/users.ts` route |
 | **emailService.sendBulkImportInvitation()** | `bulkImportService.sendInvitationEmail()` |
+| **emailService.sendRawEmail()** | `dailyReportJob.generateAndSendReport()` |
+| **dailyReportJob.generateAndSendReport()** | `admin/dailyReport.ts` trigger endpoint, cron (6 AM daily) |
+| **dailyReportJob.initDailyReportJob()** | `server.ts` (startup) |
 | **pendingTransferService.claimPendingTransfers()** | `config/auth.ts` (on login) |
 | **pendingTransferService.cancelPendingTransfer()** | `transfers.ts` route |
 | **campaignService.getCampaignById()** | `admin/campaigns.ts` route, `aiImageService.generateCampaignImages()`, `aiImageService.regenerateImage()`, `aiImageService.getCampaignAssets()` |
@@ -280,7 +283,7 @@ AuditAction: transaction_created | transaction_posted | transaction_rejected | b
 - `id` (UUID), `key` (unique), `name`, `subject`, `html`, `isEnabled`
 
 #### SystemSettings
-- `id` ("system"), `themeMode` ("manual"|"campaign"), `manualTheme` (JSON)
+- `id` ("system"), `themeMode` ("manual"|"campaign"), `manualTheme` (JSON), `dailyReportRecipients` (JSON — string[] of emails)
 
 #### SmtpSettings
 - `id` ("smtp"), `host`, `port`, `secure`, `user`, `pass`, `fromName`, `fromEmail`, `isEnabled`, `lastTestedAt`, `lastTestResult`
@@ -679,6 +682,9 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `/api/admin/settings/smtp` | prisma.smtpSettings (direct) |
 | `/api/admin/reports/stats` | GET — aggregated transaction/gaming analytics (prisma.ledgerTransaction.groupBy, prisma.gameStats.aggregate, prisma.jackpot.aggregate) |
 | `/api/admin/users/bulk` | POST — bulk create employees from CSV/Excel (multer + xlsx) |
+| `/api/admin/ledger/reconcile` | GET — admin-only reconciliation of stored vs computed balances |
+| `/api/admin/daily-report/recipients` | GET/PUT — manage daily report email recipients (SystemSettings.dailyReportRecipients) |
+| `/api/admin/daily-report/trigger` | POST — manually trigger daily balance report |
 
 ### Integration Routes
 
@@ -878,6 +884,9 @@ Key service calls: campaignService.*, aiImageService.*, campaignDistributionServ
 | `updateSmtpSettings(data)` | PUT | /admin/settings/smtp | AdminPortal (SettingsTab) |
 | `testSmtpConnection(email)` | POST | /admin/settings/smtp/test | AdminPortal (SettingsTab) |
 | `bulkCreateEmployees(formData)` | POST | /admin/users/bulk | AdminPortal (SettingsTab → Role Management) |
+| `getDailyReportRecipients()` | GET | /admin/daily-report/recipients | AdminPortal (SettingsTab → Daily Report) |
+| `updateDailyReportRecipients(recipients)` | PUT | /admin/daily-report/recipients | AdminPortal (SettingsTab → Daily Report) |
+| `triggerDailyReport()` | POST | /admin/daily-report/trigger | AdminPortal (SettingsTab → Daily Report) |
 
 ---
 

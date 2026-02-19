@@ -79,7 +79,7 @@ interface Submission {
 // [ORIGINAL - 2026-02-18] Had 'studio' tab for CampaignStudio
 // type TabType = 'wellness' | 'store' | 'studio' | 'google-chat' | 'settings' | 'games';
 type TabType = 'wellness' | 'store' | 'backgrounds' | 'google-chat' | 'settings' | 'games';
-type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets';
+type SettingsTabType = 'smtp' | 'email-templates' | 'roles' | 'allotments' | 'award-presets' | 'daily-report';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
