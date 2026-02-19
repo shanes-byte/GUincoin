@@ -1217,7 +1217,7 @@ export class GoogleChatService {
             const state = game.state as any;
             const word = state.words[0];
             const blanks = word.split('').map(() => '_').join(' ');
-            const hangmanArt = '  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========';
+            const hangmanArt = '❤️❤️❤️❤️❤️❤️  6 lives';
             await this.updateAuditLog(auditId, ChatCommandStatus.succeeded);
             return buildHangmanStartCard(state.words.length, difficulty, blanks, hangmanArt, game.id);
           }
@@ -1343,7 +1343,8 @@ export class GoogleChatService {
                 const word = state.words[state.currentRound - 1];
                 const blanks = word.split('').map((ch: string) => state.guessedLetters.includes(ch) ? ch : '_').join(' ');
                 const wrongCount = state.wrongCount + 1;
-                const art = ['  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========','  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========='][Math.min(wrongCount, 6)];
+                // [ORIGINAL - 2026-02-19] ASCII art replaced with emoji lives
+                const art = ['❤️❤️❤️❤️❤️❤️  6 lives','💀❤️❤️❤️❤️❤️  5 lives','💀💀❤️❤️❤️❤️  4 lives','💀💀💀❤️❤️❤️  3 lives','💀💀💀💀❤️❤️  2 lives','💀💀💀💀💀❤️  1 life!','💀💀💀💀💀💀  DEAD!'][Math.min(wrongCount, 6)];
                 return buildHangmanGuessCard(blanks, art, state.guessedLetters, state.wrongLetters, state.currentRound, (answerGame.config as any).rounds);
               }
               if (result.roundComplete) {

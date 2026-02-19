@@ -182,14 +182,15 @@ const HANGMAN_WORDS: { easy: string[]; medium: string[]; hard: string[] } = {
   ],
 };
 
+// [ORIGINAL - 2026-02-19] ASCII art stages replaced with emoji lives — ASCII art doesn't render in Google Chat proportional fonts
 const HANGMAN_STAGES = [
-  '  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========',
-  '  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========',
+  '❤️❤️❤️❤️❤️❤️  6 lives',
+  '💀❤️❤️❤️❤️❤️  5 lives',
+  '💀💀❤️❤️❤️❤️  4 lives',
+  '💀💀💀❤️❤️❤️  3 lives',
+  '💀💀💀💀❤️❤️  2 lives',
+  '💀💀💀💀💀❤️  1 life!',
+  '💀💀💀💀💀💀  DEAD!',
 ];
 
 // --- New Game Type Interfaces ---

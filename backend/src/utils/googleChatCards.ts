@@ -1402,7 +1402,7 @@ export function buildHangmanStartCard(
     { decoratedText: { topLabel: 'Difficulty', text: `<b>${difficulty.toUpperCase()}</b>`, startIcon: { knownIcon: 'STAR' } } },
     { decoratedText: { topLabel: 'Rounds', text: `<b>${rounds}</b>` } },
     { divider: {} },
-    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+    { textParagraph: { text: hangmanArt } },
     { textParagraph: { text: `<b>${blanks}</b>` } },
     { divider: {} },
     { decoratedText: { startIcon: { knownIcon: 'BOOKMARK' }, text: '<b>/games letter &lt;X&gt;</b>', bottomLabel: 'Guess a letter' } },
@@ -1415,7 +1415,7 @@ export function buildHangmanGuessCard(
   blanks: string, hangmanArt: string, guessedLetters: string[], wrongLetters: string[], round: number, total: number
 ): GoogleChatResponse {
   const widgets: GoogleChatWidget[] = [
-    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+    { textParagraph: { text: hangmanArt } },
     { textParagraph: { text: `<b>${blanks}</b>` } },
     { divider: {} },
   ];
@@ -1432,7 +1432,7 @@ export function buildHangmanWordResultCard(
   word: string, won: boolean, solverName: string | null, scores: Record<string, number>, hangmanArt: string
 ): GoogleChatResponse {
   const widgets: GoogleChatWidget[] = [
-    { textParagraph: { text: `<code>${hangmanArt}</code>` } },
+    { textParagraph: { text: hangmanArt } },
   ];
   if (won && solverName) {
     widgets.push({ decoratedText: { startIcon: { knownIcon: 'STAR' }, text: `<font color="#22c55e"><b>${solverName}</b> saved the day!</font>` } });
