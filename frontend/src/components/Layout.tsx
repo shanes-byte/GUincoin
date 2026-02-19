@@ -78,10 +78,10 @@ export default function Layout({ children, user }: LayoutProps) {
   // which breaks on iOS Safari and some Android browsers (zoomed/clipped rendering).
   // Replaced with a fixed-position div behind the content for cross-device support.
   return (
-    <div className="min-h-screen bg-gray-50 relative">
-      {/* Fixed background layer — works on mobile unlike background-attachment: fixed */}
+    <div className="min-h-screen relative">
+      {/* Fixed background layer — bg-gray-50 is the fallback when no image is set */}
       <div
-        className="fixed inset-0 -z-10"
+        className="fixed inset-0 -z-10 bg-gray-50"
         style={{
           backgroundImage: 'var(--campaign-bg-image)',
           backgroundSize: 'cover',

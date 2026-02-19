@@ -49,18 +49,16 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
-        {bgImage && (
-          <div
-            className="fixed inset-0 -z-10"
-            style={{
-              backgroundImage: bgImage,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-            }}
-          />
-        )}
+      <div className="min-h-screen flex items-center justify-center px-4 relative">
+        <div
+          className="fixed inset-0 -z-10 bg-gray-50"
+          style={bgImage ? {
+            backgroundImage: bgImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          } : {}}
+        />
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Checking authentication...</p>
@@ -70,18 +68,16 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
-      {bgImage && (
-        <div
-          className="fixed inset-0 -z-10"
-          style={{
-            backgroundImage: bgImage,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-      )}
+    <div className="min-h-screen flex items-center justify-center px-4 relative">
+      <div
+        className="fixed inset-0 -z-10 bg-gray-50"
+        style={bgImage ? {
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        } : {}}
+      />
       <div className="max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
