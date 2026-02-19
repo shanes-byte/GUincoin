@@ -387,9 +387,11 @@ export class AIImageService {
 
       await this.downloadImage(imageUrl, localPath);
 
-      // Build public URL
-      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-      const publicUrl = `${baseUrl}/api/files/campaigns/${campaignId}/${filename}`;
+      // [ORIGINAL - 2026-02-18] Used absolute URL with BACKEND_URL, which broke on other
+      // users' machines when BACKEND_URL was localhost
+      // const publicUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/files/campaigns/${campaignId}/${filename}`;
+      // Build relative URL so the browser resolves against the current origin
+      const publicUrl = `/api/files/campaigns/${campaignId}/${filename}`;
 
       return {
         url: publicUrl,

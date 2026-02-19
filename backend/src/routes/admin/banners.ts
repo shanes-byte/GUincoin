@@ -202,9 +202,9 @@ router.post(
 
       const banner = await bannerService.getBannerById(req.params.id);
 
-      // Build public URL
-      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-      const imageUrl = `${baseUrl}/api/files/banners/${req.file.filename}`;
+      // [ORIGINAL - 2026-02-18] Used absolute URL with BACKEND_URL, broke on other machines
+      // const imageUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/files/banners/${req.file.filename}`;
+      const imageUrl = `/api/files/banners/${req.file.filename}`;
 
       const updatedBanner = await bannerService.updateBannerImage(banner.id, imageUrl, false);
 
@@ -239,11 +239,22 @@ router.put(
 
 /**
  * DELETE /banners/:id
- * Delete a banner
+ * Delete a banner. If it was the active background, clear the site background.
  */
+// [ORIGINAL - 2026-02-18] Did not check if deleted banner was the active background,
+// so deleting the active background left a stale backgroundImageUrl in SystemSettings
 router.delete('/banners/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
   try {
+    const banner = await bannerService.getBannerById(req.params.id);
+    const wasActiveBackground = banner.isActive && banner.position === 'background';
+
     await bannerService.deleteBanner(req.params.id);
+
+    // If we just deleted the active background, clear it from the theme
+    if (wasActiveBackground) {
+      await studioService.setBackgroundImage(null);
+    }
+
     res.json({ message: 'Banner deleted successfully' });
   } catch (error) {
     next(error);

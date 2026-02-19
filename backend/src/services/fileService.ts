@@ -144,9 +144,13 @@ export const publicUpload = multer({
  * @param filename - The unique filename generated during upload
  * @returns Full URL to access the file via the API
  */
+// [ORIGINAL - 2026-02-19] Used absolute URL with BACKEND_URL, broke on other machines
+// export const getFileUrl = (filename: string): string => {
+//   const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+//   return `${baseUrl}/api/files/${filename}`;
+// };
 export const getFileUrl = (filename: string): string => {
-  const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-  return `${baseUrl}/api/files/${filename}`;
+  return `/api/files/${filename}`;
 };
 
 /**
@@ -155,9 +159,13 @@ export const getFileUrl = (filename: string): string => {
  * @param filename - The unique filename generated during upload
  * @returns Full URL to access the public file
  */
+// [ORIGINAL - 2026-02-19] Same absolute URL issue
+// export const getPublicFileUrl = (filename: string): string => {
+//   const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+//   return `${baseUrl}/api/files/public/${filename}`;
+// };
 export const getPublicFileUrl = (filename: string): string => {
-  const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-  return `${baseUrl}/api/files/public/${filename}`;
+  return `/api/files/public/${filename}`;
 };
 
 /**
