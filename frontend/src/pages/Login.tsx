@@ -49,9 +49,10 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 relative">
+      <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 relative">
+        {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
         <div
-          className="fixed inset-0 -z-10 bg-gray-50"
+          className="fixed inset-0 z-0 bg-gray-50"
           style={bgImage ? {
             backgroundImage: bgImage,
             backgroundSize: 'cover',
@@ -59,7 +60,7 @@ export default function Login() {
             backgroundRepeat: 'no-repeat',
           } : {}}
         />
-        <div className="text-center">
+        <div className="relative z-10 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Checking authentication...</p>
         </div>
@@ -68,9 +69,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 relative">
+      {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
       <div
-        className="fixed inset-0 -z-10 bg-gray-50"
+        className="fixed inset-0 z-0 bg-gray-50"
         style={bgImage ? {
           backgroundImage: bgImage,
           backgroundSize: 'cover',
@@ -78,7 +80,7 @@ export default function Login() {
           backgroundRepeat: 'no-repeat',
         } : {}}
       />
-      <div className="max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
+      <div className="relative z-10 max-w-md w-full space-y-8 bg-white/85 backdrop-blur-sm rounded-xl p-8 shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Guincoin Rewards

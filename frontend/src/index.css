@@ -38,7 +38,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: rgb(var(--color-background));
+  /* [ORIGINAL - 2026-02-19] background-color: rgb(var(--color-background)); */
+  /* Transparent so the fixed background div (z-0) in Layout/Login isn't hidden behind an opaque body on mobile */
+  background-color: transparent;
   color: rgb(var(--color-text-primary));
 }
 

@@ -78,10 +78,11 @@ export default function Layout({ children, user }: LayoutProps) {
   // which breaks on iOS Safari and some Android browsers (zoomed/clipped rendering).
   // Replaced with a fixed-position div behind the content for cross-device support.
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen min-h-[100dvh] relative">
       {/* Fixed background layer — bg-gray-50 is the fallback when no image is set */}
+      {/* [ORIGINAL - 2026-02-19] used -z-10, hidden behind opaque body on mobile browsers */}
       <div
-        className="fixed inset-0 -z-10 bg-gray-50"
+        className="fixed inset-0 z-0 bg-gray-50"
         style={{
           backgroundImage: 'var(--campaign-bg-image)',
           backgroundSize: 'cover',
@@ -89,7 +90,7 @@ export default function Layout({ children, user }: LayoutProps) {
           backgroundRepeat: 'no-repeat',
         }}
       />
-      <nav className="bg-white shadow-sm">
+      <nav className="relative z-10 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Left: Logo + Primary Nav */}
@@ -228,7 +229,7 @@ export default function Layout({ children, user }: LayoutProps) {
           </div>
         )}
       </nav>
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="relative z-10 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="bg-white/85 backdrop-blur-sm rounded-xl p-6 shadow-sm">
           {children}
         </div>
