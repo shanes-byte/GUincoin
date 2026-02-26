@@ -295,6 +295,9 @@ const defaultTemplates: EmailTemplateDefinition[] = [
               <strong>Total in Circulation:</strong> {{totalInCirculation}} GC
             </td>
             <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
+              <strong>Awarded Today:</strong> {{totalAwardedToday}} GC
+            </td>
+            <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
               <strong>Transferred Today:</strong> {{totalTransferredToday}} GC
             </td>
             <td style="padding: 10px; background: #f3f4f6; border-radius: 5px;">
@@ -314,7 +317,7 @@ const defaultTemplates: EmailTemplateDefinition[] = [
       </div>
     `,
     variables: [
-      'date', 'totalInCirculation', 'totalTransferredToday', 'totalWellnessToday',
+      'date', 'totalInCirculation', 'totalAwardedToday', 'totalTransferredToday', 'totalWellnessToday',
       'anomalySectionBlock', 'balancesTableBlock', 'transactionsTableBlock',
     ],
   },

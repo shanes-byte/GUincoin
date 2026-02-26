@@ -50,6 +50,10 @@ export async function generateAndSendReport(): Promise<{ sent: number; skipped: 
       .filter(t => t.transactionType === TransactionType.wellness_reward)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
+    const totalAwardedToday = recentTxns
+      .filter(t => t.transactionType === TransactionType.manager_award)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
     // 5. Detect anomalies
     const anomalies: string[] = [];
     // Large transfers (>= 50 GC)
@@ -151,6 +155,7 @@ export async function generateAndSendReport(): Promise<{ sent: number; skipped: 
       date,
       totalInCirculation: totalInCirculation.toFixed(2),
       totalTransferredToday: totalTransferredToday.toFixed(2),
+      totalAwardedToday: totalAwardedToday.toFixed(2),
       totalWellnessToday: totalWellnessToday.toFixed(2),
       anomalySectionBlock,
       balancesTableBlock,
