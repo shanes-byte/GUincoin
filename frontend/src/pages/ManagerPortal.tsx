@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../utils/errorUtils';
 import { getCurrentUser, getManagerAllotment, awardCoins, getAwardHistory, User } from '../services/api';
 import Layout from '../components/Layout';
 import { useToast } from '../components/Toast';
@@ -64,8 +65,7 @@ export default function ManagerPortal() {
       setAwardHistory(historyRes.data.transactions || []);
       addToast('Coins awarded successfully!', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to award coins', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to award coins'), 'error');
     }
   };
 

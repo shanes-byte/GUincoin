@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { getApiErrorMessage } from '../utils/errorUtils';
 import {
   getCurrentUser,
   getFullBalance,
@@ -171,8 +172,7 @@ export default function Dashboard() {
       setGoals(goalsRes.data);
       addToast('Goal deleted', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to delete goal', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to delete goal'), 'error');
     }
   };
 

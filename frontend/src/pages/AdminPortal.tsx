@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+// [ORIGINAL - 2026-02-24] Inline `const axiosErr = err as {...}` pattern was repeated 31 times — now uses getApiErrorMessage()
+import { getApiErrorMessage } from '../utils/errorUtils';
 import {
   createWellnessTask,
   createCustomProduct,
@@ -351,8 +353,7 @@ export default function AdminPortal() {
       );
       addToast(`${gameType} ${res.data.enabled ? 'enabled' : 'disabled'}`, 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to toggle game', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to toggle game'), 'error');
     }
   };
 
@@ -363,8 +364,7 @@ export default function AdminPortal() {
         prev.map((c) => (c.gameType === gameType ? res.data : c))
       );
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to update game config', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to update game config'), 'error');
     }
   };
 
@@ -376,8 +376,7 @@ export default function AdminPortal() {
       addToast('Jackpot toggled', 'success');
       await loadGameData();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to toggle jackpot', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to toggle jackpot'), 'error');
     }
   };
 
@@ -389,8 +388,7 @@ export default function AdminPortal() {
       addToast('Default jackpots created!', 'success');
       await loadGameData();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to initialize jackpots', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to initialize jackpots'), 'error');
     }
   };
 
@@ -400,8 +398,7 @@ export default function AdminPortal() {
       setGameBankBalance(res.data.balance);
       addToast(`Deposited ${amount} GC to game bank`, 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to deposit to bank', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to deposit to bank'), 'error');
     }
   };
 
@@ -415,8 +412,7 @@ export default function AdminPortal() {
       );
       addToast(`Transferred ${amount} GC from jackpot to bank`, 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to transfer from jackpot', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to transfer from jackpot'), 'error');
     }
   };
 
@@ -452,8 +448,7 @@ export default function AdminPortal() {
       const managerList = res.data.filter((emp: Employee) => emp.isManager);
       setManagers(managerList);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load managers', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load managers'), 'error');
     } finally {
       setManagersLoading(false);
     }
@@ -466,8 +461,7 @@ export default function AdminPortal() {
       const res = await getManagerAllotmentDetails(managerId);
       setSelectedManagerAllotment(res.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load manager allotment', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load manager allotment'), 'error');
     } finally {
       setAllotmentLoading(false);
     }
@@ -501,8 +495,7 @@ export default function AdminPortal() {
       // Reload the allotment details
       await loadManagerAllotment(selectedManagerId);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to deposit allotment', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to deposit allotment'), 'error');
     } finally {
       setDepositLoading(false);
     }
@@ -526,8 +519,7 @@ export default function AdminPortal() {
       // Reload the allotment details
       await loadManagerAllotment(selectedManagerId);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to set recurring budget', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to set recurring budget'), 'error');
     } finally {
       setRecurringLoading(false);
     }
@@ -539,8 +531,7 @@ export default function AdminPortal() {
       const res = await getAdminStoreProducts();
       setStoreProducts(res.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load store products', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load store products'), 'error');
     } finally {
       setStoreProductsLoading(false);
     }
@@ -555,8 +546,7 @@ export default function AdminPortal() {
       );
       addToast(res.data.message, 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to toggle product status', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to toggle product status'), 'error');
     } finally {
       setTogglingProductId(null);
     }
@@ -581,8 +571,7 @@ export default function AdminPortal() {
       }
       addToast(res.data.message, 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to delete product', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to delete product'), 'error');
     } finally {
       setDeletingProductId(null);
     }
@@ -625,8 +614,7 @@ export default function AdminPortal() {
       ]);
       setEmployees(empRes.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load employees', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load employees'), 'error');
     } finally {
       setEmployeesLoading(false);
     }
@@ -638,8 +626,7 @@ export default function AdminPortal() {
       const res = await updateEmployeeRoles(employeeId, updates);
       setEmployees((prev) => prev.map((emp) => (emp.id === employeeId ? res.data : emp)));
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to update roles', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to update roles'), 'error');
     } finally {
       setUpdatingEmployeeId(null);
     }
@@ -667,8 +654,7 @@ export default function AdminPortal() {
       setShowAddUserForm(false);
       addToast('User created successfully! An email notification has been sent.', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to create user', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to create user'), 'error');
     } finally {
       setCreatingUser(false);
     }
@@ -680,8 +666,7 @@ export default function AdminPortal() {
       addToast(`Balance ${amount > 0 ? 'credited' : 'debited'} successfully`, 'success');
       await loadBalanceMap();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to adjust balance', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to adjust balance'), 'error');
     }
   };
 
@@ -700,8 +685,7 @@ export default function AdminPortal() {
         await loadEmployees();
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Bulk upload failed', 'error');
+      addToast(getApiErrorMessage(err, 'Bulk upload failed'), 'error');
     } finally {
       setBulkUploading(false);
     }
@@ -715,8 +699,7 @@ export default function AdminPortal() {
       const submissionsRes = await getPendingSubmissions();
       setSubmissions(submissionsRes.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to approve submission', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to approve submission'), 'error');
     }
   };
 
@@ -734,8 +717,7 @@ export default function AdminPortal() {
       const submissionsRes = await getPendingSubmissions();
       setSubmissions(submissionsRes.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to reject submission', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to reject submission'), 'error');
     }
   };
 
@@ -785,8 +767,7 @@ export default function AdminPortal() {
       // Reload wellness tasks list
       await loadWellnessTasks();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to create wellness task', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to create wellness task'), 'error');
     } finally {
       setCreating(false);
     }
@@ -825,8 +806,7 @@ export default function AdminPortal() {
       setCustomProductForm({ name: '', description: '', coinValue: '' });
       setCustomProductImage(null);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to create store product', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to create store product'), 'error');
     } finally {
       setCustomProductLoading(false);
     }
@@ -846,8 +826,7 @@ export default function AdminPortal() {
       setAmazonProductResult('Imported successfully.');
       setAmazonProductUrl('');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      setAmazonProductResult(axiosErr.response?.data?.error || 'Amazon import failed.');
+      setAmazonProductResult(getApiErrorMessage(err, 'Amazon import failed.'));
     } finally {
       setAmazonProductLoading(false);
     }
@@ -872,8 +851,7 @@ export default function AdminPortal() {
       const response = await importAmazonList(amazonListUrl.trim(), parsedLimit);
       setAmazonListResult(response.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Amazon list import failed.', 'error');
+      addToast(getApiErrorMessage(err, 'Amazon list import failed.'), 'error');
     } finally {
       setAmazonListLoading(false);
     }
@@ -885,8 +863,7 @@ export default function AdminPortal() {
       await seedStoreProduct();
       addToast('Sample store product created.', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to seed store product.', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to seed store product.'), 'error');
     } finally {
       setSeedProductLoading(false);
     }
@@ -902,8 +879,7 @@ export default function AdminPortal() {
       setPendingPurchases(pendingRes.data);
       setAllPurchases(allRes.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load purchases', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load purchases'), 'error');
     } finally {
       setPurchasesLoading(false);
     }
@@ -921,8 +897,7 @@ export default function AdminPortal() {
       setFulfillingId(null);
       await loadPurchases();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to fulfill purchase', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to fulfill purchase'), 'error');
     } finally {
       setFulfillingId(null);
     }
@@ -944,8 +919,7 @@ export default function AdminPortal() {
       });
       addToast('Email template updated', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to update email template', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to update email template'), 'error');
     } finally {
       setSavingTemplateKey(null);
     }
@@ -957,8 +931,7 @@ export default function AdminPortal() {
       const res = await getAllWellnessTasks();
       setWellnessTasks(res.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load wellness tasks', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load wellness tasks'), 'error');
     } finally {
       setWellnessTasksLoading(false);
     }
@@ -975,8 +948,7 @@ export default function AdminPortal() {
       addToast('Wellness program deactivated successfully', 'success');
       await loadWellnessTasks();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to delete wellness task', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to delete wellness task'), 'error');
     } finally {
       setDeletingTaskId(null);
     }
@@ -988,8 +960,7 @@ export default function AdminPortal() {
       const res = await getAllUsersWithSubmissions();
       setUsersWithSubmissions(res.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load users', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load users'), 'error');
     } finally {
       setUsersLoading(false);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../utils/errorUtils';
 import { getCurrentUser, getTransferLimits, sendTransfer, getTransferHistory, getPendingTransfers, cancelTransfer, getBalance, User, Balance, Transaction } from '../services/api';
 import Layout from '../components/Layout';
 import TransferForm from '../components/Transfers/TransferForm';
@@ -102,8 +103,7 @@ export default function Transfers() {
       await reloadTransferData();
       addToast('Transfer completed successfully!', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to send transfer', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to send transfer'), 'error');
     }
   };
 
@@ -117,8 +117,7 @@ export default function Transfers() {
       await reloadTransferData();
       addToast('Transfer cancelled successfully!', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to cancel transfer', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to cancel transfer'), 'error');
     }
   };
 

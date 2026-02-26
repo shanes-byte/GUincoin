@@ -16,6 +16,19 @@ const escapeHtml = (str: string): string => {
 export class EmailService {
   private frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+  // [ORIGINAL - 2026-02-24] messageBlock construction was repeated 5 times with identical HTML
+  // Extracted as a private helper to centralize the styled message block template.
+  /**
+   * Builds a styled HTML block for optional messages in email templates.
+   * @param message - The message text to display (will be HTML-escaped)
+   * @param bgColor - CSS background color (default: light gray)
+   * @returns HTML string or empty string if no message
+   */
+  private buildMessageBlock(message?: string, bgColor: string = '#f3f4f6'): string {
+    if (!message) return '';
+    return `<p style="background: ${bgColor}; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`;
+  }
+
   /**
    * Send email notification
    */
@@ -74,9 +87,7 @@ export class EmailService {
     amount: number,
     message?: string
   ) {
-    const messageBlock = message
-      ? `<p style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`
-      : '';
+    const messageBlock = this.buildMessageBlock(message);
 
     const rendered = await renderTemplate('manager_award_received', {
       recipientName,
@@ -100,9 +111,7 @@ export class EmailService {
     amount: number,
     message?: string
   ) {
-    const messageBlock = message
-      ? `<p style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`
-      : '';
+    const messageBlock = this.buildMessageBlock(message);
 
     const rendered = await renderTemplate('manager_award_sent', {
       managerName,
@@ -126,9 +135,7 @@ export class EmailService {
     amount: number,
     message?: string
   ) {
-    const messageBlock = message
-      ? `<p style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`
-      : '';
+    const messageBlock = this.buildMessageBlock(message);
 
     const rendered = await renderTemplate('peer_transfer_received', {
       recipientName,
@@ -152,9 +159,7 @@ export class EmailService {
     amount: number,
     message?: string
   ) {
-    const messageBlock = message
-      ? `<p style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`
-      : '';
+    const messageBlock = this.buildMessageBlock(message);
 
     const rendered = await renderTemplate('peer_transfer_sent', {
       senderName,
@@ -178,9 +183,7 @@ export class EmailService {
     amount: number,
     message?: string
   ) {
-    const messageBlock = message
-      ? `<p style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">"${escapeHtml(message)}"</p>`
-      : '';
+    const messageBlock = this.buildMessageBlock(message);
 
     const rendered = await renderTemplate('peer_transfer_recipient_not_found', {
       recipientName,

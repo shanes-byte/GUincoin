@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiErrorMessage } from '../../utils/errorUtils';
 import {
   AwardPreset,
   getAdminAwardPresets,
@@ -27,8 +28,7 @@ export default function AwardPresetsPanel() {
       const res = await getAdminAwardPresets();
       setPresets(res.data);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to load presets', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to load presets'), 'error');
     } finally {
       setLoading(false);
     }
@@ -58,8 +58,7 @@ export default function AwardPresetsPanel() {
       setShowAddForm(false);
       addToast('Award preset created', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to create preset', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to create preset'), 'error');
     } finally {
       setCreating(false);
     }
@@ -95,8 +94,7 @@ export default function AwardPresetsPanel() {
       setEditingId(null);
       addToast('Preset updated', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to update preset', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to update preset'), 'error');
     } finally {
       setSaving(false);
     }
@@ -109,8 +107,7 @@ export default function AwardPresetsPanel() {
       setPresets(prev => prev.map(p => (p.id === preset.id ? res.data : p)));
       addToast(res.data.isActive ? 'Preset activated' : 'Preset deactivated', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to toggle preset', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to toggle preset'), 'error');
     } finally {
       setTogglingId(null);
     }
@@ -125,8 +122,7 @@ export default function AwardPresetsPanel() {
       setPresets(prev => prev.filter(p => p.id !== preset.id));
       addToast('Preset deleted', 'success');
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to delete preset', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to delete preset'), 'error');
     } finally {
       setDeletingId(null);
     }

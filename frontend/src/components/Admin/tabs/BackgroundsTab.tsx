@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getApiErrorMessage } from '../../../utils/errorUtils';
 import {
   getBackgrounds,
   generateBackground,
@@ -49,8 +50,7 @@ export default function BackgroundsTab() {
       setPrompt('');
       await loadBackgrounds();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to generate background', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to generate background'), 'error');
     } finally {
       setGenerating(false);
     }
@@ -63,8 +63,7 @@ export default function BackgroundsTab() {
       await loadBackgrounds();
       await refreshTheme();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to apply background', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to apply background'), 'error');
     }
   };
 
@@ -75,8 +74,7 @@ export default function BackgroundsTab() {
       await loadBackgrounds();
       await refreshTheme();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to remove background', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to remove background'), 'error');
     }
   };
 
@@ -94,8 +92,7 @@ export default function BackgroundsTab() {
         await refreshTheme();
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to delete background', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to delete background'), 'error');
     }
   };
 

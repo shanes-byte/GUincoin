@@ -1,32 +1,15 @@
 import express from 'express';
 import { requireAuth, AuthRequest } from '../../middleware/auth';
 import prisma from '../../config/database';
-import { TransactionType, TransactionStatus } from '@prisma/client';
+import { TransactionStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
+import { TransactionService } from '../../services/transactionService';
 
 const router = express.Router();
 
-const creditTypes: TransactionType[] = [
-  TransactionType.manager_award,
-  TransactionType.peer_transfer_received,
-  TransactionType.wellness_reward,
-  TransactionType.adjustment,
-  TransactionType.game_win,
-  TransactionType.game_refund,
-  TransactionType.jackpot_win,
-  TransactionType.daily_bonus,
-  TransactionType.bulk_import,
-  TransactionType.prediction_win,
-];
-
-const debitTypes: TransactionType[] = [
-  TransactionType.peer_transfer_sent,
-  TransactionType.store_purchase,
-  TransactionType.game_bet,
-  TransactionType.jackpot_contribution,
-  TransactionType.allotment_deposit,
-  TransactionType.prediction_bet,
-];
+// [ORIGINAL - 2026-02-24] Local creditTypes/debitTypes arrays removed — now uses TransactionService.CREDIT_TYPES/DEBIT_TYPES
+const creditTypes = TransactionService.CREDIT_TYPES;
+const debitTypes = TransactionService.DEBIT_TYPES;
 
 // GET /reconcile — Compare computed balances vs stored balances
 router.get('/reconcile', requireAuth, async (req: AuthRequest, res, next) => {

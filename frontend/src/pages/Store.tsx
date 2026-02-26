@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../utils/errorUtils';
 import {
   getCurrentUser,
   getStoreProducts,
@@ -134,8 +135,7 @@ export default function Store() {
         setWishlist(wishlistRes.data);
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to purchase product', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to purchase product'), 'error');
     } finally {
       setPurchasing(null);
     }
@@ -154,8 +154,7 @@ export default function Store() {
         setWishlist(wishlistRes.data);
       }
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to update wishlist', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to update wishlist'), 'error');
     } finally {
       setWishlistLoading((prev) => {
         const next = new Set(prev);
@@ -182,8 +181,7 @@ export default function Store() {
         return next;
       });
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to create goal', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to create goal'), 'error');
     } finally {
       setGoalCreating(null);
     }

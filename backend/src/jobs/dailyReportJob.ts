@@ -3,19 +3,10 @@ import prisma from '../config/database';
 import { TransactionType, TransactionStatus } from '@prisma/client';
 import { renderTemplate } from '../services/emailTemplateService';
 import emailService from '../services/emailService';
+import { TransactionService } from '../services/transactionService';
 
-const creditTypes: TransactionType[] = [
-  TransactionType.manager_award,
-  TransactionType.peer_transfer_received,
-  TransactionType.wellness_reward,
-  TransactionType.adjustment,
-  TransactionType.game_win,
-  TransactionType.game_refund,
-  TransactionType.jackpot_win,
-  TransactionType.daily_bonus,
-  TransactionType.bulk_import,
-  TransactionType.prediction_win,
-];
+// [ORIGINAL - 2026-02-24] Local creditTypes array removed — now uses TransactionService.CREDIT_TYPES
+const creditTypes = TransactionService.CREDIT_TYPES;
 
 /**
  * Generates the daily report data and sends it to configured recipients.

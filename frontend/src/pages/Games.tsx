@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../utils/errorUtils';
 import {
   getCurrentUser,
   getBalance,
@@ -287,8 +288,7 @@ export default function Games() {
       }
       refreshGameData();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to play game', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to play game'), 'error');
     } finally {
       setPlaying(false);
     }
@@ -308,8 +308,7 @@ export default function Games() {
       refreshGameData();
       refreshBalance();
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      addToast(axiosErr.response?.data?.error || 'Failed to claim daily bonus', 'error');
+      addToast(getApiErrorMessage(err, 'Failed to claim daily bonus'), 'error');
     } finally {
       setSpinningDaily(false);
     }

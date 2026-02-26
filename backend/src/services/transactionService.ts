@@ -21,6 +21,32 @@ type TransactionClient = Prisma.TransactionClient;
  * await transactionService.postTransaction(tx.id);
  */
 export class TransactionService {
+  // [ORIGINAL - 2026-02-24] creditTypes and debitTypes were duplicated inline in postTransaction() and getAccountBalance()
+  // Extracted as static class-level constants to ensure single source of truth for credit/debit classification.
+  /** Transaction types that credit (increase) an account balance */
+  static readonly CREDIT_TYPES: TransactionType[] = [
+    TransactionType.manager_award,
+    TransactionType.peer_transfer_received,
+    TransactionType.wellness_reward,
+    TransactionType.adjustment,
+    TransactionType.game_win,
+    TransactionType.game_refund,
+    TransactionType.jackpot_win,
+    TransactionType.daily_bonus,
+    TransactionType.bulk_import,
+    TransactionType.prediction_win,
+  ];
+
+  /** Transaction types that debit (decrease) an account balance */
+  static readonly DEBIT_TYPES: TransactionType[] = [
+    TransactionType.peer_transfer_sent,
+    TransactionType.store_purchase,
+    TransactionType.game_bet,
+    TransactionType.jackpot_contribution,
+    TransactionType.allotment_deposit,
+    TransactionType.prediction_bet,
+  ];
+
   /**
    * Creates a pending transaction in the ledger.
    *
@@ -80,32 +106,12 @@ export class TransactionService {
       }
 
       // Update balance based on transaction type
-      let balanceChange = 0;
       // [ORIGINAL - 2026-02-06] prediction_win and prediction_bet were missing — caused "Unknown transaction type" throw
-      const creditTypes: TransactionType[] = [
-        TransactionType.manager_award,
-        TransactionType.peer_transfer_received,
-        TransactionType.wellness_reward,
-        TransactionType.adjustment,
-        TransactionType.game_win,
-        TransactionType.game_refund,
-        TransactionType.jackpot_win,
-        TransactionType.daily_bonus,
-        TransactionType.bulk_import,
-        TransactionType.prediction_win,
-      ];
-      const debitTypes: TransactionType[] = [
-        TransactionType.peer_transfer_sent,
-        TransactionType.store_purchase,
-        TransactionType.game_bet,
-        TransactionType.jackpot_contribution,
-        TransactionType.allotment_deposit,
-        TransactionType.prediction_bet,
-      ];
-
-      if (creditTypes.includes(transaction.transactionType)) {
+      // [ORIGINAL - 2026-02-24] Inline creditTypes/debitTypes arrays extracted to class-level CREDIT_TYPES/DEBIT_TYPES
+      let balanceChange = 0;
+      if (TransactionService.CREDIT_TYPES.includes(transaction.transactionType)) {
         balanceChange = Number(transaction.amount);
-      } else if (debitTypes.includes(transaction.transactionType)) {
+      } else if (TransactionService.DEBIT_TYPES.includes(transaction.transactionType)) {
         balanceChange = -Number(transaction.amount);
       } else {
         throw new Error(`Unknown transaction type: ${transaction.transactionType}`);
@@ -206,33 +212,13 @@ export class TransactionService {
     }
 
     // Use aggregate queries instead of loading all transactions
-    const pendingCreditTypes: TransactionType[] = [
-      TransactionType.manager_award,
-      TransactionType.peer_transfer_received,
-      TransactionType.wellness_reward,
-      TransactionType.adjustment,
-      TransactionType.game_win,
-      TransactionType.game_refund,
-      TransactionType.jackpot_win,
-      TransactionType.daily_bonus,
-      TransactionType.bulk_import,
-      TransactionType.prediction_win,
-    ];
-    const pendingDebitTypes: TransactionType[] = [
-      TransactionType.peer_transfer_sent,
-      TransactionType.store_purchase,
-      TransactionType.game_bet,
-      TransactionType.jackpot_contribution,
-      TransactionType.allotment_deposit,
-      TransactionType.prediction_bet,
-    ];
-
+    // [ORIGINAL - 2026-02-24] Inline pendingCreditTypes/pendingDebitTypes extracted to class-level CREDIT_TYPES/DEBIT_TYPES
     const [pendingCredits, pendingDebits] = await Promise.all([
       prisma.ledgerTransaction.aggregate({
         where: {
           accountId,
           status: TransactionStatus.pending,
-          transactionType: { in: pendingCreditTypes },
+          transactionType: { in: TransactionService.CREDIT_TYPES },
         },
         _sum: { amount: true },
       }),
@@ -240,7 +226,7 @@ export class TransactionService {
         where: {
           accountId,
           status: TransactionStatus.pending,
-          transactionType: { in: pendingDebitTypes },
+          transactionType: { in: TransactionService.DEBIT_TYPES },
         },
         _sum: { amount: true },
       }),

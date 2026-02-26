@@ -3,23 +3,35 @@ import prisma from '../config/database';
 import transactionService from './transactionService';
 
 export class AllotmentService {
+  // [ORIGINAL - 2026-02-24] Period date calculation was duplicated in getCurrentAllotment() and resetAllotments()
+  // Extracted as a private helper to ensure consistent period boundary computation.
+  /**
+   * Calculate the start and end dates for the current period.
+   * @param periodType - monthly or quarterly
+   * @param now - reference date (defaults to current time)
+   * @returns { periodStart, periodEnd } with end at 23:59:59 on the last day
+   */
+  private getPeriodBounds(periodType: PeriodType, now: Date = new Date()): { periodStart: Date; periodEnd: Date } {
+    if (periodType === PeriodType.monthly) {
+      return {
+        periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
+        periodEnd: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59),
+      };
+    }
+    // Quarterly
+    const quarter = Math.floor(now.getMonth() / 3);
+    return {
+      periodStart: new Date(now.getFullYear(), quarter * 3, 1),
+      periodEnd: new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59),
+    };
+  }
+
   /**
    * Get or create current period allotment for a manager
    */
   async getCurrentAllotment(managerId: string, periodType: PeriodType = PeriodType.monthly) {
     const now = new Date();
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    if (periodType === PeriodType.monthly) {
-      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    } else {
-      // Quarterly
-      const quarter = Math.floor(now.getMonth() / 3);
-      periodStart = new Date(now.getFullYear(), quarter * 3, 1);
-      periodEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59);
-    }
+    const { periodStart, periodEnd } = this.getPeriodBounds(periodType, now);
 
     // Check for existing allotment first, create if not found
     const defaultAmount = 1000; // Can be made configurable
@@ -236,19 +248,9 @@ export class AllotmentService {
   /**
    * Reset allotments for a new period (typically called by a scheduled job)
    */
+  // [ORIGINAL - 2026-02-24] resetAllotments had inline period calculation identical to getCurrentAllotment — now uses getPeriodBounds()
   async resetAllotments(periodType: PeriodType) {
-    const now = new Date();
-    let periodStart: Date;
-    let periodEnd: Date;
-
-    if (periodType === PeriodType.monthly) {
-      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    } else {
-      const quarter = Math.floor(now.getMonth() / 3);
-      periodStart = new Date(now.getFullYear(), quarter * 3, 1);
-      periodEnd = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59);
-    }
+    const { periodStart, periodEnd } = this.getPeriodBounds(periodType);
 
     // This would typically be called by an admin or scheduled job
     // For now, it's a manual operation
