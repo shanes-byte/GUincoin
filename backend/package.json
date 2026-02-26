@@ -20,6 +20,9 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

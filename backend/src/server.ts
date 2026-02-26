@@ -220,27 +220,25 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
 });
 
-// Debug endpoint for session/cookie diagnostics (only in development or with secret)
-app.get('/api/debug/session', (req, res) => {
-  const debugSecret = req.query.secret;
-  if (env.NODE_ENV === 'production' && debugSecret !== 'GuincoinDebug2026') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-
-  res.json({
-    sessionID: req.sessionID,
-    sessionCookiePresent: req.headers.cookie?.includes('connect.sid') || false,
-    xsrfCookiePresent: req.headers.cookie?.includes('XSRF-TOKEN') || false,
-    rawCookies: req.headers.cookie || 'none',
-    sessionKeys: Object.keys(req.session || {}),
-    secure: req.secure,
-    protocol: req.protocol,
-    xForwardedProto: req.headers['x-forwarded-proto'],
-    host: req.headers.host,
-    origin: req.headers.origin,
-    nodeEnv: env.NODE_ENV,
+// [ORIGINAL - 2026-02-26] Debug endpoint with hardcoded secret — disabled in production for security.
+// Debug endpoint for session/cookie diagnostics (development only)
+if (env.NODE_ENV !== 'production') {
+  app.get('/api/debug/session', (req, res) => {
+    res.json({
+      sessionID: req.sessionID,
+      sessionCookiePresent: req.headers.cookie?.includes('connect.sid') || false,
+      xsrfCookiePresent: req.headers.cookie?.includes('XSRF-TOKEN') || false,
+      rawCookies: req.headers.cookie || 'none',
+      sessionKeys: Object.keys(req.session || {}),
+      secure: req.secure,
+      protocol: req.protocol,
+      xForwardedProto: req.headers['x-forwarded-proto'],
+      host: req.headers.host,
+      origin: req.headers.origin,
+      nodeEnv: env.NODE_ENV,
+    });
   });
-});
+}
 
 // Full health check endpoint (checks all dependencies)
 app.get('/health', async (req, res, next) => {
